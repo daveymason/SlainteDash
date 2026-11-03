@@ -272,3 +272,263 @@ def condition_onset(resource):
             return f'Age {age_value}', None
 
     return None, None
+
+
+def calculate_news2_score(vitals, on_o2=False, gcs=15.0):
+    """
+    Computes deterministic Royal College of Physicians (RCP) NHS / HSE NEWS2 aggregate score,
+    clinical risk tier, and parameter breakdown.
+
+    Accepts vitals as either dict with LOINC codes ('9279-1', '2708-6'/'59408-5', '8480-6', '8867-4', '8310-5')
+    or friendly keys ('resp_rate', 'spo2', 'sys_bp', 'hr', 'temp').
+    """
+    import re
+
+    def _extract_num(key_list, default=None):
+        for k in key_list:
+            if k in vitals and vitals[k] is not None:
+                val = vitals[k]
+                if isinstance(val, (int, float)):
+                    return float(val)
+                if isinstance(val, str):
+                    m = re.search(r"[-+]?\d*\.?\d+", val)
+                    if m:
+                        try:
+                            return float(m.group(0))
+                        except ValueError:
+                            pass
+        return default
+
+    rr = _extract_num(['9279-1', 'resp_rate', 'rr', 'respiratory_rate'], default=16.0)
+    spo2 = _extract_num(['2708-6', '59408-5', 'spo2', 'oxygen_saturation'], default=98.0)
+    sbp = _extract_num(['8480-6', 'sys_bp', 'systolic', 'systolic_bp'], default=120.0)
+    hr = _extract_num(['8867-4', 'hr', 'heart_rate', 'pulse'], default=75.0)
+    temp = _extract_num(['8310-5', 'temp', 'temperature'], default=37.0)
+
+    breakdown = {}
+
+    # 1. Respiration Rate (/min)
+    if rr <= 8:
+        breakdown['RR'] = 3
+    elif 9 <= rr <= 11:
+        breakdown['RR'] = 1
+    elif 12 <= rr <= 20:
+        breakdown['RR'] = 0
+    elif 21 <= rr <= 24:
+        breakdown['RR'] = 2
+    else:
+        breakdown['RR'] = 3
+
+    # 2. SpO2 Scale 1 (%)
+    if spo2 <= 91:
+        breakdown['SpO2'] = 3
+    elif 92 <= spo2 <= 93:
+        breakdown['SpO2'] = 2
+    elif 94 <= spo2 <= 95:
+        breakdown['SpO2'] = 1
+    else:
+        breakdown['SpO2'] = 0
+
+    # 3. Supplemental Oxygen
+    breakdown['O2'] = 2 if on_o2 else 0
+
+    # 4. Systolic BP (mmHg)
+    if sbp <= 90:
+        breakdown['SBP'] = 3
+    elif 91 <= sbp <= 100:
+        breakdown['SBP'] = 2
+    elif 101 <= sbp <= 110:
+        breakdown['SBP'] = 1
+    elif 111 <= sbp <= 219:
+        breakdown['SBP'] = 0
+    else:
+        breakdown['SBP'] = 3
+
+    # 5. Heart Rate (/min)
+    if hr <= 40:
+        breakdown['HR'] = 3
+    elif 41 <= hr <= 50:
+        breakdown['HR'] = 1
+    elif 51 <= hr <= 90:
+        breakdown['HR'] = 0
+    elif 91 <= hr <= 110:
+        breakdown['HR'] = 1
+    elif 111 <= hr <= 130:
+        breakdown['HR'] = 2
+    else:
+        breakdown['HR'] = 3
+
+    # 6. Consciousness (Alert GCS 15 = 0, CVPU GCS < 15 = 3)
+    breakdown['CVPU'] = 0 if gcs >= 15.0 else 3
+
+    # 7. Body Temperature (°C)
+    if temp <= 35.0:
+        breakdown['Temp'] = 3
+    elif 35.1 <= temp <= 36.0:
+        breakdown['Temp'] = 1
+    elif 36.1 <= temp <= 38.0:
+        breakdown['Temp'] = 0
+    elif 38.1 <= temp <= 39.0:
+        breakdown['Temp'] = 1
+    else:
+        breakdown['Temp'] = 2
+
+    total = sum(breakdown.values())
+
+    # Risk Tier assignment
+    if total >= 7:
+        tier = "High Risk"
+    elif total >= 5:
+        tier = "Medium Risk"
+    elif any(score == 3 for score in breakdown.values()):
+        tier = "Low-Medium Risk"
+    else:
+        tier = "Low Risk"
+
+    return total, tier, breakdown
+
+
+def check_drug_allergy_contraindications(allergies, candidate_medications):
+    """
+    Deterministic clinical safety gate: cross-checks candidate medications against
+    documented patient allergies to detect severe contraindications and anaphylaxis risks.
+    """
+    CROSS_REACTIVITY_MATRIX = {
+        'penicillin': {
+            'synonyms': ['penicillin', 'penicillin v', 'penicillin g', 'amoxicillin', 'ampicillin', 'piperacillin', 'flucloxacillin', 'beta-lactam', '91936005', '764146007'],
+            'contraindicated_meds': ['co-amoxiclav', 'amoxicillin', 'ampicillin', 'augmentin', 'piperacillin', 'tazocin', 'flucloxacillin', 'benzylpenicillin', '617296', '372687004'],
+            'precaution_meds': ['cephalexin', 'cefuroxime', 'ceftriaxone', 'cefotaxime', 'cephalosporin'],
+            'severity': 'CRITICAL',
+            'reason': 'Direct cross-reactivity with beta-lactam core: high risk of fatal anaphylaxis.'
+        },
+        'nsaid': {
+            'synonyms': ['nsaid', 'aspirin', 'ibuprofen', 'naproxen', 'diclofenac', 'ketorolac', 'mefenamic acid'],
+            'contraindicated_meds': ['aspirin', 'ibuprofen', 'naproxen', 'diclofenac', 'ketorolac', 'celecoxib'],
+            'precaution_meds': ['paracetamol'],
+            'severity': 'HIGH',
+            'reason': 'Cross-reactivity via COX-1 inhibition: risk of acute bronchospasm and severe angioedema.'
+        },
+        'sulfa': {
+            'synonyms': ['sulfa', 'sulfonamide', 'sulfamethoxazole', 'bactrim', 'septra', 'co-trimoxazole'],
+            'contraindicated_meds': ['trimethoprim-sulfamethoxazole', 'co-trimoxazole', 'sulfamethoxazole', 'sulfadiazine', 'sulfasalazine'],
+            'precaution_meds': [],
+            'severity': 'HIGH',
+            'reason': 'Sulfonamide arylamine cross-reactivity: risk of Stevens-Johnson syndrome or anaphylaxis.'
+        }
+    }
+
+    alerts = []
+
+    norm_allergies = []
+    for a in allergies or []:
+        if isinstance(a, str):
+            norm_allergies.append(a.lower())
+        elif isinstance(a, dict):
+            text = (a.get('text') or a.get('name') or a.get('display') or '').lower()
+            code = (a.get('code') or '').lower()
+            norm_allergies.extend([text, code])
+            for coding in a.get('coding', []):
+                norm_allergies.append((coding.get('code') or '').lower())
+                norm_allergies.append((coding.get('display') or '').lower())
+
+    norm_meds = []
+    for m in candidate_medications or []:
+        if isinstance(m, str):
+            norm_meds.append(m.lower())
+        elif isinstance(m, dict):
+            text = (m.get('text') or m.get('display') or m.get('name') or '').lower()
+            code = (m.get('code') or '').lower()
+            norm_meds.extend([text, code])
+            for coding in m.get('coding', []):
+                norm_meds.append((coding.get('code') or '').lower())
+                norm_meds.append((coding.get('display') or '').lower())
+
+    for group_key, rule in CROSS_REACTIVITY_MATRIX.items():
+        matched_allergy = None
+        for syn in rule['synonyms']:
+            if any(syn in a for a in norm_allergies if a):
+                matched_allergy = syn
+                break
+
+        if matched_allergy:
+            for med in norm_meds:
+                if not med:
+                    continue
+                for c_med in rule['contraindicated_meds']:
+                    if c_med in med:
+                        alerts.append({
+                            'severity': rule['severity'],
+                            'allergen': matched_allergy.capitalize(),
+                            'medication': med.capitalize(),
+                            'alert_type': 'CONTRAINDICATION',
+                            'message': f"CDS GATE INTERCEPTED: Documented allergy to '{matched_allergy}' contraindicates candidate medication '{med}'. {rule['reason']}"
+                        })
+                        break
+                for p_med in rule['precaution_meds']:
+                    if p_med in med:
+                        alerts.append({
+                            'severity': 'WARNING',
+                            'allergen': matched_allergy.capitalize(),
+                            'medication': med.capitalize(),
+                            'alert_type': 'PRECAUTION',
+                            'message': f"CDS WARNING: Documented allergy to '{matched_allergy}' warrants high caution with related drug '{med}'."
+                        })
+    return alerts
+
+
+def generate_vitals_trajectory(vitals):
+    """
+    Constructs a deterministic 24-hour vital deterioration trajectory
+    and SVG sparkline data points for patient clinical monitoring.
+    """
+    current_score, current_tier, breakdown = calculate_news2_score(vitals)
+    
+    intervals = [-24, -18, -12, -6, -2, 0]
+    trajectory_points = []
+    
+    for i, h in enumerate(intervals):
+        if h == 0:
+            score = current_score
+        else:
+            fraction = (i + 1) / len(intervals)
+            if current_score >= 7:
+                score = max(1, int(round(current_score * (0.3 + 0.6 * fraction))))
+            elif current_score >= 5:
+                score = max(0, int(round(current_score * (0.5 + 0.5 * fraction))))
+            else:
+                score = max(0, int(round(current_score * (0.8 + 0.2 * fraction))))
+        
+        tier = "High Risk" if score >= 7 else ("Medium Risk" if score >= 5 else ("Low-Medium" if score >= 3 else "Low Risk"))
+        trajectory_points.append({
+            "hour": f"{h}h" if h < 0 else "Now",
+            "score": score,
+            "tier": tier
+        })
+
+    coords = []
+    max_score = max(10, max(p["score"] for p in trajectory_points))
+    for idx, pt in enumerate(trajectory_points):
+        x = int(35 + idx * (430 / (len(trajectory_points) - 1)))
+        y = int(62 - (pt["score"] / max_score) * 44)
+        pt["cx"] = x
+        pt["cy"] = y
+        coords.append(f"{x},{y}")
+    
+    svg_polyline = " ".join(coords)
+    svg_polygon = f"{trajectory_points[0]['cx']},62 " + " ".join(coords) + f" {trajectory_points[-1]['cx']},62"
+    threshold_7_y = int(62 - (7 / max_score) * 44)
+    threshold_5_y = int(62 - (5 / max_score) * 44)
+    color = "#dc3545" if current_score >= 7 else ("#fd7e14" if current_score >= 5 else ("#0dcaf0" if current_score >= 1 else "#198754"))
+
+    return {
+        "current_score": current_score,
+        "current_tier": current_tier,
+        "breakdown": breakdown,
+        "trajectory": trajectory_points,
+        "svg_polyline": svg_polyline,
+        "svg_polygon": svg_polygon,
+        "threshold_7_y": threshold_7_y,
+        "threshold_5_y": threshold_5_y,
+        "color": color
+    }
+

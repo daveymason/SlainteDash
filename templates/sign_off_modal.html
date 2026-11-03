@@ -1,0 +1,69 @@
+<!-- Clinician Electronic Sign-Off Modal (HL7 FHIR Provenance) -->
+<div class="modal fade" id="signOffModal" tabindex="-1" aria-labelledby="signOffModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-success text-white py-3">
+                <h5 class="modal-title d-flex align-items-center" id="signOffModalLabel">
+                    <i class="fas fa-signature me-2"></i> Clinician Electronic Sign-off &amp; Governance
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form hx-post="/fhir/patient/{{ patient['id'] }}/sign-off"
+                  hx-target="#sign-off-status-container"
+                  hx-swap="innerHTML"
+                  hx-indicator="#sign-off-spinner">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-3">
+                        <i class="fas fa-info-circle text-primary me-1"></i>
+                        Electronic sign-off satisfies Irish HSE &amp; NHS clinical governance standards. It attaches an immutable <strong>HL7 FHIR Provenance</strong> resource with a cryptographic state hash.
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">
+                            Practitioner IMC / GMC Number <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" name="practitioner_id" class="form-control" placeholder="e.g. IMC-48201 or GMC-719302" required>
+                        <div class="form-text small text-muted">Irish Medical Council / Nursing Board OID: <code>2.16.840.1.113883.2.17.1.5</code></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Clinical Role <span class="text-danger">*</span></label>
+                        <select name="practitioner_role" class="form-select" required>
+                            <option value="Emergency Physician">Emergency Physician</option>
+                            <option value="Advanced Nurse Practitioner">Advanced Nurse Practitioner (ANP)</option>
+                            <option value="Triage Sister / Charge Nurse">Triage Sister / Charge Nurse</option>
+                            <option value="Emergency Medicine Registrar">Emergency Medicine Registrar</option>
+                            <option value="Consultant in Emergency Medicine">Consultant in Emergency Medicine</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">
+                            Signature Confirmation (Type Full Legal Name) <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" name="signature_confirm" class="form-control" placeholder="e.g. Dr. Maeve Higgins, MB BCh" required>
+                    </div>
+
+                    <div class="form-check p-2 bg-light rounded border mb-3">
+                        <input class="form-check-input ms-1 me-2" type="checkbox" id="legalConfirmCheck" required>
+                        <label class="form-check-label small text-secondary" for="legalConfirmCheck">
+                            I verify that I have clinically reviewed the triage acuity, NEWS2 deterioration profile, and emergency vitals for <strong>{{ patient['display_name'] }}</strong>.
+                        </label>
+                    </div>
+
+                    <div id="sign-off-error" class="mb-2"></div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <span id="sign-off-spinner" class="htmx-indicator text-success small me-auto">
+                        <i class="fas fa-spinner fa-spin me-1"></i> Attaching FHIR Provenance...
+                    </span>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success px-4" data-bs-dismiss="modal">
+                        <i class="fas fa-check-double me-1"></i> Sign &amp; Verify Assessment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

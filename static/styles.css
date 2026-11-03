@@ -34,7 +34,7 @@ body {
     background-color: var(--tropical-primary);
     color: white;
     border-bottom: none;
-    padding: 1rem 1.25rem;
+    padding: 0.85rem 1.25rem;
 }
 
 .card-header.bg-dark {
@@ -54,7 +54,15 @@ body {
 }
 
 .card-body {
-    padding: 1.5rem;
+    padding: 1.15rem 1.25rem;
+}
+
+.card-header + .card-body {
+    padding-top: 0.85rem;
+}
+
+.card-header + .card-body.p-0 {
+    padding-top: 0;
 }
 
 .card-footer {
@@ -258,11 +266,17 @@ header.with-sidebar {
 
 /* Loading indicator styles */
 .htmx-indicator {
-    opacity: 0;
-    transition: opacity 200ms ease-in;
+    display: none !important;
 }
-.htmx-request .htmx-indicator {
-    opacity: 1
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: block !important;
+}
+span.htmx-indicator.htmx-request,
+.htmx-request span.htmx-indicator,
+.htmx-request.spinner-border,
+span.spinner-border.htmx-indicator.htmx-request {
+    display: inline-block !important;
 }
 .htmx-request.nav-link::after {
     content: '';

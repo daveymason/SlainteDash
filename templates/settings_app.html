@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}App Settings &mdash; FHIR Patient Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="text-primary mb-0"><i class="fas fa-palette me-2"></i>App Settings &amp; Display Preferences</h2>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+    </a>
+</div>
+
+{% set active_tab = 'app' %}
+{% include "settings_nav.html" %}
+
+<div class="row g-4" style="max-width: 860px;">
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark text-white py-3">
+                <i class="fas fa-text-height text-warning me-2"></i><strong>Display &amp; Readability Settings</strong>
+            </div>
+            <div class="card-body p-4">
+                <div class="mb-4">
+                    <label class="form-label fw-bold small text-uppercase">Clinical Font Size (Bedside Readability)</label>
+                    <select id="fontSizeSelect" class="form-select form-select-lg" onchange="applyFontSize(this.value)">
+                        <option value="100%">Standard (100% - Desktop Default)</option>
+                        <option value="115%">Large (115% - Clinical Tablet / Cart)</option>
+                        <option value="130%">Extra Large (130% - Wall Mount / High Visibility)</option>
+                    </select>
+                    <div class="form-text">Adjusts text scaling across all triage accordions and patient charts.</div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold small text-uppercase">Triage Queue Refresh Frequency</label>
+                    <select id="refreshIntervalSelect" class="form-select" onchange="applyRefreshRate(this.value)">
+                        <option value="5s">Every 5 Seconds (Acute ED Triage)</option>
+                        <option value="15s" selected>Every 15 Seconds (Standard Ward)</option>
+                        <option value="30s">Every 30 Seconds (Low Bandwidth)</option>
+                        <option value="manual">Manual Refresh Only</option>
+                    </select>
+                    <div class="form-text">Controls live queue auto-polling rate.</div>
+                </div>
+
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="highContrastSwitch" onchange="toggleHighContrast(this.checked)">
+                    <label class="form-check-label fw-semibold" for="highContrastSwitch">High-Contrast Priority Badges</label>
+                    <div class="form-text">Enhances color borders on Manchester Triage Category 1 &amp; 2 alerts.</div>
+                </div>
+
+                <div class="alert alert-success py-2 px-3 small mt-3" id="appSettingsSavedToast" style="display: none;">
+                    <i class="fas fa-check-circle me-1"></i> Preferences saved to your browser!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-light py-3">
+                <i class="fas fa-desktop text-primary me-2"></i><strong>Display Preview</strong>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-2">Simulated Live Triage Badge:</p>
+                <div class="p-3 border rounded bg-light mb-3">
+                    <span class="badge bg-danger text-white px-3 py-2 fs-6">
+                        🔴 Cat 1: Immediate (0m)
+                    </span>
+                    <div class="mt-2 fw-semibold" id="sampleText">Mary Walsh (GMS: 99281-A)</div>
+                    <div class="small text-muted">Acute chest pain with radiating pain to left arm</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var savedSize = localStorage.getItem("slainte_font_size") || "100%";
+    document.getElementById("fontSizeSelect").value = savedSize;
+    document.documentElement.style.fontSize = savedSize;
+
+    var savedContrast = localStorage.getItem("slainte_high_contrast") === "true";
+    document.getElementById("highContrastSwitch").checked = savedContrast;
+});
+
+function applyFontSize(val) {
+    document.documentElement.style.fontSize = val;
+    localStorage.setItem("slainte_font_size", val);
+    showToast();
+}
+
+function toggleHighContrast(checked) {
+    localStorage.setItem("slainte_high_contrast", checked);
+    showToast();
+}
+
+function applyRefreshRate(val) {
+    localStorage.setItem("slainte_refresh_rate", val);
+    showToast();
+}
+
+function showToast() {
+    var toast = document.getElementById("appSettingsSavedToast");
+    toast.style.display = "block";
+    setTimeout(function() { toast.style.display = "none"; }, 2500);
+}
+</script>
+{% endblock %}

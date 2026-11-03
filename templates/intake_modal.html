@@ -98,20 +98,24 @@
                                 </div>
                             </div>
 
-                            <div class="row g-2 mb-3">
+                            <div class="row g-2 mb-2">
                                 <div class="col-md-4">
                                     <label class="form-label small text-muted mb-1">Labs (Optional)</label>
                                     <input type="text" name="labs" class="form-control form-control-sm" placeholder="e.g. Troponin T: 120 ng/L">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small text-muted mb-1">Medications (Optional)</label>
-                                    <input type="text" name="medications" class="form-control form-control-sm" placeholder="e.g. Aspirin 300mg, stat">
+                                    <input type="text" name="medications" class="form-control form-control-sm" placeholder="e.g. Aspirin 300mg, stat"
+                                           hx-post="/fhir/validate-safety" hx-trigger="keyup changed delay:400ms" hx-target="#safety-gate-result" hx-include="#manual-pane form">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label small text-muted mb-1">Allergies (Optional)</label>
-                                    <input type="text" name="allergies" class="form-control form-control-sm" placeholder="e.g. Penicillin (High - Anaphylaxis)">
+                                    <input type="text" name="allergies" class="form-control form-control-sm" placeholder="e.g. Penicillin (High - Anaphylaxis)"
+                                           hx-post="/fhir/validate-safety" hx-trigger="keyup changed delay:400ms" hx-target="#safety-gate-result" hx-include="#manual-pane form">
                                 </div>
                             </div>
+                            <!-- Live CDS Drug-Allergy Safety Gate Banner -->
+                            <div id="safety-gate-result" class="mb-2"></div>
 
                             <div class="mb-3">
                                 <label class="form-label small text-muted mb-1">

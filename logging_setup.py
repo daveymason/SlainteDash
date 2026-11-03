@@ -12,6 +12,18 @@ import os
 
 _SALT = os.environ.get('LOG_HASH_SALT', '').encode() or os.urandom(16)
 
+
+def validate_salt(is_debug=False, is_testing=False):
+    """Enforce that LOG_HASH_SALT is configured when running in production."""
+    if not is_debug and not is_testing:
+        salt = os.environ.get('LOG_HASH_SALT')
+        if not salt or not salt.strip():
+            raise RuntimeError(
+                'LOG_HASH_SALT environment variable is required outside debug/testing mode '
+                'to prevent pseudonymised identifier correlation drift across workers.'
+            )
+
+
 _RESERVED = {
     'args', 'asctime', 'created', 'exc_info', 'exc_text', 'filename', 'funcName',
     'levelname', 'levelno', 'lineno', 'module', 'msecs', 'message', 'msg', 'name',
@@ -24,7 +36,8 @@ def pseudonymize(value):
     """Stable, non-reversible reference for a patient or resource identifier."""
     if value is None:
         return None
-    digest = hashlib.sha256(_SALT + str(value).encode()).hexdigest()
+    salt = os.environ.get('LOG_HASH_SALT', '').encode() or _SALT
+    digest = hashlib.sha256(salt + str(value).encode()).hexdigest()
     return f'ref_{digest[:12]}'
 
 

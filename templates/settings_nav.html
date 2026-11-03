@@ -1,0 +1,28 @@
+<!-- Settings Sub-Navigation Tabs -->
+<ul class="nav nav-pills mb-4 border-bottom pb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'data' %}active{% endif %}" href="{{ url_for('settings_data') }}">
+            <i class="fas fa-database me-1"></i> Data Settings
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'ai' %}active{% endif %}" href="{{ url_for('ai_settings') }}">
+            <i class="fas fa-brain me-1"></i> AI Settings
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'app' %}active{% endif %}" href="{{ url_for('settings_app') }}">
+            <i class="fas fa-sliders-h me-1"></i> App Settings
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'security' %}active{% endif %}" href="{{ url_for('settings_security') }}">
+            <i class="fas fa-shield-alt me-1"></i> Security &amp; Audit
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'user' %}active{% endif %}" href="{{ url_for('settings_user') }}">
+            <i class="fas fa-user-cog me-1"></i> User Profile
+        </a>
+    </li>
+</ul>

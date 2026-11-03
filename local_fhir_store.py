@@ -29,25 +29,45 @@ class LocalFhirStore:
         self._cache_encounters: Dict[str, List[Dict[str, Any]]] = {}
         self._cache_medications: Dict[str, List[Dict[str, Any]]] = {}
         self._cache_allergies: Dict[str, List[Dict[str, Any]]] = {}
+        self._cache_provenance: Dict[str, List[Dict[str, Any]]] = {}
         self._cache_bundles: Dict[str, Dict[str, Any]] = {}
+        self._gms_to_pid: Dict[str, str] = {}
         self._file_mtimes: Dict[str, float] = {}
 
+    def find_patient_id_by_gms(self, gms_number: str) -> Optional[str]:
+        """Return existing patient ID if a patient with the given GMS number already exists."""
+        if not gms_number:
+            return None
+        self._refresh_if_needed()
+        return self._gms_to_pid.get(gms_number.strip().upper())
+
     def _refresh_if_needed(self):
-        """Scans the directory for newly written or modified bundles."""
+        """Scans the directory for newly written, modified, or deleted bundles."""
         now = time.time()
         # Scan at most once per second
         if now - self._last_scan_time < 1.0 and self._cache_patients:
             return
 
-        json_files = glob.glob(os.path.join(self.store_path, "*.json"))
-        changed = False
+        json_files = sorted(glob.glob(os.path.join(self.store_path, "*.json")))
+        current_set = set(json_files)
+        if set(self._file_mtimes.keys()) - current_set:
+            # A file was removed; rebuild index cleanly
+            self._cache_patients.clear()
+            self._cache_observations.clear()
+            self._cache_conditions.clear()
+            self._cache_encounters.clear()
+            self._cache_medications.clear()
+            self._cache_allergies.clear()
+            self._cache_provenance.clear()
+            self._cache_bundles.clear()
+            self._gms_to_pid.clear()
+            self._file_mtimes.clear()
 
         for fpath in json_files:
             try:
                 mtime = os.path.getmtime(fpath)
                 if fpath not in self._file_mtimes or self._file_mtimes[fpath] < mtime:
                     self._file_mtimes[fpath] = mtime
-                    changed = True
                     with open(fpath, "r", encoding="utf-8") as f:
                         data = json.load(f)
                     self._index_bundle(data, fpath)
@@ -68,11 +88,23 @@ class LocalFhirStore:
             entries = [{"resource": bundle}]
 
         current_patient_id = None
-        # First find Patient
+        # First find Patient (deduplicating by GMS number if already indexed)
         for e in entries:
             res = e.get("resource", {}) if isinstance(e, dict) else {}
             if res.get("resourceType") == "Patient":
                 pid = str(res.get("id"))
+                gms_val = None
+                for ident in res.get("identifier", []):
+                    if isinstance(ident, dict) and ident.get("value"):
+                        gms_val = str(ident["value"]).strip().upper()
+                        break
+                if gms_val and gms_val in self._gms_to_pid and self._gms_to_pid[gms_val] != pid:
+                    # Reuse canonical patient ID for identical GMS number
+                    pid = self._gms_to_pid[gms_val]
+                    res = dict(res)
+                    res["id"] = pid
+                elif gms_val:
+                    self._gms_to_pid[gms_val] = pid
                 current_patient_id = pid
                 self._cache_patients[pid] = res
                 self._cache_bundles[pid] = bundle
@@ -129,6 +161,140 @@ class LocalFhirStore:
                     existing = [a for a in self._cache_allergies.get(target_pid, []) if a.get("id") == alg_id]
                     if not existing:
                         self._cache_allergies.setdefault(target_pid, []).append(res)
+                elif rt == "Provenance":
+                    prov_id = res.get("id")
+                    prov_pid = target_pid
+                    for t in res.get("target", []):
+                        ref = t.get("reference", "")
+                        if "Patient/" in ref:
+                            prov_pid = ref.split("/")[-1]
+                            break
+                    if prov_pid:
+                        existing = [p for p in self._cache_provenance.get(prov_pid, []) if p.get("id") == prov_id]
+                        if not existing:
+                            self._cache_provenance.setdefault(prov_pid, []).append(res)
+
+    def sign_off_patient(self, patient_id: str, practitioner_id: str, practitioner_role: str, signature_text: str, practitioner_name: str = "") -> Dict[str, Any]:
+        """
+        Generates and attaches a standard HL7 FHIR R4 Provenance resource
+        with cryptographic SHA-256 bundle hash and practitioner verification.
+        """
+        import hashlib
+        from datetime import datetime, timezone
+
+        self._refresh_if_needed()
+        pid = str(patient_id)
+        
+        encounters = self._cache_encounters.get(pid, [])
+        conditions = self._cache_conditions.get(pid, [])
+        enc_id = encounters[0].get("id") if encounters else f"enc-{pid}"
+        cond_id = conditions[0].get("id") if conditions else f"cond-{pid}"
+        
+        bundle = self._cache_bundles.get(pid, {})
+        state_repr = json.dumps(bundle, sort_keys=True) if bundle else f"patient-{pid}"
+        bundle_hash = hashlib.sha256(state_repr.encode("utf-8")).hexdigest()
+        
+        now_iso = datetime.now(timezone.utc).isoformat()
+        prov_id = f"prov-{pid}-{int(time.time())}"
+        
+        provenance = {
+            "resourceType": "Provenance",
+            "id": prov_id,
+            "target": [
+                {"reference": f"Patient/{pid}"},
+                {"reference": f"Encounter/{enc_id}"},
+                {"reference": f"Condition/{cond_id}"}
+            ],
+            "recorded": now_iso,
+            "reason": [
+                {
+                    "coding": [
+                        {
+                            "system": "http://terminology.hl7.org/CodeSystem/v3-ActReason",
+                            "code": "VRAT",
+                            "display": "Verification and Clinical Sign-Off"
+                        }
+                    ],
+                    "text": "Clinician Intake Validation & Electronic Sign-off"
+                }
+            ],
+            "activity": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/v3-DocumentCompletion",
+                        "code": "LA",
+                        "display": "Legally Authenticated"
+                    }
+                ]
+            },
+            "agent": [
+                {
+                    "type": {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/provenance-participant-type",
+                                "code": "verifier",
+                                "display": "Verifier"
+                            }
+                        ]
+                    },
+                    "role": [
+                        {"text": practitioner_role or "Triage Clinician"}
+                    ],
+                    "who": {
+                        "identifier": {
+                            "system": "urn:oid:2.16.840.1.113883.2.17.1.5",
+                            "value": practitioner_id
+                        },
+                        "display": practitioner_name or f"Practitioner {practitioner_id}"
+                    }
+                }
+            ],
+            "signature": [
+                {
+                    "type": [
+                        {
+                            "system": "urn:iso-astm:E1762-95:2013",
+                            "code": "1.2.840.10065.1.12.1.1",
+                            "display": "Author's Signature"
+                        }
+                    ],
+                    "when": now_iso,
+                    "who": {
+                        "reference": f"Practitioner/{practitioner_id}",
+                        "display": practitioner_name or f"Dr. {practitioner_id}"
+                    },
+                    "data": bundle_hash
+                }
+            ]
+        }
+        
+        prov_file = os.path.join(self.store_path, f"provenance_{pid}.json")
+        try:
+            with open(prov_file, "w", encoding="utf-8") as f:
+                json.dump(provenance, f, indent=2)
+            self._file_mtimes[prov_file] = os.path.getmtime(prov_file)
+        except Exception as e:
+            logger.warning(f"Failed to persist Provenance to disk: {e}")
+            
+        self._cache_provenance.setdefault(pid, []).append(provenance)
+        
+        if pid in self._cache_bundles:
+            b = self._cache_bundles[pid]
+            if "entry" in b:
+                b["entry"].append({
+                    "fullUrl": f"urn:uuid:{prov_id}",
+                    "resource": provenance
+                })
+                
+        return provenance
+
+    def get_provenance(self, patient_id: str) -> Optional[Dict[str, Any]]:
+        self._refresh_if_needed()
+        pid = str(patient_id)
+        provs = self._cache_provenance.get(pid, [])
+        return provs[-1] if provs else None
+
 
     def save_bundle(self, bundle: Dict[str, Any], filename: Optional[str] = None) -> str:
         """Saves bundle to disk and immediately indexes it."""
@@ -457,6 +623,9 @@ class LocalFhirStore:
 
             meta = MTS_META.get(mts_category, MTS_META[3])
 
+            from fhir_utils import calculate_news2_score
+            news2_score, news2_tier, news2_breakdown = calculate_news2_score(vitals)
+
             queue.append({
                 "patient_id": pid,
                 "name": display_name,
@@ -470,6 +639,10 @@ class LocalFhirStore:
                 "chief_complaint": chief_complaint,
                 "complaint_code": complaint_code,
                 "vitals": vitals,
+                "news2_score": news2_score,
+                "news2_tier": news2_tier,
+                "news2_breakdown": news2_breakdown,
+                "signed_off": bool(self.get_provenance(pid)),
                 "arrival_time": arrival_time
             })
 

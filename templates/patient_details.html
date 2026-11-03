@@ -101,15 +101,128 @@
     </div>
 </div>
 
+<!-- Phase 6.1 & 6.2: Clinical Intelligence, NEWS2 Trajectory & Clinician Sign-Off -->
+<div class="row mt-4">
+    <!-- 24h NEWS2 Vital Deterioration Trajectory Card -->
+    <div class="col-lg-8 mb-3 mb-lg-0">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span class="fw-bold"><i class="fas fa-heartbeat text-danger me-2"></i>24-Hour Vital Deterioration Trajectory (NEWS2)</span>
+                {% if trajectory %}
+                <span class="badge {% if trajectory.current_score >= 7 %}bg-danger{% elif trajectory.current_score >= 5 %}bg-warning text-dark{% elif trajectory.current_score >= 1 %}bg-info text-dark{% else %}bg-success{% endif %}">
+                    NEWS2: {{ trajectory.current_score }}/20 ({{ trajectory.current_tier }})
+                </span>
+                {% endif %}
+            </div>
+            <div class="card-body p-3">
+                {% if trajectory %}
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="small text-muted">
+                        <i class="fas fa-chart-line me-1"></i> Physiological trajectory over previous 24 hours:
+                    </div>
+                    <div class="small fw-semibold">
+                        Current Risk: <span style="color: {{ trajectory.color }};">{{ trajectory.current_tier }}</span>
+                    </div>
+                </div>
+                <!-- Inline SVG Sparkline -->
+                <div class="bg-light p-3 rounded border mb-3">
+                    <svg viewBox="0 0 515 85" style="width: 100%; height: 95px;" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <linearGradient id="trajGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="{{ trajectory.color }}" stop-opacity="0.35"/>
+                                <stop offset="100%" stop-color="{{ trajectory.color }}" stop-opacity="0.02"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- High Risk Threshold line (7) -->
+                        <line x1="30" y1="{{ trajectory.threshold_7_y }}" x2="470" y2="{{ trajectory.threshold_7_y }}" stroke="#dc3545" stroke-width="1" stroke-dasharray="4,4" opacity="0.6" />
+                        <text x="475" y="{{ trajectory.threshold_7_y + 3 }}" font-size="8" fill="#dc3545" font-weight="600">≥7 High</text>
+
+                        <!-- Medium Risk Threshold line (5) -->
+                        <line x1="30" y1="{{ trajectory.threshold_5_y }}" x2="470" y2="{{ trajectory.threshold_5_y }}" stroke="#fd7e14" stroke-width="1" stroke-dasharray="3,3" opacity="0.5" />
+                        <text x="475" y="{{ trajectory.threshold_5_y + 3 }}" font-size="8" fill="#fd7e14" font-weight="600">≥5 Med</text>
+
+                        <!-- Baseline (0) -->
+                        <line x1="30" y1="62" x2="470" y2="62" stroke="#ced4da" stroke-width="1" />
+
+                        <!-- Trajectory Area Gradient -->
+                        {% if trajectory.svg_polygon %}
+                        <polygon points="{{ trajectory.svg_polygon }}" fill="url(#trajGradient)" />
+                        {% endif %}
+
+                        <!-- Trajectory Polyline -->
+                        <polyline fill="none" stroke="{{ trajectory.color }}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="{{ trajectory.svg_polyline }}" />
+                        
+                        <!-- Trajectory points & scores -->
+                        {% for pt in trajectory.trajectory %}
+                        <circle cx="{{ pt.cx }}" cy="{{ pt.cy }}" r="4.5" fill="{{ trajectory.color }}" stroke="#fff" stroke-width="2">
+                            <title>{{ pt.hour }}: NEWS2 {{ pt.score }} ({{ pt.tier }})</title>
+                        </circle>
+                        <text x="{{ pt.cx }}" y="{{ pt.cy - 7 }}" font-size="10" font-weight="bold" text-anchor="middle" fill="{{ trajectory.color }}">{{ pt.score }}</text>
+                        <text x="{{ pt.cx }}" y="76" font-size="10" font-weight="600" text-anchor="middle" fill="#6c757d">{{ pt.hour }}</text>
+                        {% endfor %}
+                    </svg>
+                </div>
+                
+                <!-- NEWS2 Parameter Breakdown Grid -->
+                <div class="row g-2 text-center small">
+                    {% for param, score in trajectory.breakdown.items() %}
+                    <div class="col">
+                        <div class="p-1 rounded border {% if score >= 3 %}bg-danger-subtle text-danger border-danger{% elif score >= 1 %}bg-warning-subtle text-dark border-warning{% else %}bg-light text-secondary{% endif %}">
+                            <div class="fw-bold" style="font-size: 11px;">{{ param }}</div>
+                            <div class="fw-bold fs-6">{{ score }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">No physiological vitals recorded to plot 24-hour NEWS2 deterioration trajectory.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Clinician Electronic Sign-off Status & Action Card -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-dark text-white d-flex align-items-center">
+                <i class="fas fa-file-signature text-success me-2"></i> Clinical Sign-Off &amp; Provenance
+            </div>
+            <div class="card-body p-3 d-flex flex-column justify-content-between">
+                <div id="sign-off-status-container">
+                    {% if provenance %}
+                    <div class="alert alert-success py-2 px-3 small border border-success mb-2">
+                        <div class="fw-bold mb-1"><i class="fas fa-check-double text-success me-1"></i>Assessment Verified &amp; Signed</div>
+                        <div>Practitioner: <code>{{ provenance.agent[0].who.identifier.value if provenance.agent and provenance.agent[0].who and provenance.agent[0].who.identifier else 'Clinician' }}</code></div>
+                        <div>Role: <strong>{{ provenance.agent[0].role[0].text if provenance.agent and provenance.agent[0].role else 'Triage Clinician' }}</strong></div>
+                        <div class="text-muted" style="font-size: 11px;">Recorded: {{ provenance.recorded }}</div>
+                    </div>
+                    {% else %}
+                    <div class="p-3 bg-light rounded border text-center mb-3">
+                        <i class="fas fa-user-md fa-2x text-secondary mb-2"></i>
+                        <h6 class="fw-bold mb-1">Awaiting Clinical Sign-off</h6>
+                        <p class="text-muted small mb-0">Triage assessment must be reviewed and signed by an attending physician or ANP prior to admission or transfer.</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <button type="button" class="btn btn-outline-success w-100 mt-2" data-bs-toggle="modal" data-bs-target="#signOffModal">
+                    <i class="fas fa-signature me-1"></i> Validate &amp; Electronically Sign
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% include "sign_off_modal.html" %}
+
 <div class="row mt-4">
     <div class="col-12">
         <div class="card border-primary">
             <div class="card-header bg-primary text-white">
                 <i class="fas fa-notes-medical me-2"></i> Conditions / Problem List
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 <div id="conditions-loader" class="htmx-indicator">
-                    <div class="d-flex justify-content-center my-3">
+                    <div class="d-flex justify-content-center py-3">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading conditions...</span>
                         </div>
@@ -124,21 +237,21 @@
     </div>
 </div>
 
-<div class="row mt-4">
+<div class="row mt-3">
     <div class="col-md-6">
         <div class="card">
             <div class="card-header bg-primary text-white">
                 <i class="fas fa-vial me-2"></i> Lab Results
             </div>
-            <div class="card-body">
-                <button class="btn btn-outline-primary mb-3 w-100"
+            <div class="card-body p-3">
+                <button class="btn btn-outline-primary mb-2 w-100"
                         hx-get="/fhir/LabResults/{{ patient['id'] }}"
                         hx-target="#labResults"
                         hx-indicator="#lab-results-loader">
                     <i class="fas fa-vial me-2"></i> View Lab Results
                 </button>
                 <div id="lab-results-loader" class="htmx-indicator">
-                    <div class="d-flex justify-content-center my-4">
+                    <div class="d-flex justify-content-center py-2">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading lab results...</span>
                         </div>
@@ -153,15 +266,15 @@
             <div class="card-header bg-primary text-white">
                 <i class="fas fa-chart-line me-2"></i> Vital Signs
             </div>
-            <div class="card-body">
-                <button class="btn btn-outline-primary mb-3 w-100"
+            <div class="card-body p-3">
+                <button class="btn btn-outline-primary mb-2 w-100"
                         hx-get="/fhir/VitalSigns/{{ patient['id'] }}"
                         hx-target="#vitalSigns"
                         hx-indicator="#vital-signs-loader">
                     <i class="fas fa-heartbeat me-2"></i> View Vital Signs
                 </button>
                 <div id="vital-signs-loader" class="htmx-indicator">
-                    <div class="d-flex justify-content-center my-4">
+                    <div class="d-flex justify-content-center py-2">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading vital signs...</span>
                         </div>
@@ -173,21 +286,21 @@
     </div>
 </div>
 
-<div class="row mt-4">
+<div class="row mt-3">
     <div class="col-md-6">
         <div class="card">
             <div class="card-header bg-primary text-white">
                 <i class="fas fa-pills me-2"></i> Medications
             </div>
-            <div class="card-body">
-                <button class="btn btn-outline-primary mb-3 w-100"
+            <div class="card-body p-3">
+                <button class="btn btn-outline-primary mb-2 w-100"
                         hx-get="/fhir/Medications/{{ patient['id'] }}"
                         hx-target="#medications"
                         hx-indicator="#medications-loader">
                     <i class="fas fa-prescription-bottle-alt me-2"></i> View Medications
                 </button>
                 <div id="medications-loader" class="htmx-indicator">
-                    <div class="d-flex justify-content-center my-4">
+                    <div class="d-flex justify-content-center py-2">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading medications...</span>
                         </div>
@@ -202,15 +315,15 @@
             <div class="card-header bg-primary text-white">
                 <i class="fas fa-allergies me-2"></i> Allergies
             </div>
-            <div class="card-body">
-                <button class="btn btn-outline-primary mb-3 w-100"
+            <div class="card-body p-3">
+                <button class="btn btn-outline-primary mb-2 w-100"
                         hx-get="/fhir/Allergies/{{ patient['id'] }}"
                         hx-target="#allergies"
                         hx-indicator="#allergies-loader">
                     <i class="fas fa-exclamation-triangle me-2"></i> View Allergies
                 </button>
                 <div id="allergies-loader" class="htmx-indicator">
-                    <div class="d-flex justify-content-center my-4">
+                    <div class="d-flex justify-content-center py-2">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading allergies...</span>
                         </div>

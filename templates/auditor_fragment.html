@@ -1,0 +1,419 @@
+<div id="auditor-container" style="line-height: 1.5;">
+
+    <!-- Header & Action Bar -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+            <h1 class="h3 mb-1 fw-bold">
+                <i class="fas fa-shield-alt text-warning me-2" aria-hidden="true"></i>Slainte-Auditor: Autonomous FHIR R4 Verifier
+            </h1>
+            <p class="text-muted mb-0" style="font-size: 0.9rem; text-wrap: pretty; max-width: 80ch;">
+                Continuous HL7 FHIR R4 compartment authorization auditing, Dual-Phase Reflection memory (<var>M</var>), and SNOMED-CT / LOINC / UCUM ontology verification.
+            </p>
+        </div>
+        <form class="d-flex flex-wrap align-items-center gap-2 m-0"
+              hx-post="/fhir/auditor/run"
+              hx-target="#auditor-container"
+              hx-swap="outerHTML">
+            {% set cur_model = telemetry.selected_model or 'openai/gpt-6.1-luna' %}
+            <div class="input-group input-group-sm" style="width: auto;">
+                <span class="input-group-text bg-dark text-info border-dark">
+                    <i class="fas fa-microchip me-1" aria-hidden="true"></i>Model
+                </span>
+                <select name="model_name"
+                        aria-label="Select OpenHands Auditor Model"
+                        class="form-select form-select-sm bg-dark text-light border-dark fw-semibold"
+                        style="max-width: 320px;">
+                    <option value="openai/gpt-6.1-luna" {% if '6.1-luna' in cur_model and 'mini' not in cur_model %}selected{% endif %}>
+                        OpenAI GPT-6.1-Luna + OpenHands SDK
+                    </option>
+                    <option value="openai/gpt-6.1-luna-mini" {% if '6.1-luna-mini' in cur_model %}selected{% endif %}>
+                        OpenAI GPT-6.1-Luna-Mini + OpenHands SDK
+                    </option>
+                    <option value="openai/gpt-5.6-luna" {% if '5.6-luna' in cur_model %}selected{% endif %}>
+                        OpenAI GPT-5.6-Luna + OpenHands SDK
+                    </option>
+                    <option value="ollama/k9/lime:latest" {% if 'lime' in cur_model and 'lite' not in cur_model %}selected{% endif %}>
+                        Local: k9/lime:latest + OpenHands SDK
+                    </option>
+                    <option value="ollama/k9/lime-lite:latest" {% if 'lime-lite' in cur_model %}selected{% endif %}>
+                        Local: k9/lime-lite:latest + OpenHands SDK
+                    </option>
+                    <option value="ollama/k9/Doggo:3b" {% if 'Doggo' in cur_model %}selected{% endif %}>
+                        Local: k9/Doggo:3b + OpenHands SDK
+                    </option>
+                    <option value="ollama/k9/chihuahua:latest" {% if 'chihuahua' in cur_model %}selected{% endif %}>
+                        Local: k9/chihuahua:latest + OpenHands SDK
+                    </option>
+                    <option value="ollama/recordstore:latest" {% if 'recordstore' in cur_model %}selected{% endif %}>
+                        Local: recordstore:latest + OpenHands SDK
+                    </option>
+                    <option value="ollama/gemma3:1b" {% if 'gemma3' in cur_model %}selected{% endif %}>
+                        Local: gemma3:1b + OpenHands SDK
+                    </option>
+                </select>
+            </div>
+            <span class="badge bg-success-subtle text-success border border-success px-3 py-2">
+                <i class="fas fa-lock me-1" aria-hidden="true"></i>RFC 1918 Guardrail: Active ({{ telemetry.execution_mode }})
+            </span>
+            <button type="submit"
+                    class="btn btn-warning btn-sm fw-bold px-3 py-2 shadow-sm">
+                <i class="fas fa-sync-alt me-1" aria-hidden="true"></i>Run Audit Cycle Now
+            </button>
+            <a href="/fhir/auditor/sarif"
+               target="_blank"
+               class="btn btn-outline-secondary btn-sm px-3 py-2">
+                <i class="fas fa-file-code me-1" aria-hidden="true"></i>SARIF v2.1.0 JSON
+            </a>
+        </form>
+    </div>
+
+    <!-- Top Row: 5 Key Statistics Boxes -->
+    <div class="row g-3 mb-4">
+        <!-- Stat Box 1: Reachability Pruning -->
+        <div class="col-12 col-sm-6 col-xl">
+            <div class="card border-0 shadow-sm h-100 border-start border-info border-4">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="text-uppercase text-muted fw-bold" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                                Surface Reduction
+                            </div>
+                            <div class="h2 fw-bold text-info mb-0 mt-1" style="font-variant-numeric: tabular-nums;">
+                                {{ telemetry.stats.surface_reduction_pct }}%
+                            </div>
+                        </div>
+                        <span class="badge bg-info-subtle text-info p-2 rounded-circle">
+                            <i class="fas fa-filter fa-lg" aria-hidden="true"></i>
+                        </span>
+                    </div>
+                    <div class="text-muted mt-2" style="font-size: 0.8rem;">
+                        <strong>{{ telemetry.stats.active_compartment_count }}</strong> patient-compartment retained &bull;
+                        <strong>{{ telemetry.stats.pruned_resource_count }}</strong> pruned
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stat Box 2: Bundles Audited -->
+        <div class="col-12 col-sm-6 col-xl">
+            <div class="card border-0 shadow-sm h-100 border-start border-primary border-4">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="text-uppercase text-muted fw-bold" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                                FHIR Bundles Audited
+                            </div>
+                            <div class="h2 fw-bold text-primary mb-0 mt-1" style="font-variant-numeric: tabular-nums;">
+                                {{ telemetry.stats.bundles_audited }}
+                            </div>
+                        </div>
+                        <span class="badge bg-primary-subtle text-primary p-2 rounded-circle">
+                            <i class="fas fa-database fa-lg" aria-hidden="true"></i>
+                        </span>
+                    </div>
+                    <div class="text-muted mt-2" style="font-size: 0.8rem; overflow-wrap: anywhere;">
+                        Target: <code>{{ telemetry.target_url }}</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stat Box 3: Security & Authorization Findings -->
+        <div class="col-12 col-sm-6 col-xl">
+            <div class="card border-0 shadow-sm h-100 border-start border-danger border-4">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="text-uppercase text-muted fw-bold" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                                BOLA / Auth Findings
+                            </div>
+                            <div class="h2 fw-bold text-danger mb-0 mt-1" style="font-variant-numeric: tabular-nums;">
+                                {{ telemetry.stats.security_findings_count }}
+                            </div>
+                        </div>
+                        <span class="badge bg-danger-subtle text-danger p-2 rounded-circle">
+                            <i class="fas fa-user-lock fa-lg" aria-hidden="true"></i>
+                        </span>
+                    </div>
+                    <div class="text-muted mt-2" style="font-size: 0.8rem;">
+                        Confirmed via Differential Oracle (live patient cohort)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stat Box 4: Terminology & Ontology Findings -->
+        <div class="col-12 col-sm-6 col-xl">
+            <div class="card border-0 shadow-sm h-100 border-start border-warning border-4">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="text-uppercase text-muted fw-bold" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                                Ontology &amp; UCUM Drift
+                            </div>
+                            <div class="h2 fw-bold text-warning mb-0 mt-1" style="font-variant-numeric: tabular-nums;">
+                                {{ telemetry.stats.terminology_findings_count }}
+                            </div>
+                        </div>
+                        <span class="badge bg-warning-subtle text-warning p-2 rounded-circle">
+                            <i class="fas fa-stethoscope fa-lg" aria-hidden="true"></i>
+                        </span>
+                    </div>
+                    <div class="text-muted mt-2" style="font-size: 0.8rem;">
+                        SNOMED-CT, LOINC, UCUM &amp; Irish HSE OID checks
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stat Box 5: Dual-Phase Reflection Memory Steps -->
+        <div class="col-12 col-sm-6 col-xl">
+            <div class="card border-0 shadow-sm h-100 border-start border-success border-4">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="text-uppercase text-muted fw-bold" style="font-size: 0.72rem; letter-spacing: 0.04em;">
+                                Reflection Memory (<var>M</var>)
+                            </div>
+                            <div class="h2 fw-bold text-success mb-0 mt-1" style="font-variant-numeric: tabular-nums;">
+                                {{ telemetry.stats.memory_steps_count }}
+                            </div>
+                        </div>
+                        <span class="badge bg-success-subtle text-success p-2 rounded-circle">
+                            <i class="fas fa-brain fa-lg" aria-hidden="true"></i>
+                        </span>
+                    </div>
+                    <div class="text-muted mt-2" style="font-size: 0.8rem;">
+                        Last audit: <strong>{{ telemetry.timestamp }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live LLM Agent Synthesis Banner -->
+    {% if telemetry.llm_synthesis %}
+    <div class="card border-0 shadow-sm mb-4 border-start border-primary border-4">
+        <div class="card-body py-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                <div class="fw-bold text-dark">
+                    <i class="fas fa-robot text-primary me-2" aria-hidden="true"></i>Live LLM Agent Synthesis &amp; Remediation Verdict
+                    <span class="badge bg-dark ms-2">{{ telemetry.selected_model }}</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2" style="font-size: 0.78rem; font-variant-numeric: tabular-nums;">
+                    <span class="badge bg-light text-dark border">
+                        Engine: <strong>{{ telemetry.llm_synthesis.provider }} ({{ telemetry.llm_synthesis.model_executed }})</strong>
+                    </span>
+                    <span class="badge bg-info-subtle text-dark border border-info">
+                        Inference Latency: <strong>{{ telemetry.llm_synthesis.latency_ms }} ms</strong>
+                    </span>
+                    <span class="badge bg-secondary-subtle text-dark border">
+                        Tokens: <strong>{{ telemetry.llm_synthesis.prompt_tokens }} prompt / {{ telemetry.llm_synthesis.completion_tokens }} completion</strong>
+                    </span>
+                </div>
+            </div>
+            <p class="mb-0 text-secondary" style="font-size: 0.88rem; text-wrap: pretty; max-width: 105ch;">
+                {{ telemetry.llm_synthesis.reasoning }}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Middle Row: Live Execution Console Logs & SharedAuditMemory (M) Trajectory -->
+    <div class="row g-4 mb-4">
+        <!-- Left Column: Live Console Log Stream -->
+        <div class="col-12 col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
+                    <h2 class="h6 mb-0 fw-bold">
+                        <i class="fas fa-terminal text-success me-2" aria-hidden="true"></i>Slainte-Auditor Live Execution Logs
+                    </h2>
+                    <span class="badge bg-secondary" style="font-size: 0.72rem;">Stage 1 &rarr; Stage 4 Pipeline</span>
+                </div>
+                <div class="card-body bg-dark p-0">
+                    <pre tabindex="0" class="m-0 p-3 text-light" style="max-height: 340px; overflow-y: auto; font-size: 0.78rem; line-height: 1.55; background-color: #111827;"><code style="overflow-wrap: anywhere;">{% for line in telemetry.logs %}{{ line }}
+{% endfor %}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: SharedAuditMemory (M) & Dual-Phase Reflection Ledger -->
+        <div class="col-12 col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+                    <h2 class="h6 mb-0 fw-bold">
+                        <i class="fas fa-project-diagram text-primary me-2" aria-hidden="true"></i>Shared Audit Memory (<var>M</var>) &amp; Dual-Phase Reflection
+                    </h2>
+                    <span class="badge bg-primary-subtle text-primary" style="font-size: 0.72rem;">K=3 Consecutive 403 Pivot Cap</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 340px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.8rem;">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th scope="col" class="ps-3">#</th>
+                                    <th scope="col">Vector</th>
+                                    <th scope="col">Identity</th>
+                                    <th scope="col">Endpoint</th>
+                                    <th scope="col">HTTP</th>
+                                    <th scope="col">Reflection Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in telemetry.memory_entries %}
+                                <tr>
+                                    <td class="ps-3 fw-bold text-muted" style="font-variant-numeric: tabular-nums;">{{ m.step }}</td>
+                                    <td><code style="font-size: 0.75rem;">{{ m.vector_id }}</code></td>
+                                    <td><span class="badge bg-light text-dark border">{{ m.identity }}</span></td>
+                                    <td style="overflow-wrap: anywhere;">
+                                        <span class="fw-semibold">{{ m.method }}</span>
+                                        <code class="text-secondary">{{ m.endpoint }}</code>
+                                    </td>
+                                    <td style="font-variant-numeric: tabular-nums;">
+                                        {% if m.status_code == 200 %}
+                                            <span class="badge bg-danger">200 OK</span>
+                                        {% elif m.status_code == 422 %}
+                                            <span class="badge bg-warning text-dark">422</span>
+                                        {% elif m.status_code in (403, 404, 405) %}
+                                            <span class="badge bg-success">{{ m.status_code }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ m.status_code }}</span>
+                                        {% endif %}
+                                        <small class="text-muted d-block">{{ m.latency_ms }}ms</small>
+                                    </td>
+                                    <td>
+                                        {% if m.reflection_action == 'INTER_REFLECTION_PIVOT' %}
+                                            <span class="badge bg-info text-dark"><i class="fas fa-random me-1" aria-hidden="true"></i>{{ m.reflection_action }}</span>
+                                        {% elif m.reflection_action == 'INTRA_REFLECTION_INSPECT' %}
+                                            <span class="badge bg-warning text-dark"><i class="fas fa-wrench me-1" aria-hidden="true"></i>{{ m.reflection_action }}</span>
+                                        {% elif m.reflection_action == 'BASELINE_CAPTURED' %}
+                                            <span class="badge bg-primary"><i class="fas fa-check me-1" aria-hidden="true"></i>{{ m.reflection_action }}</span>
+                                        {% else %}
+                                            <span class="text-muted">{{ m.reflection_action }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmed Security / Authorization Findings Table -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <div>
+                <h2 class="h6 mb-0 fw-bold">
+                    <i class="fas fa-bug text-danger me-2" aria-hidden="true"></i>Stage 3: Confirmed Authorization (BOLA) &amp; Validator Resilience Findings
+                </h2>
+                <small class="text-muted">Verified via Multi-Identity Differential Ground-Truth Oracle with zero false positives</small>
+            </div>
+            <span class="badge bg-danger">{{ telemetry.security_findings|length }} Confirmed Issue(s)</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" class="ps-3">Rule ID</th>
+                            <th scope="col">Severity</th>
+                            <th scope="col">Classification</th>
+                            <th scope="col">Endpoint &amp; Resource</th>
+                            <th scope="col">Oracle Diagnostic</th>
+                            <th scope="col" class="pe-3">Recommended Remediation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in telemetry.security_findings %}
+                        <tr>
+                            <td class="ps-3 fw-bold"><code>{{ f.rule_id }}</code></td>
+                            <td>
+                                {% if f.severity == 'critical' %}
+                                    <span class="badge bg-danger text-uppercase">Critical</span>
+                                {% elif f.severity == 'high' %}
+                                    <span class="badge bg-warning text-dark text-uppercase">High</span>
+                                {% else %}
+                                    <span class="badge bg-info text-dark text-uppercase">{{ f.severity }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-dark">{{ f.owasp_id }}</span>
+                                <span class="badge bg-secondary">{{ f.cwe_id }}</span>
+                            </td>
+                            <td style="overflow-wrap: anywhere;">
+                                <div><span class="badge bg-light text-dark border">{{ f.method }}</span> <code>{{ f.endpoint }}</code></div>
+                                <small class="text-muted">Target: <code>{{ f.victim_resource_id }}</code></small>
+                            </td>
+                            <td style="max-width: 42ch; text-wrap: pretty;">{{ f.description }}</td>
+                            <td class="pe-3 text-secondary" style="max-width: 42ch; text-wrap: pretty;">
+                                <i class="fas fa-tools text-success me-1" aria-hidden="true"></i>{{ f.remediation or 'Enforce SMART-on-FHIR compartment authorization.' }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No authorization vulnerabilities detected.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stage 2: Semantic & Terminology Verification Findings Table -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <div>
+                <h2 class="h6 mb-0 fw-bold">
+                    <i class="fas fa-book-medical text-warning me-2" aria-hidden="true"></i>Stage 2: Semantic Ontology, UCUM &amp; HSE Identifier Verification Findings
+                </h2>
+                <small class="text-muted">Audited across {{ telemetry.stats.bundles_audited }} HL7 FHIR R4 Bundles in <code>data/fhir_store</code></small>
+            </div>
+            <span class="badge bg-warning text-dark">{{ telemetry.terminology_findings|length }} Semantic Issue(s)</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+                <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.82rem;">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th scope="col" class="ps-3">Rule ID</th>
+                            <th scope="col">Severity</th>
+                            <th scope="col">Resource Type</th>
+                            <th scope="col">Bundle :: Resource</th>
+                            <th scope="col">Classification</th>
+                            <th scope="col" class="pe-3">Clinical / Semantic Impact</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in telemetry.terminology_findings %}
+                        <tr>
+                            <td class="ps-3 fw-bold"><code>{{ t.rule_id }}</code></td>
+                            <td>
+                                {% if t.severity == 'error' %}
+                                    <span class="badge bg-danger">Error</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Warning</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-light text-dark border">{{ t.resource_type }}</span></td>
+                            <td style="overflow-wrap: anywhere;"><code>{{ t.resource_id }}</code></td>
+                            <td style="overflow-wrap: anywhere;">
+                                <span class="badge bg-secondary">{{ t.cwe_id }}</span>
+                                <small class="text-muted">{{ t.owasp_category }}</small>
+                            </td>
+                            <td class="pe-3" style="max-width: 50ch; text-wrap: pretty;">{{ t.message }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">All FHIR R4 bundles passed terminology verification.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

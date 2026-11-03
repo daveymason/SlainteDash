@@ -2,20 +2,53 @@
     <div class="container-fluid d-flex align-items-center justify-content-end">
         <div class="d-flex align-items-center gap-2">
             {% if current_user.is_authenticated %}
-            <span class="navbar-text" id="currentUserDisplay">
+            <span class="navbar-text me-2" id="currentUserDisplay">
                 <i class="fas fa-user-circle me-1"></i>{{ current_user.username }}
                 <span class="badge bg-secondary ms-1">{{ current_user.role }}</span>
             </span>
-            {# AI settings is admin-only, so the link is hidden rather than
-               rendered into a 403 -- same pattern as the sidebar admin links. #}
+
             {% if current_user.is_admin %}
-            <a href="{{ url_for('ai_settings') }}" class="btn btn-sm btn-outline-info">
-                <i class="fas fa-cog"></i> AI Settings
-            </a>
+            <!-- Settings Unified Dropdown -->
+            <div class="dropdown me-1">
+                <button class="btn btn-sm btn-outline-info dropdown-toggle d-flex align-items-center gap-1 shadow-sm" type="button" id="settingsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-sliders-h"></i> Settings
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="settingsDropdown">
+                    <li><h6 class="dropdown-header text-uppercase small fw-bold">Clinical &amp; System</h6></li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('settings_data') }}">
+                            <i class="fas fa-database text-primary"></i> Data Settings (FHIR Backend)
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('ai_settings') }}">
+                            <i class="fas fa-brain text-info"></i> AI &amp; Model Settings
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header text-uppercase small fw-bold">Preferences &amp; Governance</h6></li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('settings_app') }}">
+                            <i class="fas fa-palette text-warning"></i> App Settings (Font, Display)
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('settings_security') }}">
+                            <i class="fas fa-shield-alt text-success"></i> Security &amp; Audit Logs
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('settings_user') }}">
+                            <i class="fas fa-user-cog text-secondary"></i> User Profile &amp; Role
+                        </a>
+                    </li>
+                </ul>
+            </div>
             {% endif %}
-            <a href="{{ url_for('logout') }}" id="logoutBtn" class="btn btn-sm btn-outline-danger">Logout</a>
+
+            <a href="{{ url_for('logout') }}" id="logoutBtn" class="btn btn-sm btn-outline-danger shadow-sm">Logout</a>
             {% else %}
-            <a href="{{ url_for('login') }}" class="btn btn-sm btn-outline-primary">Sign in</a>
+            <a href="{{ url_for('login') }}" class="btn btn-sm btn-outline-primary shadow-sm">Sign in</a>
             {% endif %}
         </div>
     </div>

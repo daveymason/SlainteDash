@@ -15,7 +15,7 @@ import json
 import logging
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from flask import current_app, g
 from werkzeug.security import generate_password_hash
@@ -33,13 +33,15 @@ STATUS_DISABLED = 'disabled'
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
-    username       TEXT PRIMARY KEY,
-    password_hash  TEXT NOT NULL,
-    display_name   TEXT,
-    role           TEXT NOT NULL DEFAULT 'viewer',
-    status         TEXT NOT NULL DEFAULT 'pending',
-    created_at     TEXT NOT NULL,
-    last_login_at  TEXT
+    username               TEXT PRIMARY KEY,
+    password_hash          TEXT NOT NULL,
+    display_name           TEXT,
+    role                   TEXT NOT NULL DEFAULT 'viewer',
+    status                 TEXT NOT NULL DEFAULT 'pending',
+    created_at             TEXT NOT NULL,
+    last_login_at          TEXT,
+    failed_login_attempts  INTEGER NOT NULL DEFAULT 0,
+    locked_until           TEXT
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -107,6 +109,12 @@ BEFORE DELETE ON ai_exchange
 BEGIN
     SELECT RAISE(ABORT, 'ai_exchange is append-only');
 END;
+
+CREATE TABLE IF NOT EXISTS system_settings (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -167,6 +175,42 @@ def init_db(app):
         _retire_wallet_era_users_table(connection)
         connection.executescript(SCHEMA)
         connection.commit()
+
+        # Migrate existing users table if lockout columns are missing
+        user_cols = {
+            row['name']
+            for row in connection.execute("PRAGMA table_info(users)").fetchall()
+        }
+        if 'failed_login_attempts' not in user_cols:
+            connection.execute('ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0')
+        if 'locked_until' not in user_cols:
+            connection.execute('ALTER TABLE users ADD COLUMN locked_until TEXT')
+        connection.commit()
+
+        # Ensure system_settings table exists
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS system_settings (
+                key        TEXT PRIMARY KEY,
+                value      TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+        """)
+        connection.commit()
+
+        # Seed initial backend configuration if not present
+        row = connection.execute("SELECT value FROM system_settings WHERE key = 'backend_url'").fetchone()
+        if not row:
+            initial_url = app.config.get('FHIR_SERVER_URL', 'http://slainte-fhir:8082/fhir/r4')
+            initial_profile = 'slainte_fhir' if '8082' in initial_url else 'custom'
+            connection.execute(
+                "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('backend_profile', ?, ?)",
+                (initial_profile, _utcnow())
+            )
+            connection.execute(
+                "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('backend_url', ?, ?)",
+                (initial_url, _utcnow())
+            )
+            connection.commit()
 
         username = app.config.get('INITIAL_ADMIN_USERNAME')
         password = app.config.get('INITIAL_ADMIN_PASSWORD')
@@ -231,8 +275,61 @@ def register_pending_user(username, password_hash, display_name=None):
 def record_login(username):
     connection = get_connection()
     connection.execute(
-        'UPDATE users SET last_login_at = ? WHERE username = ?',
+        'UPDATE users SET last_login_at = ?, failed_login_attempts = 0, locked_until = NULL WHERE username = ?',
         (_utcnow(), username.strip().lower()),
+    )
+    connection.commit()
+
+
+def is_account_locked(username):
+    """Check if the account is temporarily locked due to failed login attempts."""
+    user = get_user(username)
+    if not user:
+        return False, None
+    locked_until_str = user.get('locked_until')
+    if not locked_until_str:
+        return False, None
+    try:
+        locked_until_dt = datetime.fromisoformat(locked_until_str)
+        if datetime.now(timezone.utc) < locked_until_dt:
+            return True, locked_until_str
+        else:
+            # Lockout expired, clear the lock
+            reset_failed_logins(username)
+            return False, None
+    except (ValueError, TypeError):
+        return False, None
+
+
+def record_failed_login(username, max_attempts=5, lockout_minutes=15):
+    """Increment failed login attempts for a user. Lock if max_attempts reached.
+
+    Returns (attempts, locked_until_iso_or_none).
+    """
+    user = get_user(username)
+    if not user:
+        return 0, None
+    attempts = (user.get('failed_login_attempts') or 0) + 1
+    locked_until = None
+    if attempts >= max_attempts:
+        locked_dt = datetime.now(timezone.utc) + timedelta(minutes=lockout_minutes)
+        locked_until = locked_dt.isoformat()
+
+    connection = get_connection()
+    connection.execute(
+        'UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE username = ?',
+        (attempts, locked_until, username.strip().lower()),
+    )
+    connection.commit()
+    return attempts, locked_until
+
+
+def reset_failed_logins(username):
+    """Reset failed attempts and unlock the account."""
+    connection = get_connection()
+    connection.execute(
+        'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE username = ?',
+        (username.strip().lower(),),
     )
     connection.commit()
 
@@ -413,3 +510,52 @@ def read_audit(limit=100, actor=None, resource_id=None):
 
     rows = get_connection().execute(query, params).fetchall()
     return [dict(row) for row in rows]
+
+
+# --------------------------------------------------------------------------
+# System Settings & Centralized Multi-Worker Configuration
+# --------------------------------------------------------------------------
+
+def get_system_setting(key, default=None):
+    """Retrieve a centralized system setting across all gunicorn workers."""
+    try:
+        from flask import has_app_context
+        if not has_app_context():
+            return default
+        connection = get_connection()
+        row = connection.execute(
+            'SELECT value FROM system_settings WHERE key = ?', (key,)
+        ).fetchone()
+        return row['value'] if row else default
+    except Exception as exc:
+        logger.debug('Could not read system setting %s: %s', key, exc)
+        return default
+
+
+def set_system_setting(key, value):
+    """Persist a centralized system setting across all gunicorn workers."""
+    try:
+        from flask import has_app_context
+        if not has_app_context():
+            return
+        connection = get_connection()
+        connection.execute(
+            'INSERT INTO system_settings (key, value, updated_at) VALUES (?, ?, ?)'
+            ' ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+            (key, str(value), _utcnow())
+        )
+        connection.commit()
+    except Exception as exc:
+        logger.warning('Could not write system setting %s: %s', key, exc)
+
+
+def get_active_backend_config(default_profile='slainte_fhir', default_url=None):
+    profile = get_system_setting('backend_profile', default_profile)
+    url = get_system_setting('backend_url', default_url)
+    return profile, url
+
+
+def set_active_backend_config(profile, url):
+    set_system_setting('backend_profile', profile)
+    set_system_setting('backend_url', url)
+

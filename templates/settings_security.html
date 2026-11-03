@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Security &amp; Audit Settings &mdash; FHIR Patient Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="text-primary mb-0"><i class="fas fa-shield-alt me-2"></i>Security &amp; Audit Governance</h2>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+    </a>
+</div>
+
+{% set active_tab = 'security' %}
+{% include "settings_nav.html" %}
+
+<div class="row g-4" style="max-width: 960px;">
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark text-white py-3">
+                <i class="fas fa-lock text-success me-2"></i><strong>Security Posture &amp; Session Controls</strong>
+            </div>
+            <div class="card-body p-4">
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-5 text-muted">Session Lifetime</dt>
+                    <dd class="col-sm-7 fw-semibold">60 minutes (HttpOnly, SameSite=Lax)</dd>
+
+                    <dt class="col-sm-5 text-muted">CSRF Protection</dt>
+                    <dd class="col-sm-7"><span class="badge bg-success">Enforced on all POST requests</span></dd>
+
+                    <dt class="col-sm-5 text-muted">Password Hashing</dt>
+                    <dd class="col-sm-7">Salted PBKDF2 (Werkzeug Crypto)</dd>
+
+                    <dt class="col-sm-5 text-muted">Audit Trail</dt>
+                    <dd class="col-sm-7">Append-only SQLite audit log (Immutable triggers)</dd>
+
+                    <dt class="col-sm-5 text-muted">Total Audit Events</dt>
+                    <dd class="col-sm-7 fw-bold text-primary">{{ audit_count }} logged actions</dd>
+                </dl>
+            </div>
+            <div class="card-footer bg-light d-flex justify-content-between align-items-center">
+                <span class="small text-muted">Logged as <strong>{{ current_user.username }}</strong> ({{ current_user.role }})</span>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('admin_users') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-users-cog me-1"></i> Manage User Accounts
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-light py-3">
+                <i class="fas fa-clipboard-check text-info me-2"></i><strong>Audit Log Overview</strong>
+            </div>
+            <div class="card-body p-3">
+                <p class="small text-muted mb-3">Recent audit trail entries:</p>
+                <div class="list-group list-group-flush small">
+                    {% for item in recent_audits %}
+                    <div class="list-group-item px-0 py-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="badge bg-light text-dark border">{{ item.action }}</span>
+                            <span class="text-muted" style="font-size: 0.75rem;">{{ item.timestamp }}</span>
+                        </div>
+                        <div class="text-muted text-truncate mt-1" style="font-size: 0.8rem;">
+                            Actor: {{ item.user_id or 'System' }} | Outcome: {{ item.outcome or 'success' }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-muted small">No audit log records recorded yet.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

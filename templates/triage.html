@@ -21,46 +21,7 @@
         </div>
     </div>
 
-    <!-- Quick Stats Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card border-start border-4 border-danger shadow-sm h-100">
-                <div class="card-body py-2">
-                    <div class="text-xs text-uppercase fw-bold text-danger">Immediate (Cat 1)</div>
-                    <div class="h4 mb-0 fw-bold text-gray-800">{{ cat_counts[1]|default(0) }}</div>
-                    <small class="text-muted">Target: Immediate (0 min)</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-start border-4 border-warning shadow-sm h-100">
-                <div class="card-body py-2">
-                    <div class="text-xs text-uppercase fw-bold text-warning">Very Urgent (Cat 2)</div>
-                    <div class="h4 mb-0 fw-bold text-gray-800">{{ cat_counts[2]|default(0) }}</div>
-                    <small class="text-muted">Target: Within 10 min</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-start border-4 border-info shadow-sm h-100">
-                <div class="card-body py-2">
-                    <div class="text-xs text-uppercase fw-bold text-info">Urgent (Cat 3)</div>
-                    <div class="h4 mb-0 fw-bold text-gray-800">{{ cat_counts[3]|default(0) }}</div>
-                    <small class="text-muted">Target: Within 60 min</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-start border-4 border-success shadow-sm h-100">
-                <div class="card-body py-2">
-                    <div class="text-xs text-uppercase fw-bold text-success">Standard / Non-Urgent (Cat 4-5)</div>
-                    <div class="h4 mb-0 fw-bold text-gray-800">{{ (cat_counts[4]|default(0)) + (cat_counts[5]|default(0)) }}</div>
-                    <small class="text-muted">Target: 120 - 240 min</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Live Queue Fragment with HTMX Polling -->
+    <!-- Live Queue Fragment with HTMX Polling (Includes Quick Stats Cards) -->
     {% include 'triage_fragment.html' %}
 </div>
+

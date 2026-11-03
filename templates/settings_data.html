@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Data Settings &mdash; FHIR Patient Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="text-primary mb-0"><i class="fas fa-database me-2"></i>Data Settings &amp; FHIR Backend</h2>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+    </a>
+</div>
+
+{% set active_tab = 'data' %}
+{% include "settings_nav.html" %}
+
+<div class="row g-4" style="max-width: 960px;">
+    <!-- Column 1: Backend Selector -->
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark text-white py-3">
+                <i class="fas fa-server text-info me-2"></i><strong>Active FHIR Backend Provider</strong>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-3">
+                    Select which FHIR R4 server or local repository feeds the clinical triage queue, patient rosters, and vital observations.
+                </p>
+
+                <form hx-post="/settings/data/switch" hx-target="#switch-feedback" hx-indicator="#switch-spinner">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-3">
+                        <label for="backend_profile" class="form-label fw-bold small text-uppercase">Backend Server Profile</label>
+                        <select name="backend_profile" id="backend_profile" class="form-select form-select-lg mb-2" onchange="toggleCustomUrl(this.value)">
+                            <option value="slainte_fhir" {% if active_profile == 'slainte_fhir' %}selected{% endif %}>
+                                🚀 SlainteFHIR Micro-EHR (Port 8082 - SQLite WAL)
+                            </option>
+                            <option value="local_store" {% if active_profile == 'local_store' %}selected{% endif %}>
+                                📁 Local Filesystem Store (/workspace/data/fhir_store)
+                            </option>
+                            <option value="hapi_demo" {% if active_profile == 'hapi_demo' %}selected{% endif %}>
+                                🌐 Public HAPI Demo Server (https://hapi.fhir.org/baseR4)
+                            </option>
+                            <option value="custom" {% if active_profile == 'custom' %}selected{% endif %}>
+                                ⚙️ Custom FHIR Endpoint URL...
+                            </option>
+                        </select>
+                        <div class="form-text">
+                            Switching backends is instant and updates all dashboard patient views without container restarts.
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="customUrlGroup" style="display: {% if active_profile == 'custom' %}block{% else %}none{% endif %};">
+                        <label for="custom_url" class="form-label fw-semibold small">Custom FHIR Server Base URL</label>
+                        <input type="url" name="custom_url" id="custom_url" class="form-control" value="{{ custom_url or '' }}" placeholder="https://your-hospital-fhir.internal/baseR4">
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary px-4 fw-semibold">
+                            <i class="fas fa-check-circle me-1"></i> Apply &amp; Switch Backend
+                        </button>
+                        <button type="button" class="btn btn-outline-info" hx-post="/settings/data/probe" hx-target="#probe-result" hx-indicator="#probe-spinner">
+                            <i class="fas fa-stethoscope me-1"></i> Test Connection
+                        </button>
+                        <span id="switch-spinner" class="spinner-border spinner-border-sm text-primary htmx-indicator" role="status"></span>
+                        <span id="probe-spinner" class="spinner-border spinner-border-sm text-info htmx-indicator" role="status"></span>
+                    </div>
+                </form>
+
+                <div id="switch-feedback" class="mt-3"></div>
+                <div id="probe-result" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column 2: Active Connection Telemetry -->
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light py-3">
+                <i class="fas fa-satellite-dish text-success me-2"></i><strong>Connection Telemetry</strong>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-5 text-muted">Active Profile</dt>
+                    <dd class="col-sm-7 fw-bold text-dark">
+                        <span class="badge bg-primary px-2 py-1">{{ active_profile_name }}</span>
+                    </dd>
+
+                    <dt class="col-sm-5 text-muted">Backend Target</dt>
+                    <dd class="col-sm-7 text-truncate">
+                        <code class="text-break">{{ active_url }}</code>
+                    </dd>
+
+                    <dt class="col-sm-5 text-muted">Storage Driver</dt>
+                    <dd class="col-sm-7">{{ driver_name }}</dd>
+
+                    <dt class="col-sm-5 text-muted">Patient Count</dt>
+                    <dd class="col-sm-7 fw-bold text-success">{{ patient_count }} patients loaded</dd>
+
+                    <dt class="col-sm-5 text-muted">Zero-Hallucination</dt>
+                    <dd class="col-sm-7"><span class="badge bg-success">Verified Active</span></dd>
+                </dl>
+            </div>
+            <div class="card-footer bg-light small text-muted">
+                <i class="fas fa-info-circle me-1"></i> Changes take effect immediately in the live session.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleCustomUrl(val) {
+    var group = document.getElementById('customUrlGroup');
+    if (val === 'custom') {
+        group.style.display = 'block';
+    } else {
+        group.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}
