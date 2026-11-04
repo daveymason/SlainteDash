@@ -1,9 +1,6 @@
-# 🏥 FHIR Patient Dashboard
+# 🏥 SlainteDash — Multi-Vertical Clinical Cockpit & Autonomous Agent Hub
 
-A Flask app for exploring patient data from a FHIR R4 server, using
-[HTMX](https://htmx.org/) for interactivity and [Bootstrap 5](https://getbootstrap.com/)
-for layout. Routes return HTML fragments, so there is no client-side framework
-and no build step.
+A Flask + [HTMX](https://htmx.org/) clinical cockpit and **Autonomous 9-Agent Command Center (`/agents`)** built by **SlainteTech AI Security Labs** for exploring and managing HL7 FHIR R4 data across **7 specialized verticals** (`Emergency Department`, `GP`, `Dentist`, `Pharmacy`, `Ambulance EMS`, `Elite Sports Club`, and `Astronaut Health Monitoring`). Routes return HTML fragments with zero client-side framework overhead.
 
 ---
 

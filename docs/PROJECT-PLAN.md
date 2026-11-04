@@ -33,10 +33,9 @@ Last reviewed: 2026-08-09 · 286 tests passing, pyflakes clean.
 | 6 | Clinical intelligence, NEWS2, sign-off, allergy gate, core security | **Done**, merged |
 | 7 | SlainteFHIR micro-EHR (8082), Slainte-Auditor red-team verifier, GMS dedup | **Done**, merged |
 | 8 | AI Model Selector (`/settings/ai`), `.env` key integration, Bedside AI Briefing | **Done**, merged |
-| 9 | Enterprise security (SQLCipher, SMART on FHIR, Regulatory Dossier) | **Planned** |
-| 10 | Patient Self-Service App (Mobile & Laptop) & Resource-Scoped Auth | **Planned** |
-| 11 | "Sign in as..." Role-Based Vertical Dashboards & Modernized Navigation | **Planned** |
-| 12 | Turnkey Appliance Packaging & Commercial Launch | **Planned** |
+| 11 + 9 Lite | **Next Priority:** Sidebar "Agents" Hub (9 Agents + Settings + Embedded Copilots), GDPR/CVE/Audit Agents, & "Sign in as..." 7 Vertical Cockpits | **Active Next** |
+| 12 | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js + Netlify + Docker) | **Planned (Step 2)** |
+| 10 | Standalone Mobile/Laptop Patient App (Shared `SlainteFHIR` Backend) | **Deferred (Separate Post-Funding Project)** |
 
 The dashboard (`SlainteDash`) operates as the primary clinical interface of the
 unified **Slainte-Engine Appliance**, backed by `SlainteScan` (FastMCP 8081),
@@ -518,68 +517,55 @@ the LLM strictly as a conversational orchestrator while delegating all clinical 
 
 ---
 
-## 9. Phase 9 — Enterprise Security, Cryptographic Storage & Regulatory Governance
+## 9. Phase 9 Lite — Governance, Privacy & Vulnerability Agents (Folded into Phase 11 Agent Fleet)
 
-**Status: Planned.**
+**Status: Active Next (Executed alongside Phase 11 so Security, GDPR & Audit Agents verify all 7 Vertical Role Boundaries).**
 
-**Why:** Moving from prototype appliance to hospital pilot requires formal data-at-rest encryption,
-enterprise identity federation, and a regulatory boundary dossier satisfying hospital procurement.
+**Why:** Rather than introducing fragile C-level SQLCipher or external OIDC dependencies before commercial funding, governance and security verification are delivered as three dedicated autonomous agents inside the `/agents` Command Center:
 
 ### Tasks
-- [ ] **Data-at-Rest Encryption (SQLCipher):** Implement transparent 256-bit AES encryption
-      for `dashboard.db` and `fhir_store.db` with master key derivation via environment KMS.
-- [ ] **Identity Federation (SMART on FHIR / OIDC):** Enterprise Single Sign-On (SSO) integrating
-      with Microsoft Entra ID, Keycloak, and NHS Smartcard OAuth2/OIDC protocols.
-- [ ] **Role-Based Access Control (RBAC):** Granular permissions for `admin`, `triage_nurse`,
-      `consultant_physician`, `viewer`, and `audit_officer`.
-- [ ] **Immutable Audit Shipping:** Automated log rotation and streaming via syslog/FluentBit
-      to hospital Security Operations Centers (SOC) adhering to Irish HIQA retention rules
-      (7 years adult, 25 years pediatric).
-- [ ] **Regulatory Dossier (EU MDR / FDA CDS Exemption):** Formal documentation positioning
-      the platform under EU MDR 2017/745 and FDA 2022 CDS Guidance as a deterministic clinical
-      decision support tool with mandatory human-in-the-loop signoff.
+- [ ] **Agent 03 — Software Supply-Chain & App Vulnerability Agent (`SlainteShield-CVE`):** Audits pinned dependencies (`requirements.txt`), verifies active HTTP security headers (`Content-Security-Policy`, `SRI sha384-`, `SameSite`, `HttpOnly`), and inspects multi-worker `SqliteStorage` rate-limiting posture.
+- [ ] **Agent 04 — GDPR & Clinical Data Privacy Agent (`SlainteGov-GDPR`):** Enforces EU GDPR Art. 9 & Irish HIQA data minimisation: audits `AI_DEIDENTIFY` PII stripping, checks the `AI_ALLOW_REAL_PHI` BAA/DPIA gate, and verifies salted SHA-256 subject pseudonymisation (`LOG_HASH_SALT`).
+- [ ] **Agent 05 — Immutable Clinical & AI Audit Trail Agent (`SlainteGov-Audit` — Closes Gaps `G1` & `G10`):** Verifies SQLite append-only triggers on `audit_log` & `ai_exchange`, provides the in-app `ai_exchange` & `audit_log` reader, checks `Provenance` SHA-256 bundle signatures across all 7 verticals, and provides a one-click signed JSON audit snapshot export.
 
 ---
 
-## 10. Phase 10 — Patient Self-Service App (Mobile & Laptop) & Secure Subject Access
+## 10. Phase 10 — Standalone Patient Self-Service Mobile/Laptop App
 
-**Status: Planned (Core Product Pillar).**
+**Status: Deferred (Separate Future Project Sharing the `SlainteFHIR` Backend).**
 
-**Why:** Empowers every patient to access, review, and manage their own verified clinical records, care plans, medications, and treatment history from their phone or laptop, while enforcing impenetrable resource-scoped authorization.
-
-### Tasks
-- [ ] **Cross-Device Responsive Patient App (Phone & Laptop):** Dedicated mobile-first and desktop-compatible patient portal interface designed for everyday patient self-management.
-- [ ] **Resource-Scoped Authorization (`CompartmentDefinition/Patient`):** Implement strict patient account binding: a user with role `patient` is cryptographically bound to a single `Patient/{id}` resolved from the session, never trusted from URL parameters, and continuously verified against BOLA/IDOR by `Slainte-Auditor`.
-- [ ] **Patient Self-Service Views & Data Management:** View and manage personal demographics, active conditions, prescribed medications (with `reasonReference` explaining why), allergies, appointment schedules, and patient-contributed observations/documents.
-- [ ] **Subject Access Audit Log:** "Who viewed my record" transparency screen displaying every clinician access straight from `audit_log`.
+**Why:** Packaging a consumer-facing responsive mobile/laptop application is a standalone product track that will consume the `SlainteFHIR` (`:8082`) backend API once funded.
 
 ---
 
-## 11. Phase 11 — "Sign in as..." Role-Based Multi-Vertical Dashboards & Modernized Navigation
+## 11. Phase 11 — The 9-Agent Command Center (`/agents`) & "Sign in as..." 7 Multi-Vertical Cockpits
 
-**Status: Planned (Core Product Pillar).**
+**Status: Active Next Priority (Step 1).**
 
-**Why:** Demonstrates that the underlying `SlainteScan` FastMCP tools, `SlainteFHIR` micro-EHR, `Slainte-Auditor` security verifier, and `SlainteEngine` autonomous loop form a universal clinical product that can be handed over to any healthcare organization. On sign-in, clinicians select **"Sign in as..."** (or sign in with their role profile) to launch a purpose-built dashboard and modernized navigation bar tailored to their exact specialty:
+**Why:** Unifies the entire stack around **SlainteTech AI Security Labs'** core differentiator: **9 specialized Security, Governance, and Clinical Agents** managed from a sidebar **"Agents"** Command Center (`/agents`) with per-agent settings, while keeping clinical copilots embedded directly on patient and intake screens and adapting the cockpit to **7 "Sign in as..." verticals**.
 
-### Specialty Frontends & Sign-In Roles
-- **Vertical A: Emergency Room (ED / Acute Triage Flagship):**
-  - Manchester Triage (MTS Cat 1–5), NEWS2 deterioration tracking, acute intake dropzone.
-- **Vertical B: General Practice (`GP`):**
-  - SOAP clinical notes interface (*Subjective, Objective, Assessment, Plan*).
-  - Irish HSE Chronic Disease Management (CDM) review forms (Diabetes, COPD, Hypertension).
-  - Repeat prescribing and NCCP two-week-wait cancer referral pathways.
-- **Vertical C: Dental Surgery & Periodontics (`Dentist`):**
-  - Interactive 32-tooth SVG Odontogram (FDI 11–48 adult / 51–85 pediatric) recording caries, restorations, and extractions via HTMX.
-  - 6-sextant Basic Periodontal Examination (BPE) matrix.
-  - Radiography ingestion via FastMCP for automated dental history extraction.
-- **Vertical D: Community & Hospital Pharmacy (`Pharmacy`):**
-  - Prescription dispensing queue (`MedicationRequest` / `MedicationDispense`), deterministic drug-allergy and drug-drug interaction verification, and Irish GMS reimbursement validation.
-- **Vertical E: Pre-Hospital Emergency Care (`Ambulance Driver` / Paramedic):**
-  - High-contrast mobile/tablet electronic Patient Care Report (ePCR), rapid field vital sign capture, hospital ETA pre-alert broadcast, and one-tap ED triage handoff.
-- **Vertical F: Sports Medicine & High Performance (`Elite Sports Group`):**
-  - Squad readiness & availability matrix, concussion assessment & return-to-play tracking (SCAT6), interactive MSK injury body map, and physiological load telemetry.
-- **Modernized Navigation Architecture:**
-  - Dynamic sidebar, top action bar, and role switcher that adapt navigation items, terminology subsets, and KPI cards to the active clinical vertical.
+### 11.1 The 9-Agent Autonomous Fleet (`/agents` Hub + Embedded Copilots)
+- **Squad A — Security & Red-Team (`SlainteShield`):**
+  1. **Agent 01: BOLA & Role-Boundary Red-Team Agent (`SlainteShield-BOLA`)** — Live Victim/Attacker cross-compartment (`CompartmentDefinition/Patient`) and cross-vertical probing using Dual-Phase Reflection ($\mathcal{M}$).
+  2. **Agent 02: FHIR R4 Conformance & Terminology Agent (`SlainteShield-FHIR`)** — SNOMED-CT, LOINC, UCUM, Irish GMS OID & `$validate` verification + OASIS SARIF v2.1.0 export.
+  3. **Agent 03: Software & CVE Vulnerability Agent (`SlainteShield-CVE`)** — Dependency pin audit, CSP/SRI header verification, and rate-limiter posture check.
+- **Squad B — Governance & Regulatory Privacy (`SlainteGov`):**
+  4. **Agent 04: GDPR & Clinical Privacy Agent (`SlainteGov-GDPR`)** — EU GDPR Art. 9 data minimisation, `AI_DEIDENTIFY` verification, `AI_ALLOW_REAL_PHI` gate, and salted pseudonymisation check.
+  5. **Agent 05: Immutable Clinical & AI Audit Agent (`SlainteGov-Audit`)** — Append-only trigger verification, live `ai_exchange` & `audit_log` viewer, `Provenance` SHA-256 verification, and signed snapshot export.
+- **Squad C — Clinical Intelligence & Ingestion (`SlainteClinical` — Managed in `/agents` + Embedded in App):**
+  6. **Agent 06: Multimodal Clinical Ingestion Agent (`SlainteEngine-Ingest`)** — Embedded on the Patients Intake Modal + `/data/raw` watcher.
+  7. **Agent 07: Patient Summariser & Handover Agent (`SlainteScribe-Brief`)** — Embedded directly on every **Patient Details** page (`POST /ai/summarise/<patient_id>`).
+  8. **Agent 08: Medication & Allergy Safety Agent (`SlainteRx-Guard`)** — Embedded in the **Intake Modal**, **Patient Details**, and **Pharmacy Cockpit** (`check_drug_allergy_contraindications`).
+  9. **Agent 09: Acuity Triage & Deterioration Agent (`SlainteDx-Triage`)** — Embedded in the **Live Triage Queue** and **Patient 24h NEWS2 Sparkline Card**.
+
+### 11.2 "Sign in as..." 7 Specialty Vertical Cockpits & Modernized Navigation
+- **Vertical 1: Emergency Department (`SlainteED`):** MTS Cat 1–5 live triage queue, 24h NEWS2 sparklines, acute intake dropzone.
+- **Vertical 2: General Practice (`SlainteGP`):** SOAP clinical notes, HSE Chronic Disease Management (CDM) tracking, repeat prescribing safety gate.
+- **Vertical 3: Dental Surgery (`SlainteDent`):** Pre-op allergy/anticoagulant clearance gate, interactive 32-tooth FDI Odontogram & 6-sextant BPE summary, dental referral ingestion.
+- **Vertical 4: Community & Hospital Pharmacy (`SlaintePharm`):** Prescription dispensing queue, deterministic Beta-Lactam/NSAID cross-reactivity gate, Irish GMS reimbursement validation.
+- **Vertical 5: Pre-Hospital Ambulance / EMS (`SlainteEMS`):** High-contrast field ePCR intake, rapid ambulance MTS/NEWS2 scoring, hospital ETA pre-alert handoff.
+- **Vertical 6: Elite Sports Club (`SlainteSport`):** Squad readiness & physiological load telemetry, concussion return-to-play `Provenance` clearance, BOLA-verified athlete privacy.
+- **Vertical 7: Astronaut Health Monitoring (`SlainteAstro`):** 100% air-gapped deep-space bio-telemetry running local 3B Ollama models + deterministic FastMCP diagnostics.
 
 ---
 
