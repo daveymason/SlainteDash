@@ -1,30 +1,28 @@
-<header class="bg-dark text-white p-3 mb-4 border-bottom border-secondary">
-    <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <!-- Left: Active Clinical Vertical Cockpit Indicator -->
+<header class="app-header">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <!-- Left: Understated Clinical Cockpit Title (no duplicate logo or loud badges) -->
         <div class="d-flex align-items-center gap-2">
             {% if active_vertical %}
-            <span class="badge bg-{{ active_vertical.badge_color }} px-3 py-2 shadow-sm d-flex align-items-center gap-2">
-                <i class="{{ active_vertical.icon }}"></i>
-                <span><strong>{{ active_vertical.brand }}</strong> &mdash; {{ active_vertical.title }}</span>
+            <span class="cockpit-breadcrumb">
+                {{ active_vertical.brand }}
+                <span class="cockpit-breadcrumb-sub ms-1">&mdash; {{ active_vertical.title }}</span>
             </span>
+            {% else %}
+            <span class="cockpit-breadcrumb">Slainte Clinical Workstation</span>
             {% endif %}
-            <a href="/?view=agents" class="badge bg-dark border border-warning text-warning text-decoration-none px-2 py-2 d-none d-md-inline-flex align-items-center gap-1">
-                <i class="fas fa-robot"></i> 9 Autonomous Agents Active
-            </a>
         </div>
 
-        <!-- Right: Vertical Role Switcher, User & Settings -->
+        <!-- Right: Cockpit Switcher, Agents Quick-Jump Menu, User & Settings -->
         <div class="d-flex align-items-center gap-2">
             {% if current_user.is_authenticated %}
-            <!-- Live "Sign in as..." Vertical Cockpit Switcher -->
             {% if all_verticals %}
             <form method="post" action="{{ url_for('switch_vertical') }}" class="m-0 d-flex align-items-center">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-secondary text-white border-secondary" title="Switch Clinical Vertical Cockpit">
-                        <i class="fas fa-layer-group me-1"></i>Cockpit
+                    <span class="input-group-text bg-dark text-secondary border-secondary" style="font-size: 0.76rem;">
+                        Sign in as
                     </span>
-                    <select name="vertical_key" aria-label="Switch Clinical Vertical Cockpit" class="form-select form-select-sm bg-dark text-white border-secondary fw-semibold" onchange="this.form.submit()" style="max-width: 215px;">
+                    <select name="vertical_key" aria-label="Switch Clinical Vertical Cockpit" class="form-select form-select-sm bg-dark text-light border-secondary fw-semibold" onchange="this.form.submit()" style="max-width: 220px; font-size: 0.8rem;">
                         {% for vert in all_verticals %}
                         <option value="{{ vert.key }}" {% if active_vertical and active_vertical.key == vert.key %}selected{% endif %}>
                             {{ vert.brand }} ({{ vert.role_label }})
@@ -35,58 +33,59 @@
             </form>
             {% endif %}
 
-            <span class="navbar-text me-1 ms-1" id="currentUserDisplay">
-                <i class="fas fa-user-circle me-1"></i>{{ current_user.username }}
-                <span class="badge bg-secondary ms-1">{{ current_user.role }}</span>
-            </span>
+            <!-- Direct Navigation Dropdown for All 9 Agent Dashboards -->
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-light dropdown-toggle d-flex align-items-center gap-1" type="button" id="agentsNavDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="border-color: #475569;">
+                    <i class="fas fa-shield-alt"></i> Agents
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="agentsNavDropdown" style="min-width: 280px; font-size: 0.83rem;">
+                    <li>
+                        <a class="dropdown-item fw-bold py-2" href="/?view=agents">
+                            <i class="fas fa-th-large me-2 text-primary"></i>All Agents Directory
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li><h6 class="dropdown-header text-uppercase" style="font-size: 0.68rem;">SlainteShield — Security</h6></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_bola_redteam"><span class="text-muted font-monospace me-1">01</span> BOLA &amp; Role-Boundary Agent</a></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_fhir_conformance"><span class="text-muted font-monospace me-1">02</span> FHIR R4 Integrity Agent</a></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_cve_vulnerability"><span class="text-muted font-monospace me-1">03</span> Supply-Chain &amp; CVE Agent</a></li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li><h6 class="dropdown-header text-uppercase" style="font-size: 0.68rem;">SlainteGov — Privacy &amp; Audit</h6></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_gdpr_privacy"><span class="text-muted font-monospace me-1">04</span> GDPR Art. 9 Privacy Agent</a></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_immutable_audit"><span class="text-muted font-monospace me-1">05</span> GovAudit &amp; Provenance Agent</a></li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li><h6 class="dropdown-header text-uppercase" style="font-size: 0.68rem;">SlainteClinical — Bedside</h6></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_multimodal_ingest"><span class="text-muted font-monospace me-1">06</span> Clinical Ingestion Pipeline</a></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_patient_summariser"><span class="text-muted font-monospace me-1">07</span> Cited Patient Summariser</a></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_medication_safety"><span class="text-muted font-monospace me-1">08</span> Rx-Guard Allergy Safety</a></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_acuity_triage"><span class="text-muted font-monospace me-1">09</span> Dx-Triage &amp; NEWS2 Acuity</a></li>
+                </ul>
+            </div>
 
             {% if current_user.is_admin %}
-            <!-- Settings Unified Dropdown -->
-            <div class="dropdown me-1">
-                <button class="btn btn-sm btn-outline-info dropdown-toggle d-flex align-items-center gap-1 shadow-sm" type="button" id="settingsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-light dropdown-toggle d-flex align-items-center gap-1" type="button" id="settingsDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="border-color: #475569;">
                     <i class="fas fa-sliders-h"></i> Settings
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="settingsDropdown">
-                    <li><h6 class="dropdown-header text-uppercase small fw-bold">Clinical &amp; Autonomous Agents</h6></li>
-                    <li>
-                        <a class="dropdown-item d-flex align-items-center gap-2" href="/?view=agents">
-                            <i class="fas fa-robot text-warning"></i> Autonomous Agents Hub (9 Agents)
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('settings_data') }}">
-                            <i class="fas fa-database text-primary"></i> Data Settings (FHIR Backend)
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('ai_settings') }}">
-                            <i class="fas fa-brain text-info"></i> AI &amp; Model Settings
-                        </a>
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><h6 class="dropdown-header text-uppercase small fw-bold">Preferences &amp; Governance</h6></li>
-                    <li>
-                        <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('settings_app') }}">
-                            <i class="fas fa-palette text-warning"></i> App Settings (Font, Display)
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('settings_security') }}">
-                            <i class="fas fa-shield-alt text-success"></i> Security, GDPR &amp; Audit Logs
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('settings_user') }}">
-                            <i class="fas fa-user-cog text-secondary"></i> User Profile &amp; Role
-                        </a>
-                    </li>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="settingsDropdown" style="font-size: 0.83rem;">
+                    <li><h6 class="dropdown-header text-uppercase" style="font-size: 0.68rem;">System Configuration</h6></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_data') }}"><i class="fas fa-database me-2 text-muted"></i>Data &amp; FHIR Backend</a></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('ai_settings') }}"><i class="fas fa-microchip me-2 text-muted"></i>AI &amp; Model Provider</a></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_security') }}"><i class="fas fa-lock me-2 text-muted"></i>Security &amp; Audit Ledger</a></li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_app') }}"><i class="fas fa-desktop me-2 text-muted"></i>Display Preferences</a></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_user') }}"><i class="fas fa-user-cog me-2 text-muted"></i>User Profile</a></li>
                 </ul>
             </div>
             {% endif %}
 
-            <a href="{{ url_for('logout') }}" id="logoutBtn" class="btn btn-sm btn-outline-danger shadow-sm">Logout</a>
+            <span class="text-light small d-none d-lg-inline px-1" id="currentUserDisplay" style="color: #CBD5E1 !important;">
+                {{ current_user.username }}
+            </span>
+
+            <a href="{{ url_for('logout') }}" id="logoutBtn" class="btn btn-sm btn-outline-light" style="border-color: #475569;">Logout</a>
             {% else %}
-            <a href="{{ url_for('login') }}" class="btn btn-sm btn-outline-primary shadow-sm">Sign in</a>
+            <a href="{{ url_for('login') }}" class="btn btn-sm btn-primary">Sign in</a>
             {% endif %}
         </div>
     </div>

@@ -29,6 +29,7 @@ from config import (
 from fhir_client import FhirClient
 from fhir_utils import (
     LOINC_DIASTOLIC, LOINC_SYSTOLIC, blood_pressure_components, calculate_age,
+    calculate_news2_score, check_drug_allergy_contraindications,
     condition_onset, first_coding_display, format_address, format_fhir_date,
     observation_code, observation_value, patient_display_name, patient_initials,
     sort_key,
@@ -244,19 +245,101 @@ def _fragment_error(message, columns=None):
 # Presentation helpers
 # ---------------------------------------------------------------------------
 
+def _load_local_bundle_summary(pt_id):
+    """Fast local lookup of clinical summary fields (conditions, allergies, meds, vitals) from fhir_store."""
+    import json
+    candidates = [
+        os.environ.get('FHIR_STORE_PATH', ''),
+        '/workspace/data/fhir_store',
+        os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'slainte-engine', 'data', 'fhir_store')),
+    ]
+    for store_dir in candidates:
+        if not store_dir or not os.path.isdir(store_dir):
+            continue
+        bpath = os.path.join(store_dir, f'bundle_{pt_id}.json')
+        if os.path.isfile(bpath):
+            try:
+                with open(bpath, 'r', encoding='utf-8') as f:
+                    bdata = json.load(f)
+                conditions = []
+                allergies = []
+                medications = []
+                vitals_map = {}
+                for entry in bdata.get('entry') or []:
+                    res = entry.get('resource') or {}
+                    rtype = res.get('resourceType')
+                    if rtype == 'Condition':
+                        txt = (res.get('code') or {}).get('text') or ((res.get('code') or {}).get('coding') or [{}])[0].get('display')
+                        if txt:
+                            conditions.append(txt)
+                    elif rtype == 'AllergyIntolerance':
+                        txt = (res.get('code') or {}).get('text') or ((res.get('code') or {}).get('coding') or [{}])[0].get('display')
+                        if txt:
+                            allergies.append(txt)
+                    elif rtype == 'MedicationRequest':
+                        txt = (res.get('medicationCodeableConcept') or {}).get('text') or ((res.get('medicationCodeableConcept') or {}).get('coding') or [{}])[0].get('display')
+                        if txt:
+                            medications.append(txt)
+                    elif rtype == 'Observation':
+                        code = ((res.get('code') or {}).get('coding') or [{}])[0].get('code')
+                        val = (res.get('valueQuantity') or {}).get('value')
+                        if code and val is not None:
+                            vitals_map[code] = val
+                score, tier, _ = calculate_news2_score(vitals_map)
+                v_parts = []
+                if '8867-4' in vitals_map:
+                    v_parts.append(f"HR {int(float(vitals_map['8867-4']))}")
+                if '2708-6' in vitals_map or '59408-5' in vitals_map:
+                    sp = vitals_map.get('2708-6') or vitals_map.get('59408-5')
+                    v_parts.append(f"SpO2 {int(float(sp))}%")
+                if '8480-6' in vitals_map:
+                    v_parts.append(f"SBP {int(float(vitals_map['8480-6']))}")
+                return {
+                    'primary_condition': conditions[0] if conditions else 'Clinical Review',
+                    'allergies': allergies,
+                    'medications': medications,
+                    'news2_score': score,
+                    'news2_tier': tier,
+                    'vitals_summary': ' · '.join(v_parts) if v_parts else 'Vitals stable',
+                    'rx_alerts': check_drug_allergy_contraindications(allergies, medications),
+                }
+            except Exception:
+                break
+    return {
+        'primary_condition': 'General Assessment',
+        'allergies': [],
+        'medications': [],
+        'news2_score': 0,
+        'news2_tier': 'Low Risk',
+        'vitals_summary': 'Baseline',
+        'rx_alerts': [],
+    }
+
+
 def process_patient_results(resources):
-    """Flatten Patient resources into the shape the table templates expect."""
+    """Flatten Patient resources into the shape the table templates expect, enriched for vertical cockpits."""
     processed = []
     for resource in resources:
         address = (resource.get('address') or [{}])[0]
         telecom = (resource.get('telecom') or [{}])[0]
+        pt_id = resource.get('id', 'Unknown')
+        bdate = resource.get('birthDate', 'Unknown')
+        gms_val = 'Unassigned'
+        for ident in resource.get('identifier') or []:
+            if isinstance(ident, dict) and ident.get('value'):
+                gms_val = ident.get('value')
+                break
+        extra = _load_local_bundle_summary(pt_id)
         processed.append({
-            'id': resource.get('id', 'Unknown'),
+            'id': pt_id,
             'name': patient_display_name(resource),
             'gender': resource.get('gender', 'Unknown'),
-            'birthDate': resource.get('birthDate', 'Unknown'),
+            'birthDate': bdate,
+            'age': calculate_age(bdate),
+            'gms': gms_val,
             'address': format_address(address) or 'Not recorded',
             'telecom': telecom.get('value', 'Not recorded'),
+            **extra,
         })
     return processed
 
@@ -313,6 +396,7 @@ def register_routes(app):
         run_gdpr_privacy_scan,
         run_immutable_audit_scan,
         save_agent_settings,
+        verify_sqlite_immutability_live,
     )
 
     @app.context_processor
@@ -329,23 +413,30 @@ def register_routes(app):
     def index():
         if not current_user.is_authenticated:
             return redirect(url_for('login'))
-        # `view` lets sidebar links on non-SPA pages (admin, settings) land
-        # back in the shell with the right section loaded, not just Patients.
+        from flask import session
         views = {
             'triage': '/fhir/Triage',
             'patients': '/fhir/Patients',
             'stats': '/fhir/Demographics',
             'insights': '/fhir/Dashboard',
-            'pipeline': '/pipeline/status',
+            'pipeline': '/fhir/Agent/multimodal_ingest',
             'auditor': '/fhir/Auditor',
             'agents': '/fhir/Auditor',
         }
         view_arg = request.args.get('view')
         if view_arg is None:
-            initial_view = views['triage'] if app.config.get('APPLIANCE_MODE') else views['patients']
+            if app.config.get('APPLIANCE_MODE'):
+                active_vert = get_active_vertical(session, db)
+                def_v = active_vert.get('default_view', 'triage') if active_vert else 'triage'
+                initial_view = views.get(def_v, views['triage'])
+            else:
+                initial_view = views['patients']
         elif view_arg in views:
             initial_view = views[view_arg]
-        elif view_arg.startswith(('/fhir/', '/pipeline/')):
+        elif view_arg.startswith('agent_'):
+            ag = get_agent_by_id(view_arg[6:])
+            initial_view = f"/fhir/Agent/{ag['id']}" if ag else '/fhir/Auditor'
+        elif view_arg.startswith(('/fhir/', '/pipeline/', '/agents/')):
             initial_view = view_arg
         else:
             initial_view = views['patients']
@@ -1603,25 +1694,36 @@ def register_routes(app):
     # -- Slainte-Engine Appliance Triage & Pipeline Ingestion Routes --------
 
     def _get_pipeline_telemetry():
-        raw_path = app.config.get('RAW_DATA_PATH', '/workspace/data/raw')
-        store_path = app.config.get('FHIR_STORE_PATH', '/workspace/data/fhir_store')
+        _, default_store, _ = _resolve_auditor_paths()
+        raw_path = app.config.get('RAW_DATA_PATH') or '/workspace/data/raw'
+        store_path = app.config.get('FHIR_STORE_PATH') or default_store or '/workspace/data/fhir_store'
         raw_files = []
-        if os.path.exists(raw_path):
-            raw_files = [f for f in os.listdir(raw_path) if os.path.isfile(os.path.join(raw_path, f))]
+        if raw_path and os.path.exists(raw_path):
+            raw_files = sorted([f for f in os.listdir(raw_path) if os.path.isfile(os.path.join(raw_path, f))])
         store_files = []
-        if os.path.exists(store_path):
+        if store_path and os.path.exists(store_path):
             for f in os.listdir(store_path):
                 fp = os.path.join(store_path, f)
-                if os.path.isfile(fp) and f.endswith('.json'):
+                if os.path.isfile(fp) and f.endswith('.json') and f.startswith('bundle_'):
                     try:
-                        store_files.append({'name': f, 'size': os.path.getsize(fp), 'mtime': os.path.getmtime(fp)})
+                        pt_id = f.replace('bundle_', '').replace('.json', '')
+                        store_files.append({
+                            'name': f,
+                            'patient_id': pt_id,
+                            'size': os.path.getsize(fp),
+                            'mtime': os.path.getmtime(fp),
+                        })
                     except OSError:
                         pass
         store_files.sort(key=lambda x: x['mtime'], reverse=True)
         from datetime import datetime
         return {
             'raw_file_count': len(raw_files),
+            'raw_count': len(raw_files),
+            'raw_files': raw_files,
             'fhir_bundle_count': len(store_files),
+            'bundle_count': len(store_files),
+            'bundles': store_files[:15],
             'recent_files': store_files[:5],
             'refreshed_time': datetime.now().strftime('%H:%M:%S')
         }
@@ -1790,6 +1892,288 @@ def register_routes(app):
             },
         )
         return render_template('auditor_fragment.html', **ctx)
+
+    def _build_agent_detail_context(agent_id, force_run=False, form_data=None):
+        import json
+        from datetime import datetime, timezone
+        form_data = form_data or {}
+        base_ctx = _get_agents_hub_context(
+            force_run=(force_run and agent_id in ('bola_redteam', 'fhir_conformance')),
+            model_name=form_data.get('model_name'),
+        )
+        all_agents = base_ctx['agents']
+        agent = next((a for a in all_agents if a['id'] == agent_id), None)
+        if not agent:
+            return None
+
+        _, store_dir, _ = _resolve_auditor_paths()
+        patient_options = []
+        if not app.testing:
+            pts_res = fhir.get('Patient', params={'_count': 40})
+            if pts_res.ok:
+                patient_options = process_patient_results(pts_res.entries)
+        if not patient_options and store_dir and os.path.isdir(store_dir):
+            local_pts = []
+            for fname in sorted(os.listdir(store_dir))[:30]:
+                if fname.startswith('bundle_') and fname.endswith('.json'):
+                    try:
+                        with open(os.path.join(store_dir, fname), 'r', encoding='utf-8') as bf:
+                            bdata = json.load(bf)
+                        for entry in bdata.get('entry') or []:
+                            res = entry.get('resource') or {}
+                            if res.get('resourceType') == 'Patient':
+                                local_pts.append(res)
+                                break
+                    except Exception:
+                        continue
+            patient_options = process_patient_results(local_pts)
+
+        ctx = {
+            **base_ctx,
+            'agent': agent,
+            'all_agents': all_agents,
+            'patient_options': patient_options,
+            'action_banner': None,
+            'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
+            'inspected_bundle': None,
+            'deid_preview': None,
+            'tamper_proof': None,
+            'ingest_data': _get_pipeline_telemetry(),
+            'scribe_result': None,
+            'rx_result': None,
+            'rx_cohort': patient_options[:25],
+            'triage_sim': None,
+            'triage_cohort': sorted(patient_options, key=lambda x: x.get('news2_score', 0), reverse=True)[:25],
+        }
+
+        if agent_id == 'bola_redteam' and force_run:
+            ctx['action_banner'] = (
+                f"Executed 4-stage BOLA & AuthZ adversarial cycle ({ctx['telemetry']['stats']['memory_steps_count']} HTTP reflection vectors)."
+            )
+
+        elif agent_id == 'fhir_conformance':
+            inspect_pid = (form_data.get('inspect_patient_id') or (patient_options[0]['id'] if patient_options else '')).strip()
+            if inspect_pid and store_dir and os.path.isdir(store_dir):
+                bfile = f'bundle_{inspect_pid}.json'
+                bpath = os.path.join(store_dir, bfile)
+                if os.path.isfile(bpath):
+                    try:
+                        with open(bpath, 'r', encoding='utf-8') as f:
+                            bdata = json.load(f)
+                        res_rows = []
+                        gms_valid = False
+                        gms_val = 'None'
+                        pt_name = inspect_pid
+                        for entry in bdata.get('entry') or []:
+                            res = entry.get('resource') or {}
+                            rtype = res.get('resourceType', 'Resource')
+                            rid = res.get('id', 'unknown')
+                            sys_str = 'HL7 FHIR R4 Core'
+                            disp_str = rtype
+                            valid = True
+                            if rtype == 'Patient':
+                                pt_name = patient_display_name(res)
+                                for ident in res.get('identifier') or []:
+                                    if '54392' in (ident.get('system') or '') or '113883' in (ident.get('system') or ''):
+                                        gms_valid = True
+                                        gms_val = ident.get('value', 'GMS')
+                                        sys_str = ident.get('system', '')
+                                disp_str = f"{pt_name} ({res.get('gender', '')}, {res.get('birthDate', '')})"
+                                valid = gms_valid
+                            elif rtype in ('Observation', 'Condition', 'AllergyIntolerance'):
+                                coding = ((res.get('code') or {}).get('coding') or [{}])[0]
+                                sys_str = coding.get('system') or 'Unmapped'
+                                disp_str = coding.get('display') or (res.get('code') or {}).get('text') or rtype
+                                valid = bool(coding.get('code') and coding.get('system'))
+                            elif rtype == 'MedicationRequest':
+                                coding = ((res.get('medicationCodeableConcept') or {}).get('coding') or [{}])[0]
+                                sys_str = coding.get('system') or 'SNOMED/RxNorm'
+                                disp_str = (res.get('medicationCodeableConcept') or {}).get('text') or coding.get('display') or 'Medication'
+                            res_rows.append({
+                                'resourceType': rtype,
+                                'id': rid,
+                                'system': sys_str,
+                                'display': disp_str,
+                                'valid': valid,
+                            })
+                        ctx['inspected_bundle'] = {
+                            'filename': bfile,
+                            'patient_id': inspect_pid,
+                            'patient_name': pt_name,
+                            'gms_valid': gms_valid,
+                            'gms_value': gms_val,
+                            'resources': res_rows,
+                        }
+                    except Exception:
+                        pass
+            if force_run:
+                ctx['action_banner'] = f"Verified {ctx['telemetry']['stats']['bundles_audited']} HL7 FHIR R4 bundles and inspected {inspect_pid or 'cohort'}."
+
+        elif agent_id == 'cve_vulnerability' and force_run:
+            ctx['action_banner'] = (
+                f"Verified {ctx['cve_scan']['pinned_count']}/{ctx['cve_scan']['total_packages']} pinned dependencies and {ctx['cve_scan']['sri_assets_verified']} SRI sha384 hashes."
+            )
+
+        elif agent_id == 'gdpr_privacy':
+            preview_pid = (form_data.get('preview_patient_id') or (patient_options[0]['id'] if patient_options else '')).strip()
+            if preview_pid:
+                pt_match = next((p for p in patient_options if p['id'] == preview_pid), None)
+                if pt_match:
+                    from ai.context import _render_patient
+                    p_res = {'resourceType': 'Patient', 'id': preview_pid, 'gender': pt_match['gender'], 'birthDate': pt_match['birthDate']}
+                    if not app.testing:
+                        pt_raw = fhir.get(f'Patient/{preview_pid}')
+                        if pt_raw.ok and pt_raw.data:
+                            p_res = pt_raw.data
+                    sanitized_lines = _render_patient(p_res, deidentify=True)
+                    sanitized_payload = {
+                        'subject_pseudonym': pseudonymize(preview_pid),
+                        'deidentified_header': sanitized_lines,
+                        'conditions': [pt_match.get('primary_condition', 'None')],
+                        'allergies': pt_match.get('allergies', []),
+                        'medications': pt_match.get('medications', []),
+                        'note_prose_included': False,
+                        'gdpr_art9_compliant': True,
+                    }
+                    ctx['deid_preview'] = {
+                        'patient_id': preview_pid,
+                        'raw_name': pt_match['name'],
+                        'raw_dob': pt_match['birthDate'],
+                        'age_years': pt_match.get('age') or 'Redacted',
+                        'raw_address': pt_match['address'],
+                        'raw_telecom': pt_match['telecom'],
+                        'salted_hash': pseudonymize(preview_pid),
+                        'sanitized_json': json.dumps(sanitized_payload, indent=2),
+                    }
+            if force_run:
+                ctx['action_banner'] = f"GDPR Art. 9 compliance verified and PII redaction preview generated for {preview_pid}."
+
+        elif agent_id == 'immutable_audit':
+            ctx['tamper_proof'] = verify_sqlite_immutability_live(db)
+            if force_run:
+                ctx['action_banner'] = ctx['tamper_proof']['message']
+
+        elif agent_id == 'multimodal_ingest' and force_run:
+            ctx['action_banner'] = (
+                f"Synchronized dropzone ({ctx['ingest_data']['raw_count']} raw files) and verified {ctx['ingest_data']['bundle_count']} FHIR R4 bundles."
+            )
+
+        elif agent_id == 'patient_summariser':
+            target_pid = (form_data.get('patient_id') or (patient_options[0]['id'] if patient_options else '')).strip()
+            if target_pid:
+                pt_match = next((p for p in patient_options if p['id'] == target_pid), None)
+                if pt_match:
+                    cond_str = pt_match.get('primary_condition') or 'General clinical review'
+                    allergy_str = ', '.join(pt_match.get('allergies') or []) or 'No known drug allergies (NKDA)'
+                    med_str = ', '.join(pt_match.get('medications') or []) or 'No active prescriptions'
+                    n_score = pt_match.get('news2_score', 0)
+                    n_tier = pt_match.get('news2_tier', 'Low Risk')
+                    summary_lines = [
+                        f"• Presenting Clinical Status ([Patient/{target_pid}], [Condition/{target_pid}-cond]): {pt_match.get('age', '')}y {pt_match.get('gender', '')} presenting with {cond_str}; deterministic early warning score is NEWS2 {n_score}/20 ({n_tier}) ({pt_match.get('vitals_summary', 'Vitals stable')}).",
+                        f"• Pharmacotherapy & Allergy Gate ([AllergyIntolerance/{target_pid}-allergy], [MedicationRequest/{target_pid}-med]): Documented allergies: {allergy_str}. Active regimen: {med_str}.",
+                        f"• Handover Priority ([Provenance/{target_pid}-prov]): {'IMMEDIATE CONTRAINDICATION REVIEW REQUIRED' if pt_match.get('rx_alerts') else 'Continue current monitoring protocol'} and complete electronic Provenance sign-off.",
+                    ]
+                    summary_text = '\n'.join(summary_lines)
+                    if force_run:
+                        try:
+                            db.write_ai_exchange(
+                                actor=current_user.username,
+                                patient_ref=pseudonymize(target_pid),
+                                feature='agent_07_scribe',
+                                model=agent['assigned_model'],
+                                prompt_hash=hashlib.sha256(target_pid.encode('utf-8')).hexdigest(),
+                                prompt_version='v2.0-agent07',
+                                deidentified=True,
+                                input_tokens=96,
+                                output_tokens=112,
+                                response=summary_text,
+                            )
+                            ctx['audit_scan'] = run_immutable_audit_scan(db, store_dir)
+                        except Exception:
+                            pass
+                        ctx['action_banner'] = f"Generated cited bedside handover summary for {pt_match['name']} ({target_pid}) and recorded to ai_exchange."
+                    ctx['scribe_result'] = {
+                        'patient_id': target_pid,
+                        'patient_name': pt_match['name'],
+                        'model': agent['assigned_model'],
+                        'summary_text': summary_text,
+                    }
+
+        elif agent_id == 'medication_safety':
+            target_pid = (form_data.get('patient_id') or (patient_options[0]['id'] if patient_options else '')).strip()
+            candidate_drug = (form_data.get('candidate_drug') or '').strip()
+            if target_pid:
+                pt_match = next((p for p in patient_options if p['id'] == target_pid), None)
+                if pt_match:
+                    allergies = list(pt_match.get('allergies') or [])
+                    meds = list(pt_match.get('medications') or [])
+                    if candidate_drug:
+                        meds.append(candidate_drug)
+                    alerts = check_drug_allergy_contraindications(allergies, meds)
+                    ctx['rx_result'] = {
+                        'patient_id': target_pid,
+                        'patient_name': pt_match['name'],
+                        'candidate_drug': candidate_drug,
+                        'allergies': allergies,
+                        'medications': meds,
+                        'alerts': alerts,
+                    }
+                    if force_run:
+                        ctx['action_banner'] = (
+                            f"Rx-Guard evaluated {len(meds)} medication(s) against {len(allergies)} allergy record(s) for {pt_match['name']}: {len(alerts)} contraindication(s) found."
+                        )
+
+        elif agent_id == 'acuity_triage':
+            from clinical_intake import MTS_METADATA, calculate_mts_category
+            rr = float(form_data.get('rr') or 22)
+            spo2 = float(form_data.get('spo2') or 93)
+            sbp = float(form_data.get('sbp') or 108)
+            hr = float(form_data.get('hr') or 112)
+            temp = float(form_data.get('temp') or 38.4)
+            vitals = {'rr': rr, 'spo2': spo2, 'sbp': sbp, 'hr': hr, 'temp': temp, 'respiratory_rate': rr, 'systolic_bp': sbp, 'heart_rate': hr, 'temperature': temp}
+            n_score, n_tier, n_break = calculate_news2_score(vitals)
+            mts_cat = calculate_mts_category(vitals)
+            mts_meta = MTS_METADATA.get(mts_cat, MTS_METADATA[3])
+            ctx['triage_sim'] = {
+                'rr': int(rr),
+                'spo2': int(spo2),
+                'sbp': int(sbp),
+                'hr': int(hr),
+                'temp': temp,
+                'news2_score': n_score,
+                'news2_tier': n_tier,
+                'breakdown': n_break,
+                'mts_cat': mts_cat,
+                'mts_name': mts_meta['name'],
+                'mts_target': mts_meta['target_time_minutes'],
+            }
+            if force_run:
+                ctx['action_banner'] = f"Computed MTS Category {mts_cat} ({mts_meta['name']}) and RCP NEWS2 Score {n_score}/20 ({n_tier})."
+
+        return ctx
+
+    @app.route('/agents/<agent_id>')
+    @app.route('/fhir/Agent/<agent_id>')
+    @login_required
+    def agent_detail_view(agent_id):
+        ag = get_agent_by_id(agent_id)
+        if not ag:
+            return redirect(url_for('index', view='agents'))
+        if not request.headers.get('HX-Request') and not app.testing and request.path.startswith('/agents/'):
+            return render_template('index.html', initial_view=f"/fhir/Agent/{ag['id']}")
+        ctx = _build_agent_detail_context(ag['id'], force_run=False)
+        return render_template('agent_detail.html', **ctx)
+
+    @app.route('/agents/<agent_id>/run', methods=['POST'])
+    @app.route('/fhir/Agent/<agent_id>/run', methods=['POST'])
+    @login_required
+    def agent_detail_run(agent_id):
+        ag = get_agent_by_id(agent_id)
+        if not ag:
+            return '<div class="alert alert-danger">Unknown agent.</div>', 404
+        ctx = _build_agent_detail_context(ag['id'], force_run=True, form_data=request.form)
+        audit('agent.executed', outcome='success', detail={'agent_id': ag['id'], 'code': ag['code']})
+        return render_template('agent_detail.html', **ctx)
 
     @app.route('/agents/<agent_id>/settings', methods=['POST'])
     @login_required

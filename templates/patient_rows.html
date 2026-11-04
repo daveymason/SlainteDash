@@ -1,20 +1,66 @@
-{# Rows only -- no <table> shell. This is what pagination appends into the
-   existing <tbody>: the Load More row replaces itself (outerHTML) with the
-   next page of rows plus, if there is more, a fresh Load More row. #}
+{# Rows only -- appended into #patients-table-body during pagination/search. #}
 {% for patient in patients %}
 <tr>
-    <td class="font-monospace small">{{ patient.id }}</td>
-    <td>{{ patient.name }}</td>
+    <td class="font-monospace small">
+        <div class="fw-bold">{{ patient.id }}</div>
+        {% if patient.gms and patient.gms != 'Unassigned' %}
+        <div class="text-muted" style="font-size: 0.72rem;">GMS: {{ patient.gms }}</div>
+        {% endif %}
+    </td>
+    <td class="fw-bold">{{ patient.name }}</td>
     <td>{{ patient.gender|capitalize }}</td>
-    <td>{{ patient.birthDate }}</td>
-    <td>{{ patient.address }}</td>
-    <td>{{ patient.telecom }}</td>
+    <td>
+        <div>{{ patient.birthDate }}</div>
+        {% if patient.age is not none %}
+        <small class="text-muted">{{ patient.age }} yrs</small>
+        {% endif %}
+    </td>
+    <td class="small">
+        {% if active_vertical and active_vertical.key == 'pharmacy' %}
+            <div class="fw-semibold">{{ patient.medications|join(', ') if patient.medications else 'No active prescriptions' }}</div>
+            {% if patient.rx_alerts %}
+            <span class="status-pill status-fail mt-1">{{ patient.rx_alerts|length }} Rx-Guard Alert</span>
+            {% else %}
+            <span class="status-pill status-pass mt-1">Rx-Guard Clear</span>
+            {% endif %}
+        {% elif active_vertical and active_vertical.key == 'dentist' %}
+            <div><strong>Condition:</strong> {{ patient.primary_condition or 'Routine Dental Exam' }}</div>
+            <div class="text-muted"><strong>Meds:</strong> {{ patient.medications|join(', ') if patient.medications else 'None' }}</div>
+        {% elif active_vertical and active_vertical.key == 'gp' %}
+            <div class="fw-semibold">{{ patient.primary_condition or 'General Consultation' }}</div>
+            <div class="text-muted">{{ patient.medications|length if patient.medications is defined else 0 }} Active Rx &bull; {{ patient.vitals_summary or 'Vitals on file' }}</div>
+        {% elif active_vertical and active_vertical.key in ('sports', 'astro') %}
+            <div class="font-monospace">{{ patient.vitals_summary or 'HR 72 · SpO2 99% · BP 120/78' }}</div>
+            <span class="status-pill {% if (patient.news2_score or 0) >= 5 %}status-warn{% else %}status-pass{% endif %} mt-1">
+                NEWS2: {{ patient.news2_score if patient.news2_score is defined else 0 }} ({{ patient.news2_tier or 'Optimal' }})
+            </span>
+        {% else %}
+            <div class="fw-semibold">{{ patient.primary_condition or 'General Assessment' }}</div>
+            {% if patient.news2_score is defined %}
+            <span class="status-pill {% if patient.news2_score >= 7 %}status-fail{% elif patient.news2_score >= 5 %}status-warn{% else %}status-neutral{% endif %} mt-1">
+                NEWS2 {{ patient.news2_score }} ({{ patient.news2_tier }})
+            </span>
+            {% endif %}
+        {% endif %}
+    </td>
+    <td class="small">
+        <div class="mb-1">
+            {% if patient.allergies %}
+                {% for al in patient.allergies %}
+                <span class="status-pill status-warn">{{ al }}</span>
+                {% endfor %}
+            {% else %}
+                <span class="status-pill status-neutral">NKDA</span>
+            {% endif %}
+        </div>
+        <div class="text-muted" style="font-size: 0.75rem;">{{ patient.address }} &bull; {{ patient.telecom }}</div>
+    </td>
     <td>
         <button class="btn btn-sm btn-primary"
                 hx-get="/fhir/Patient/{{ patient.id }}"
                 hx-target="#content"
                 hx-swap="innerHTML transition:true">
-            View Details <i class="fas fa-arrow-right"></i>
+            View Details <i class="fas fa-arrow-right ms-1"></i>
         </button>
     </td>
 </tr>

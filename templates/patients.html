@@ -1,11 +1,67 @@
+<!-- Cockpit-Adaptive Clinical Patient Roster -->
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h2 class="text-primary mb-0"><i class="fas fa-users me-2"></i>Patients</h2>
     <div>
-        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#intakeModal" id="addPatientBtn">
-            <i class="fas fa-user-plus me-1"></i> Add Patient / Ingest
+        <div class="d-flex align-items-center gap-2 mb-1">
+            {% if active_vertical %}
+            <span class="status-pill status-neutral"><i class="{{ active_vertical.icon }} me-1"></i>{{ active_vertical.brand }}</span>
+            <span class="text-muted small">{{ active_vertical.role_label }}</span>
+            {% endif %}
+        </div>
+        <h2 class="h4 fw-bold text-dark mb-0">
+            {% if active_vertical and active_vertical.key == 'gp' %}
+                Primary Care &amp; Chronic Disease Management (CDM) Roster
+            {% elif active_vertical and active_vertical.key == 'dentist' %}
+                Dental Surgery &amp; Pre-Operative Medical Clearance Roster
+            {% elif active_vertical and active_vertical.key == 'pharmacy' %}
+                Clinical Dispensing &amp; Pharmacotherapy Verification Queue
+            {% elif active_vertical and active_vertical.key == 'sports' %}
+                First-Team Squad Medical &amp; Physiological Readiness Roster
+            {% elif active_vertical and active_vertical.key == 'astro' %}
+                Orbital Crew Bio-Telemetry &amp; Medical Roster
+            {% elif active_vertical and active_vertical.key == 'ems' %}
+                Pre-Hospital ePCR &amp; Receiving ED Handover Roster
+            {% else %}
+                Patients &amp; Clinical Records
+            {% endif %}
+        </h2>
+    </div>
+    <div class="d-flex gap-2">
+        {% if active_vertical and active_vertical.key in ('pharmacy', 'dentist') %}
+        <a href="/?view=agent_medication_safety"
+           hx-get="/fhir/Agent/medication_safety"
+           hx-push-url="/?view=agent_medication_safety"
+           hx-target="#content"
+           class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-pills me-1"></i>Rx-Guard Safety Console
+        </a>
+        {% elif active_vertical and active_vertical.key == 'gp' %}
+        <a href="/?view=agent_patient_summariser"
+           hx-get="/fhir/Agent/patient_summariser"
+           hx-push-url="/?view=agent_patient_summariser"
+           hx-target="#content"
+           class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-notes-medical me-1"></i>Cited Handover Scribe
+        </a>
+        {% endif %}
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#intakeModal" id="addPatientBtn">
+            <i class="fas fa-user-plus me-1"></i>Add Patient / Ingest
         </button>
     </div>
 </div>
+
+{% if active_vertical %}
+<div class="row g-3 mb-3">
+    {% for kpi in active_vertical.kpis %}
+    <div class="col-12 col-md-4">
+        <div class="clinical-kpi py-2 px-3">
+            <div class="clinical-kpi-label">{{ kpi.label }}</div>
+            <div class="clinical-kpi-value" style="font-size: 1.1rem;">{{ kpi.value }}</div>
+            <div class="clinical-kpi-sub">{{ kpi.sub }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 
 {% if error %}
 <div class="alert alert-danger">
@@ -14,11 +70,11 @@
 </div>
 {% endif %}
 
-<div class="row mb-3">
+<div class="row mb-3 align-items-center">
     <div class="col-md-6">
-        <div class="input-group">
+        <div class="input-group input-group-sm">
             <input type="search" id="patient-search" name="q" class="form-control"
-                   placeholder="Search by name, ID, identifier, birthdate or phone..."
+                   placeholder="Search by name, ID, GMS identifier, birthdate or phone..."
                    aria-label="Search patients"
                    hx-post="/fhir/search_patients"
                    hx-trigger="keyup changed delay:500ms, search"
@@ -26,19 +82,21 @@
                    hx-swap="innerHTML"
                    hx-include="#current-sort"
                    hx-indicator="#search-indicator">
-            <span class="input-group-text">
-                <i class="fas fa-search"></i>
+            <span class="input-group-text bg-white">
+                <i class="fas fa-search text-muted"></i>
                 <span id="search-indicator" class="htmx-indicator spinner-border spinner-border-sm ms-2" role="status"></span>
             </span>
         </div>
     </div>
     {% if total is not none %}
-    <div class="col-md-6 d-flex align-items-center justify-content-md-end text-muted">
+    <div class="col-md-6 d-flex align-items-center justify-content-md-end text-muted mt-2 mt-md-0">
         <small>{{ total }} patients on the record server</small>
     </div>
     {% endif %}
 </div>
 
-<div class="table-responsive" id="patients-table-wrapper">
-    {% include "patient_table_body.html" %}
+<div class="card mb-0">
+    <div class="table-responsive" id="patients-table-wrapper">
+        {% include "patient_table_body.html" %}
+    </div>
 </div>

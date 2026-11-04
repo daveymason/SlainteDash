@@ -24,10 +24,12 @@
 
     function syncActiveNav() {
         var params = new URLSearchParams(window.location.search);
-        var currentView = params.get('view') || (window.location.pathname === '/agents' ? 'agents' : 'triage');
+        var currentView = params.get('view') || (window.location.pathname.indexOf('/agents') === 0 ? 'agents' : 'patients');
+        if (currentView.indexOf('agent_') === 0) {
+            currentView = 'agents';
+        }
         document.querySelectorAll('.sidebar .nav-link').forEach(function (link) {
             var href = link.getAttribute('href') || '';
-            var target = link.getAttribute('hx-get') || '';
             var view = link.getAttribute('data-view') || '';
             var isMatch = (href.indexOf('view=' + currentView) !== -1) || (view === currentView);
             link.classList.toggle('active', isMatch);
@@ -55,17 +57,20 @@
     window.addEventListener('popstate', function () {
         syncActiveNav();
         var params = new URLSearchParams(window.location.search);
-        var currentView = params.get('view') || (window.location.pathname === '/agents' ? 'agents' : 'triage');
+        var currentView = params.get('view') || (window.location.pathname === '/agents' ? 'agents' : 'patients');
         var views = {
             'triage': '/fhir/Triage',
             'agents': '/fhir/Auditor',
             'auditor': '/fhir/Auditor',
-            'pipeline': '/pipeline/status',
+            'pipeline': '/fhir/Agent/multimodal_ingest',
             'patients': '/fhir/Patients',
             'stats': '/fhir/Demographics',
             'insights': '/fhir/Dashboard'
         };
         var targetUrl = views[currentView];
+        if (!targetUrl && currentView.indexOf('agent_') === 0) {
+            targetUrl = '/fhir/Agent/' + currentView.substring(6);
+        }
         var content = document.getElementById('content');
         if (content && targetUrl && window.htmx) {
             window.htmx.ajax('GET', targetUrl, { target: '#content', swap: 'innerHTML' });

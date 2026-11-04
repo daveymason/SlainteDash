@@ -2,57 +2,75 @@
 {%- if total and total > 0 -%}{{ "%.1f"|format(count / total * 100) }}%{%- else -%}&ndash;{%- endif -%}
 {%- endmacro %}
 
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-            <h2 class="text-primary mb-0">
-                {% if active_vertical %}
-                <i class="{{ active_vertical.icon }} me-2"></i>{{ active_vertical.brand }} &mdash; {{ active_vertical.title }}
-                {% else %}
-                <i class="fas fa-chart-bar"></i> Dashboard
-                {% endif %}
-            </h2>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h2 class="h4 fw-bold text-dark mb-1">
             {% if active_vertical %}
-            <span class="badge bg-{{ active_vertical.badge_color }} px-3 py-2">
-                Role Profile: {{ active_vertical.role_label }}
-            </span>
+            {{ active_vertical.brand }} &mdash; {{ active_vertical.title }}
+            {% else %}
+            Clinical Overview
             {% endif %}
-        </div>
+        </h2>
+        {% if active_vertical %}
+        <p class="text-muted small mb-0">{{ active_vertical.tagline }}</p>
+        {% endif %}
     </div>
+    {% if active_vertical %}
+    <span class="status-pill status-neutral">
+        <i class="{{ active_vertical.icon }} me-1"></i>Role: {{ active_vertical.role_label }}
+    </span>
+    {% endif %}
 </div>
 
 {% if active_vertical %}
-<!-- Phase 11: Multi-Vertical Specialty Cockpit Card -->
-<div class="card border-0 shadow-sm mb-4 border-start border-{{ active_vertical.badge_color }} border-4">
-    <div class="card-header bg-dark text-white d-flex flex-wrap justify-content-between align-items-center py-2">
-        <span><i class="{{ active_vertical.icon }} text-info me-2"></i><strong>{{ active_vertical.specialty_panel_title }}</strong></span>
-        <a href="/?view=agents" class="badge bg-warning text-dark text-decoration-none">
-            <i class="fas fa-robot me-1"></i>{{ active_vertical.active_agents|length }} Autonomous Agents Assigned
+<div class="card mb-4">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center py-2">
+        <span><i class="{{ active_vertical.icon }} text-primary me-2"></i>{{ active_vertical.specialty_panel_title }}</span>
+        <a href="/?view=agents"
+           hx-get="/fhir/Auditor"
+           hx-push-url="/?view=agents"
+           hx-target="#content"
+           class="btn btn-sm btn-outline-primary py-0 px-2">
+            Open Agents Directory ({{ active_vertical.active_agents|length }} Bound) &rarr;
         </a>
     </div>
-    <div class="card-body p-3">
-        <p class="text-muted small mb-3">{{ active_vertical.tagline }}</p>
+    <div class="card-body">
         <div class="row g-3 mb-3">
             {% for kpi in active_vertical.kpis %}
             <div class="col-md-4">
-                <div class="p-3 rounded bg-light border h-100">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem;">{{ kpi.label }}</span>
-                        <i class="{{ kpi.icon }} text-{{ active_vertical.badge_color }}"></i>
-                    </div>
-                    <div class="h5 fw-bold text-dark mb-0">{{ kpi.value }}</div>
-                    <div class="small text-muted" style="font-size: 0.76rem;">{{ kpi.sub }}</div>
+                <div class="clinical-kpi">
+                    <div class="clinical-kpi-label">{{ kpi.label }}</div>
+                    <div class="clinical-kpi-value" style="font-size: 1.2rem;">{{ kpi.value }}</div>
+                    <div class="clinical-kpi-sub">{{ kpi.sub }}</div>
                 </div>
             </div>
             {% endfor %}
         </div>
-        <div class="small">
-            <strong class="text-dark"><i class="fas fa-check-double text-success me-1"></i>Active Vertical Clinical &amp; Security Guardrails:</strong>
-            <ul class="mb-0 mt-1 ps-3 text-secondary">
-                {% for hl in active_vertical.specialty_highlights %}
-                <li>{{ hl }}</li>
-                {% endfor %}
-            </ul>
+        <div class="row g-3 align-items-center">
+            <div class="col-lg-7 small">
+                <strong class="text-dark">Cockpit Operational Protocols:</strong>
+                <ul class="mb-0 mt-1 ps-3 text-secondary">
+                    {% for hl in active_vertical.specialty_highlights %}
+                    <li>{{ hl }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-lg-5">
+                <div class="p-2 rounded bg-light border small">
+                    <div class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.68rem;">Quick Launch Cockpit Agents</div>
+                    <div class="d-flex flex-wrap gap-1">
+                        {% for ag_id in active_vertical.active_agents %}
+                        <a href="/?view=agent_{{ ag_id }}"
+                           hx-get="/fhir/Agent/{{ ag_id }}"
+                           hx-push-url="/?view=agent_{{ ag_id }}"
+                           hx-target="#content"
+                           class="btn btn-sm btn-outline-secondary py-1 px-2" style="font-size: 0.74rem;">
+                            {{ ag_id.replace('_', ' ')|title }} &rarr;
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -65,102 +83,69 @@
 </div>
 {% endif %}
 
-<div class="row">
-    <div class="col-md-4 mb-4">
-        <div class="card border-left-primary h-100">
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100 mb-0">
             <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                            Patients
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            {% if patient_count is not none %}{{ patient_count }}{% else %}&ndash;{% endif %}
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-users fa-2x text-gray-300"></i>
-                    </div>
-                </div>
+                <div class="clinical-kpi-label">Registered Patients</div>
+                <div class="clinical-kpi-value">{% if patient_count is not none %}{{ patient_count }}{% else %}&ndash;{% endif %}</div>
             </div>
-            <div class="card-footer bg-light">
-                <a href="#" class="text-decoration-none" hx-get="/fhir/Patients" hx-target="#content">
-                    <i class="fas fa-arrow-right"></i> View Patients
+            <div class="card-footer py-2">
+                <a href="/?view=patients" class="text-decoration-none small fw-bold" hx-get="/fhir/Patients" hx-push-url="/?view=patients" hx-target="#content">
+                    Open Patient Roster <i class="fas fa-arrow-right ms-1"></i>
                 </a>
             </div>
         </div>
     </div>
 
-    <div class="col-md-4 mb-4">
-        <div class="card border-left-success h-100">
+    <div class="col-md-4">
+        <div class="card h-100 mb-0">
             <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                            Observations
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">
-                            {% if observation_count is not none %}{{ observation_count }}{% else %}&ndash;{% endif %}
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
-                    </div>
-                </div>
+                <div class="clinical-kpi-label">Clinical Observations</div>
+                <div class="clinical-kpi-value">{% if observation_count is not none %}{{ observation_count }}{% else %}&ndash;{% endif %}</div>
             </div>
-            <div class="card-footer bg-light">
-                <a href="#" class="text-decoration-none" hx-get="/fhir/Demographics" hx-target="#content">
-                    <i class="fas fa-arrow-right"></i> View Stats
+            <div class="card-footer py-2">
+                <a href="/?view=stats" class="text-decoration-none small fw-bold" hx-get="/fhir/Demographics" hx-push-url="/?view=stats" hx-target="#content">
+                    View Demographics <i class="fas fa-arrow-right ms-1"></i>
                 </a>
             </div>
         </div>
     </div>
 
-    <div class="col-md-4 mb-4">
-        <div class="card border-left-info h-100">
+    <div class="col-md-4">
+        <div class="card h-100 mb-0">
             <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                            Record Server
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold {% if fhir_reachable %}text-success{% else %}text-danger{% endif %}">
-                            {% if fhir_reachable %}Reachable{% else %}Unreachable{% endif %}
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-server fa-2x text-gray-300"></i>
-                    </div>
+                <div class="clinical-kpi-label">FHIR R4 Record Server</div>
+                <div class="clinical-kpi-value {% if fhir_reachable %}text-success{% else %}text-danger{% endif %}" style="font-size: 1.2rem;">
+                    {% if fhir_reachable %}Online &amp; Verified{% else %}Unreachable{% endif %}
                 </div>
             </div>
-            <div class="card-footer bg-light">
-                <a href="{{ fhir_server_url }}" class="text-decoration-none" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-external-link-alt"></i> FHIR Server
+            <div class="card-footer py-2">
+                <a href="{{ fhir_server_url }}" class="text-decoration-none small fw-bold" target="_blank" rel="noopener noreferrer">
+                    Inspect FHIR Endpoint <i class="fas fa-external-link-alt ms-1"></i>
                 </a>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h6 class="m-0 font-weight-bold">Recent Patients</h6>
-            </div>
-            <div class="card-body">
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card mb-0 h-100">
+            <div class="card-header py-2">Recent Patients</div>
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-sm mb-0">
-                        <thead>
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
                             <tr><th>ID</th><th>Name</th><th>Action</th></tr>
                         </thead>
                         <tbody>
                             {% for patient in recent_patients %}
                             <tr>
                                 <td class="font-monospace small">{{ patient.id }}</td>
-                                <td>{{ patient.name }}</td>
+                                <td class="fw-semibold">{{ patient.name }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary"
+                                    <button class="btn btn-sm btn-outline-primary py-0 px-2"
                                             hx-get="/fhir/Patient/{{ patient.id }}"
                                             hx-target="#content">
                                         View
@@ -177,18 +162,15 @@
         </div>
     </div>
 
-    <div class="col-md-6 mb-4">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h6 class="m-0 font-weight-bold">
-                    Gender Distribution
-                    <small class="fw-normal">(sample of {{ sampled_count }})</small>
-                </h6>
+    <div class="col-md-6">
+        <div class="card mb-0 h-100">
+            <div class="card-header py-2">
+                Gender Distribution <small class="text-muted fw-normal">(sample of {{ sampled_count }})</small>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-sm mb-0">
-                        <thead>
+                        <thead class="table-light">
                             <tr><th>Gender</th><th>Count</th><th>Percentage</th></tr>
                         </thead>
                         <tbody>

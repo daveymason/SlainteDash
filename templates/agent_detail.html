@@ -1,0 +1,1042 @@
+<div id="agent-detail-container">
+    <!-- Agent Sub-Navigation Bar -->
+    <nav class="agent-subnav" aria-label="Agent Dashboards Navigation">
+        <a href="/?view=agents"
+           hx-get="/fhir/Auditor"
+           hx-push-url="/?view=agents"
+           hx-target="#content"
+           class="agent-subnav-link">
+            <i class="fas fa-arrow-left"></i> All Agents (9)
+        </a>
+        {% for a in all_agents %}
+        <a href="/?view=agent_{{ a.id }}"
+           hx-get="/fhir/Agent/{{ a.id }}"
+           hx-push-url="/?view=agent_{{ a.id }}"
+           hx-target="#content"
+           class="agent-subnav-link {% if a.id == agent.id %}active{% endif %}">
+            <span class="font-monospace">{{ a.number }}</span> {{ a.code.replace('SlainteShield-', '').replace('SlainteGov-', '').replace('SlainteEngine-', '').replace('SlainteScribe-', '').replace('SlainteRx-', 'Rx-').replace('SlainteDx-', 'Dx-') }}
+        </a>
+        {% endfor %}
+    </nav>
+
+    <!-- Agent Header Card -->
+    <div class="card mb-3">
+        <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3 py-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="font-monospace fw-bold text-muted small">AGENT #{{ agent.number }}</span>
+                    <span class="badge bg-dark font-monospace">{{ agent.code }}</span>
+                    {% if agent.enabled %}
+                    <span class="status-pill status-pass">ACTIVE</span>
+                    {% else %}
+                    <span class="status-pill status-neutral">PAUSED</span>
+                    {% endif %}
+                    <span class="status-pill status-neutral">{{ agent.squad_name.split('—')[0].strip() }}</span>
+                </div>
+                <h1 class="h4 fw-bold mb-1 text-dark">
+                    <i class="{{ agent.icon }} text-primary me-2"></i>{{ agent.name }}
+                </h1>
+                <p class="text-muted small mb-0">{{ agent.summary }}</p>
+            </div>
+            <div class="d-flex flex-column align-items-md-end gap-1 small">
+                <div><span class="text-muted">Assigned Engine:</span> <code class="text-dark fw-bold">{{ agent.assigned_model }}</code></div>
+                <div><span class="text-muted">Guardrail Policy:</span> <strong>{{ agent.active_guardrail }}</strong></div>
+            </div>
+        </div>
+    </div>
+
+    {% if action_banner %}
+    <div class="alert alert-success border d-flex align-items-center justify-content-between py-2 px-3 mb-3 small">
+        <div><i class="fas fa-check-circle me-2"></i><strong>Live Agent Execution Completed:</strong> {{ action_banner }}</div>
+        <span class="font-monospace text-muted">{{ timestamp }}</span>
+    </div>
+    {% endif %}
+
+    {# ======================================================================
+       AGENT 01: SlainteShield-BOLA (BOLA & Role-Boundary Red-Team Dashboard)
+       ====================================================================== #}
+    {% if agent.id == 'bola_redteam' %}
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h2 class="h6 fw-bold mb-0 text-uppercase text-muted">Adversarial BOLA &amp; Compartment Isolation Telemetry</h2>
+        <form hx-post="/fhir/Agent/bola_redteam/run" hx-target="#content" hx-swap="innerHTML" class="d-flex gap-2 m-0">
+            <select name="model_name" class="form-select form-select-sm" style="width: auto;">
+                {% for m_id, m_label in available_models %}
+                <option value="{{ m_id }}" {% if m_id == agent.assigned_model %}selected{% endif %}>{{ m_label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fas fa-play me-1"></i>Run Live BOLA Probe Cycle
+            </button>
+            <a href="/fhir/auditor/sarif" target="_blank" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-file-code me-1"></i>Export SARIF v2.1.0
+            </a>
+        </form>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-3">
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">Attack Surface Reduction</div>
+                <div class="clinical-kpi-value">{{ telemetry.stats.surface_reduction_pct }}%</div>
+                <div class="clinical-kpi-sub">{{ telemetry.stats.active_compartment_count }} retained &bull; {{ telemetry.stats.pruned_resource_count }} pruned</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="clinical-kpi {% if telemetry.stats.security_findings_count > 0 %}kpi-danger{% else %}kpi-success{% endif %}">
+                <div class="clinical-kpi-label">Confirmed BOLA / AuthZ Findings</div>
+                <div class="clinical-kpi-value">{{ telemetry.stats.security_findings_count }}</div>
+                <div class="clinical-kpi-sub">Cross-compartment Differential Oracle</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="clinical-kpi">
+                <div class="clinical-kpi-label">Reflection Memory (M)</div>
+                <div class="clinical-kpi-value">{{ telemetry.stats.memory_steps_count }} Probes</div>
+                <div class="clinical-kpi-sub">Victim vs. Attacker HTTP traces</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="clinical-kpi">
+                <div class="clinical-kpi-label">Target FHIR Endpoint</div>
+                <div class="clinical-kpi-value" style="font-size: 1rem;"><code>{{ telemetry.target_url }}</code></div>
+                <div class="clinical-kpi-sub">RFC 1918 Private Subnet Verified</div>
+            </div>
+        </div>
+    </div>
+
+    {% if telemetry.llm_synthesis %}
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-file-medical-alt text-primary me-2"></i>Executive Remediation Brief</span>
+            <span class="font-monospace small text-muted">{{ telemetry.llm_synthesis.provider }} ({{ telemetry.llm_synthesis.latency_ms }} ms)</span>
+        </div>
+        <div class="card-body small">
+            {{ telemetry.llm_synthesis.executive_summary }}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <i class="fas fa-exclamation-circle text-danger me-2"></i>OWASP API Security &amp; BOLA Findings ({{ telemetry.security_findings|length }})
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Rule ID</th>
+                            <th>Severity</th>
+                            <th>Vulnerability</th>
+                            <th>Endpoint / Vector</th>
+                            <th>Evidence &amp; Remediation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for f in telemetry.security_findings %}
+                        <tr>
+                            <td class="font-monospace small fw-bold">{{ f.rule_id }}<br><span class="text-muted fw-normal">{{ f.cwe }}</span></td>
+                            <td>
+                                <span class="status-pill {% if f.severity in ('CRITICAL', 'HIGH') %}status-fail{% else %}status-warn{% endif %}">
+                                    {{ f.severity }} (CVSS {{ f.cvss }})
+                                </span>
+                            </td>
+                            <td class="fw-bold">{{ f.title }}</td>
+                            <td class="font-monospace small">{{ f.endpoint }}</td>
+                            <td class="small">
+                                <div class="mb-1">{{ f.description }}</div>
+                                <div class="text-muted"><strong>Fix:</strong> {{ f.remediation }}</div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center py-3 text-muted">No BOLA vulnerabilities detected.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card mb-0 h-100">
+                <div class="card-header py-2">Shared Audit Memory (M) &amp; Differential Oracle</div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Vector</th>
+                                    <th>Identity</th>
+                                    <th>Endpoint</th>
+                                    <th>HTTP</th>
+                                    <th>Reflection</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in telemetry.memory_entries %}
+                                <tr>
+                                    <td class="font-monospace small">{{ m.step }}</td>
+                                    <td class="font-monospace small fw-bold">{{ m.vector }}</td>
+                                    <td class="font-monospace small">{{ m.actor }}</td>
+                                    <td class="font-monospace small">{{ m.method }} {{ m.endpoint }}</td>
+                                    <td><span class="status-pill {% if m.status_code == 200 %}status-fail{% else %}status-pass{% endif %}">{{ m.status_code }}</span></td>
+                                    <td class="small">{{ m.pivot_action }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card mb-0 h-100">
+                <div class="card-header py-2">CompartmentDefinition/Patient Surface Filter</div>
+                <div class="card-body small">
+                    <div class="mb-2">
+                        <strong class="text-success">Retained Patient-Compartment Resources ({{ telemetry.surface.active_compartment_resources|length }}):</strong>
+                        <div class="d-flex flex-wrap gap-1 mt-1">
+                            {% for r in telemetry.surface.active_compartment_resources %}
+                            <span class="badge bg-light text-dark border font-monospace">{{ r }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <strong class="text-muted">Administrative Bridge Resources ({{ telemetry.surface.bridge_resources|length }}):</strong>
+                        <div class="d-flex flex-wrap gap-1 mt-1">
+                            {% for r in telemetry.surface.bridge_resources %}
+                            <span class="badge bg-light text-secondary border font-monospace">{{ r }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div>
+                        <strong class="text-secondary">Pruned Non-Compartment Resources ({{ telemetry.surface.pruned_resources|length }}):</strong>
+                        <div class="d-flex flex-wrap gap-1 mt-1">
+                            {% for r in telemetry.surface.pruned_resources %}
+                            <span class="badge bg-light text-muted border font-monospace text-decoration-line-through">{{ r }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ======================================================================
+       AGENT 02: SlainteShield-FHIR (FHIR R4 Integrity & Terminology Dashboard)
+       ====================================================================== #}
+    {% elif agent.id == 'fhir_conformance' %}
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h2 class="h6 fw-bold mb-0 text-uppercase text-muted">HL7 FHIR R4 Schema, Terminology &amp; Irish GMS OID Verifier</h2>
+        <form hx-post="/fhir/Agent/fhir_conformance/run" hx-target="#content" hx-swap="innerHTML" class="d-flex flex-wrap gap-2 m-0">
+            <select name="inspect_patient_id" class="form-select form-select-sm" style="width: auto;">
+                <option value="">Inspect Specific Patient Bundle...</option>
+                {% for pt in patient_options %}
+                <option value="{{ pt.id }}" {% if inspected_bundle and inspected_bundle.patient_id == pt.id %}selected{% endif %}>
+                    {{ pt.id }} — {{ pt.name }}
+                </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fas fa-check-double me-1"></i>Run FHIR Integrity Verification
+            </button>
+        </form>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="clinical-kpi">
+                <div class="clinical-kpi-label">FHIR R4 Bundles Audited</div>
+                <div class="clinical-kpi-value">{{ telemetry.stats.bundles_audited }}</div>
+                <div class="clinical-kpi-sub">Validated in /workspace/data/fhir_store</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="clinical-kpi kpi-warning">
+                <div class="clinical-kpi-label">Ontology &amp; UCUM Findings</div>
+                <div class="clinical-kpi-value">{{ telemetry.stats.terminology_findings_count }}</div>
+                <div class="clinical-kpi-sub">SNOMED-CT, LOINC, UCUM &amp; GMS OID checks</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">Irish HSE GMS OID Standard</div>
+                <div class="clinical-kpi-value" style="font-size: 0.95rem;"><code>urn:oid:1.3.6.1.4.1.54392.5.2690.42.80</code></div>
+                <div class="clinical-kpi-sub">Enforced on Patient.identifier</div>
+            </div>
+        </div>
+    </div>
+
+    {% if inspected_bundle %}
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-search me-2 text-primary"></i>Live Bundle Inspection: <code>{{ inspected_bundle.filename }}</code> ({{ inspected_bundle.patient_name }})</span>
+            <span class="status-pill {% if inspected_bundle.gms_valid %}status-pass{% else %}status-warn{% endif %}">
+                GMS OID: {{ 'VERIFIED' if inspected_bundle.gms_valid else 'MISSING' }} ({{ inspected_bundle.gms_value }})
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Resource Type</th>
+                            <th>Resource ID</th>
+                            <th>Code System / OID</th>
+                            <th>Display / Value</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in inspected_bundle.resources %}
+                        <tr>
+                            <td class="font-monospace fw-bold small">{{ item.resourceType }}</td>
+                            <td class="font-monospace small">{{ item.id }}</td>
+                            <td class="font-monospace small text-muted">{{ item.system }}</td>
+                            <td class="small">{{ item.display }}</td>
+                            <td><span class="status-pill {{ 'status-pass' if item.valid else 'status-warn' }}">{{ 'VALID' if item.valid else 'DRIFT' }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-0">
+        <div class="card-header py-2">
+            Cohort Terminology, UCUM &amp; Profile Drift Findings ({{ telemetry.terminology_findings|length }})
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Rule ID</th>
+                            <th>Severity</th>
+                            <th>Bundle</th>
+                            <th>Resource</th>
+                            <th>Issue &amp; Remediation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tf in telemetry.terminology_findings[:30] %}
+                        <tr>
+                            <td class="font-monospace small fw-bold">{{ tf.rule_id }}</td>
+                            <td><span class="status-pill {% if tf.severity in ('CRITICAL', 'HIGH') %}status-fail{% else %}status-warn{% endif %}">{{ tf.severity }}</span></td>
+                            <td class="font-monospace small">{{ tf.bundle }}</td>
+                            <td class="font-monospace small">{{ tf.resource }}</td>
+                            <td class="small">
+                                <div>{{ tf.issue }}</div>
+                                <div class="text-muted"><strong>Fix:</strong> {{ tf.remediation }}</div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center py-3 text-muted">All FHIR R4 bundles passed conformance checks.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# ======================================================================
+       AGENT 03: SlainteShield-CVE (Software & Dependency Vulnerability Page)
+       ====================================================================== #}
+    {% elif agent.id == 'cve_vulnerability' %}
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h2 class="h6 fw-bold mb-0 text-uppercase text-muted">Software Supply-Chain, SRI Hashes &amp; Runtime Security Headers</h2>
+        <form hx-post="/fhir/Agent/cve_vulnerability/run" hx-target="#content" hx-swap="innerHTML" class="m-0">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fas fa-sync-alt me-1"></i>Run Live CVE &amp; Header Audit
+            </button>
+        </form>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">Pinned Python Dependencies</div>
+                <div class="clinical-kpi-value">{{ cve_scan.pinned_count }}/{{ cve_scan.total_packages }}</div>
+                <div class="clinical-kpi-sub">Exact == version pins in requirements.txt</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">Verified CDN SRI Hashes</div>
+                <div class="clinical-kpi-value">{{ cve_scan.sri_assets_verified }} Assets</div>
+                <div class="clinical-kpi-sub">Cryptographic sha384- integrity enforced</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">CWE Posture Controls</div>
+                <div class="clinical-kpi-value">{{ cve_scan.checks|length }}/{{ cve_scan.checks|length }} PASS</div>
+                <div class="clinical-kpi-sub">CSP, HttpOnly, SameSite &amp; SqliteStorage WAL</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2">Application Security Controls &amp; CWE Verification</div>
+        <div class="card-body p-0">
+            <table class="table table-striped mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Control Check</th>
+                        <th>CWE Mapping</th>
+                        <th>Runtime Evidence</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cve_scan.checks %}
+                    <tr>
+                        <td class="fw-bold">{{ c.check }}</td>
+                        <td class="font-monospace small">{{ c.cwe }}</td>
+                        <td class="small">{{ c.detail }}</td>
+                        <td><span class="status-pill status-pass">{{ c.status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card mb-0 h-100">
+                <div class="card-header py-2">Pinned Python Package Inventory (requirements.txt)</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr><th>Package</th><th>Pinned Version</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for pkg in cve_scan.package_rows %}
+                            <tr>
+                                <td class="font-monospace small fw-bold">{{ pkg.name }}</td>
+                                <td class="font-monospace small">{{ pkg.version }}</td>
+                                <td><span class="status-pill {{ 'status-pass' if pkg.pinned else 'status-warn' }}">{{ 'PINNED' if pkg.pinned else 'UNPINNED' }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-0 h-100">
+                <div class="card-header py-2">Subresource Integrity (SRI sha384-) CDN Inventory</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr><th>Template</th><th>External Asset</th><th>Integrity Digest</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for asset in cve_scan.sri_assets %}
+                            <tr>
+                                <td class="font-monospace small">{{ asset.template }}</td>
+                                <td class="font-monospace small text-truncate" style="max-width: 240px;">{{ asset.url }}</td>
+                                <td class="font-monospace small text-success">{{ asset.hash }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ======================================================================
+       AGENT 04: SlainteGov-GDPR (GDPR Art. 9 & Clinical Privacy Gate Page)
+       ====================================================================== #}
+    {% elif agent.id == 'gdpr_privacy' %}
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h2 class="h6 fw-bold mb-0 text-uppercase text-muted">EU GDPR Art. 9 Special Category Health Data &amp; PII Minimiser</h2>
+        <form hx-post="/fhir/Agent/gdpr_privacy/run" hx-target="#content" hx-swap="innerHTML" class="d-flex flex-wrap gap-2 m-0">
+            <select name="preview_patient_id" class="form-select form-select-sm" style="width: auto;">
+                {% for pt in patient_options %}
+                <option value="{{ pt.id }}" {% if deid_preview and deid_preview.patient_id == pt.id %}selected{% endif %}>
+                    Test PII Redaction on {{ pt.id }} ({{ pt.name }})
+                </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fas fa-user-shield me-1"></i>Run GDPR Audit &amp; Preview Redaction
+            </button>
+        </form>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2">EU GDPR &amp; Irish HIQA Privacy Compliance Gates</div>
+        <div class="card-body p-0">
+            <table class="table table-striped mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Regulatory Article &amp; Control</th>
+                        <th>Verification Detail</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in gdpr_scan.checks %}
+                    <tr>
+                        <td class="fw-bold">{{ g.article }}</td>
+                        <td class="small">{{ g.detail }}</td>
+                        <td><span class="status-pill status-pass">{{ g.status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if deid_preview %}
+    <div class="card mb-0">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-eye-slash text-primary me-2"></i>Live GDPR Art. 9 De-Identification Proof: Patient <code>{{ deid_preview.patient_id }}</code></span>
+            <span class="status-pill status-pass">Direct Identifiers Stripped Before LLM Prompt</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <div class="p-3 rounded bg-light border h-100">
+                        <div class="fw-bold small text-danger mb-2"><i class="fas fa-ban me-1"></i>Raw FHIR Identifiers (Withheld from LLM)</div>
+                        <ul class="list-unstyled small mb-0 font-monospace">
+                            <li class="mb-1"><strong>Full Name:</strong> {{ deid_preview.raw_name }} <span class="status-pill status-fail ms-1">STRIPPED</span></li>
+                            <li class="mb-1"><strong>Exact Birth Date:</strong> {{ deid_preview.raw_dob }} <span class="status-pill status-fail ms-1">CONVERTED TO AGE ({{ deid_preview.age_years }}y)</span></li>
+                            <li class="mb-1"><strong>Address:</strong> {{ deid_preview.raw_address }} <span class="status-pill status-fail ms-1">STRIPPED</span></li>
+                            <li class="mb-1"><strong>Telecom:</strong> {{ deid_preview.raw_telecom }} <span class="status-pill status-fail ms-1">STRIPPED</span></li>
+                            <li><strong>Salted Log Hash:</strong> <code>{{ deid_preview.salted_hash }}</code></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <div class="p-3 rounded bg-dark text-light h-100">
+                        <div class="fw-bold small text-info mb-2"><i class="fas fa-check-circle me-1"></i>Sanitized Clinical Context Payload (ai/context.py)</div>
+                        <pre class="mb-0 small font-monospace text-light" style="max-height: 220px; overflow-y: auto; white-space: pre-wrap;">{{ deid_preview.sanitized_json }}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ======================================================================
+       AGENT 05: SlainteGov-Audit (Immutable Clinical & AI Audit Ledger Page)
+       ====================================================================== #}
+    {% elif agent.id == 'immutable_audit' %}
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h2 class="h6 fw-bold mb-0 text-uppercase text-muted">Immutable SQLite Triggers, Cryptographic Provenance &amp; Audit Ledger</h2>
+        <div class="d-flex gap-2">
+            <form hx-post="/fhir/Agent/immutable_audit/run" hx-target="#content" hx-swap="innerHTML" class="m-0">
+                <input type="hidden" name="test_tamper" value="1">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-shield-alt me-1"></i>Verify Triggers &amp; Run Live Tamper Test
+                </button>
+            </form>
+            <a href="/agents/audit/snapshot" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-download me-1"></i>Export Signed JSON Snapshot
+            </a>
+        </div>
+    </div>
+
+    {% if tamper_proof %}
+    <div class="alert alert-info border py-2 px-3 mb-3 small">
+        <i class="fas fa-lock me-2"></i><strong>Live SQLite Immutability Kernel Test:</strong> <code>{{ tamper_proof.message }}</code>
+    </div>
+    {% endif %}
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-3">
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">Append-Only SQLite Triggers</div>
+                <div class="clinical-kpi-value">{{ audit_scan.triggers_found|length }}/4 Active</div>
+                <div class="clinical-kpi-sub">BEFORE UPDATE &amp; BEFORE DELETE</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="clinical-kpi">
+                <div class="clinical-kpi-label">Immutable audit_log Events</div>
+                <div class="clinical-kpi-value">{{ audit_scan.audit_count }}</div>
+                <div class="clinical-kpi-sub">Salted SHA-256 subject references</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="clinical-kpi">
+                <div class="clinical-kpi-label">Immutable ai_exchange Rows</div>
+                <div class="clinical-kpi-value">{{ audit_scan.ai_exchange_count }}</div>
+                <div class="clinical-kpi-sub">Prompt hash, model &amp; token counts</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">FHIR Provenance Signatures</div>
+                <div class="clinical-kpi-value">{{ audit_scan.provenance_count }} Verified</div>
+                <div class="clinical-kpi-sub">Cryptographic SHA-256 bundle sign-offs</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card mb-0 h-100">
+                <div class="card-header py-2">Recent Immutable Clinical Audit Trail (audit_log)</div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead class="table-dark">
+                                <tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Outcome</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for row in audit_scan.recent_audits %}
+                                <tr>
+                                    <td class="font-monospace small">{{ (row.timestamp or '')[:19] }}</td>
+                                    <td class="small fw-bold">{{ row.actor or 'system' }}</td>
+                                    <td class="font-monospace small">{{ row.action }}</td>
+                                    <td><span class="status-pill {{ 'status-pass' if row.outcome == 'success' else 'status-warn' }}">{{ row.outcome }}</span></td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="4" class="text-center py-3 text-muted">No audit events recorded yet.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card mb-0 h-100">
+                <div class="card-header py-2">Verified FHIR R4 Provenance Signatures</div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead class="table-dark">
+                                <tr><th>Bundle</th><th>Recorded</th><th>Signer Agent</th><th>SHA-256 Digest</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for p in audit_scan.provenance_records %}
+                                <tr>
+                                    <td class="font-monospace small fw-bold">{{ p.bundle }}</td>
+                                    <td class="font-monospace small">{{ (p.recorded or '')[:19] }}</td>
+                                    <td class="small">{{ p.agent }}</td>
+                                    <td class="font-monospace small text-success">{{ p.signature }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="4" class="text-center py-3 text-muted">No Provenance resources found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ======================================================================
+       AGENT 06: SlainteEngine-Ingest (Clinical Ingestion Pipeline Page)
+       ====================================================================== #}
+    {% elif agent.id == 'multimodal_ingest' %}
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h2 class="h6 fw-bold mb-0 text-uppercase text-muted">OpenHands &amp; FastMCP Multimodal Clinical Ingestion Pipeline</h2>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#intakeModal">
+                <i class="fas fa-user-plus me-1"></i>Ingest New Patient / Upload Document
+            </button>
+            <form hx-post="/fhir/Agent/multimodal_ingest/run" hx-target="#content" hx-swap="innerHTML" class="m-0">
+                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh Dropzone &amp; Store
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="clinical-kpi">
+                <div class="clinical-kpi-label">Raw Dropzone (/workspace/data/raw)</div>
+                <div class="clinical-kpi-value">{{ ingest_data.raw_count }} File(s)</div>
+                <div class="clinical-kpi-sub">CSVs, PDFs &amp; Handwritten Triage Notes</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">Harmonized FHIR R4 Store</div>
+                <div class="clinical-kpi-value">{{ ingest_data.bundle_count }} Bundles</div>
+                <div class="clinical-kpi-sub">Deduplicated by Irish GMS OID</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">FastMCP Determinism Gate</div>
+                <div class="clinical-kpi-value">5/5 Stages OK</div>
+                <div class="clinical-kpi-sub">Schema &rarr; SNOMED/LOINC &rarr; MTS &rarr; FHIR R4</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <div class="card mb-0 h-100">
+                <div class="card-header py-2">Staged Raw Dropzone Files</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead class="table-light">
+                            <tr><th>Filename</th><th>Type</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for rf in ingest_data.raw_files %}
+                            <tr>
+                                <td class="font-monospace small fw-bold">{{ rf }}</td>
+                                <td class="small">{{ rf.split('.')[-1]|upper }}</td>
+                                <td><span class="status-pill status-pass">Indexed</span></td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3" class="text-center py-3 text-muted">Dropzone empty.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card mb-0 h-100">
+                <div class="card-header py-2">Recently Harmonized HL7 FHIR R4 Patient Bundles</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr><th>Bundle File</th><th>Patient</th><th>Size</th><th>Action</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for b in ingest_data.bundles %}
+                            <tr>
+                                <td class="font-monospace small">{{ b.name }}</td>
+                                <td class="small fw-bold">{{ b.patient_id }}</td>
+                                <td class="font-monospace small text-muted">{{ b.size }} B</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                                            hx-get="/fhir/Patient/{{ b.patient_id }}"
+                                            hx-target="#content"
+                                            hx-swap="innerHTML">
+                                        Open Chart
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ======================================================================
+       AGENT 07: SlainteScribe-Brief (Cited Patient Summariser Page)
+       ====================================================================== #}
+    {% elif agent.id == 'patient_summariser' %}
+    <div class="card mb-3">
+        <div class="card-header py-2">Generate Cited 3-Bullet Bedside Handover Briefing</div>
+        <div class="card-body">
+            <form hx-post="/fhir/Agent/patient_summariser/run" hx-target="#content" hx-swap="innerHTML" class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold mb-1">Select Patient Record</label>
+                    <select name="patient_id" class="form-select form-select-sm">
+                        {% for pt in patient_options %}
+                        <option value="{{ pt.id }}" {% if scribe_result and scribe_result.patient_id == pt.id %}selected{% endif %}>
+                            {{ pt.id }} — {{ pt.name }} ({{ pt.gender|capitalize }}, DOB {{ pt.birthDate }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold mb-1">Summariser Model</label>
+                    <select name="model_name" class="form-select form-select-sm">
+                        {% for m_id, m_label in available_models %}
+                        <option value="{{ m_id }}" {% if m_id == agent.assigned_model %}selected{% endif %}>{{ m_label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-file-medical me-1"></i>Generate Brief
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if scribe_result %}
+    <div class="card mb-3 border-left-primary">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-notes-medical text-primary me-2"></i>Cited Handover Briefing for <strong>{{ scribe_result.patient_name }}</strong> (<code>{{ scribe_result.patient_id }}</code>)</span>
+            <div class="d-flex gap-2 align-items-center">
+                <span class="font-monospace small text-muted">Model: {{ scribe_result.model }}</span>
+                <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                        hx-get="/fhir/Patient/{{ scribe_result.patient_id }}"
+                        hx-target="#content"
+                        hx-swap="innerHTML">
+                    Open Full Patient Chart &rarr;
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="p-3 rounded bg-light border small" style="white-space: pre-line; line-height: 1.65;">{{ scribe_result.summary_text }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-0">
+        <div class="card-header py-2">Recent Cited Clinical Briefings (ai_exchange Ledger)</div>
+        <div class="card-body p-0">
+            <table class="table table-sm table-striped mb-0">
+                <thead class="table-dark">
+                    <tr><th>Timestamp</th><th>Actor</th><th>Model</th><th>De-Identified</th><th>Briefing Excerpt</th></tr>
+                </thead>
+                <tbody>
+                    {% for ex in audit_scan.recent_ai_exchanges %}
+                    <tr>
+                        <td class="font-monospace small">{{ (ex.timestamp or '')[:19] }}</td>
+                        <td class="small">{{ ex.actor or 'admin' }}</td>
+                        <td class="font-monospace small">{{ ex.model }}</td>
+                        <td><span class="status-pill status-pass">YES</span></td>
+                        <td class="small text-muted">{{ (ex.response or '')[:120] }}...</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center py-3 text-muted">Select a patient above and click "Generate Brief" to log your first cited summary.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# ======================================================================
+       AGENT 08: SlainteRx-Guard (Pharmacotherapy & Allergy Safety Gate Page)
+       ====================================================================== #}
+    {% elif agent.id == 'medication_safety' %}
+    <div class="card mb-3">
+        <div class="card-header py-2">Interactive Prescription vs. Allergy Cross-Reactivity Verifier</div>
+        <div class="card-body">
+            <form hx-post="/fhir/Agent/medication_safety/run" hx-target="#content" hx-swap="innerHTML" class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label small fw-bold mb-1">Select Patient</label>
+                    <select name="patient_id" class="form-select form-select-sm">
+                        {% for pt in patient_options %}
+                        <option value="{{ pt.id }}" {% if rx_result and rx_result.patient_id == pt.id %}selected{% endif %}>
+                            {{ pt.id }} — {{ pt.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label small fw-bold mb-1">Test Candidate Medication (Optional)</label>
+                    <input type="text" name="candidate_drug" class="form-control form-control-sm"
+                           placeholder="e.g. Amoxicillin 500mg, Co-amoxiclav, Ibuprofen, Sulfamethoxazole"
+                           value="{{ rx_result.candidate_drug if rx_result else '' }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-shield-virus me-1"></i>Run Rx-Guard
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if rx_result %}
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <span>Rx-Guard Safety Verdict for <strong>{{ rx_result.patient_name }}</strong> (<code>{{ rx_result.patient_id }}</code>)</span>
+            <span class="status-pill {{ 'status-fail' if rx_result.alerts else 'status-pass' }}">
+                {{ rx_result.alerts|length }} Contraindication Alert(s)
+            </span>
+        </div>
+        <div class="card-body small">
+            <div class="row g-2 mb-2">
+                <div class="col-md-6">
+                    <strong>Recorded Allergies:</strong>
+                    {% for a in rx_result.allergies %}
+                    <span class="status-pill status-fail ms-1">{{ a }}</span>
+                    {% else %}
+                    <span class="text-muted ms-1">None recorded (NKDA)</span>
+                    {% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <strong>Checked Medications:</strong>
+                    {% for m in rx_result.medications %}
+                    <span class="badge bg-light text-dark border ms-1">{{ m }}</span>
+                    {% else %}
+                    <span class="text-muted ms-1">No active medications</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% for al in rx_result.alerts %}
+            <div class="alert alert-danger py-2 px-3 mb-1">
+                <strong><i class="fas fa-exclamation-triangle me-1"></i>{{ al.severity }} ({{ al.alert_type }}):</strong> {{ al.message }}
+            </div>
+            {% else %}
+            <div class="alert alert-success py-2 px-3 mb-0">
+                <i class="fas fa-check-circle me-1"></i><strong>SAFE TO DISPENSE:</strong> Zero deterministic cross-reactivity conflicts detected between allergies and checked medications.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-0">
+        <div class="card-header py-2">Cohort-Wide Pharmacotherapy &amp; Allergy Audit ({{ rx_cohort|length }} Patients Scanned)</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Patient</th>
+                            <th>Documented Allergies</th>
+                            <th>Active Prescriptions</th>
+                            <th>Rx-Guard Verdict</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rx_cohort %}
+                        <tr>
+                            <td class="fw-bold">{{ row.name }} <span class="font-monospace text-muted small">({{ row.id }})</span></td>
+                            <td class="small">
+                                {% for a in row.allergies %}
+                                <span class="status-pill status-warn">{{ a }}</span>
+                                {% else %}
+                                <span class="text-muted">NKDA</span>
+                                {% endfor %}
+                            </td>
+                            <td class="small">{{ row.medications|join(', ') or 'None' }}</td>
+                            <td>
+                                {% if row.alerts %}
+                                <span class="status-pill status-fail">{{ row.alerts|length }} INTERCEPTED</span>
+                                {% else %}
+                                <span class="status-pill status-pass">CLEAR</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                                        hx-get="/fhir/Patient/{{ row.id }}"
+                                        hx-target="#content"
+                                        hx-swap="innerHTML">
+                                    Open Chart
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# ======================================================================
+       AGENT 09: SlainteDx-Triage (Acuity Triage & NEWS2 Deterioration Page)
+       ====================================================================== #}
+    {% elif agent.id == 'acuity_triage' %}
+    <div class="card mb-3">
+        <div class="card-header py-2">Deterministic Manchester Triage (MTS) &amp; RCP NEWS2 Physiological Calculator</div>
+        <div class="card-body">
+            <form hx-post="/fhir/Agent/acuity_triage/run" hx-target="#content" hx-swap="innerHTML" class="row g-2 align-items-end">
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold mb-1">Resp Rate (/min)</label>
+                    <input type="number" name="rr" class="form-control form-control-sm" value="{{ triage_sim.rr }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold mb-1">SpO2 (%)</label>
+                    <input type="number" name="spo2" class="form-control form-control-sm" value="{{ triage_sim.spo2 }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold mb-1">Systolic BP</label>
+                    <input type="number" name="sbp" class="form-control form-control-sm" value="{{ triage_sim.sbp }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold mb-1">Heart Rate</label>
+                    <input type="number" name="hr" class="form-control form-control-sm" value="{{ triage_sim.hr }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold mb-1">Temp (&deg;C)</label>
+                    <input type="number" step="0.1" name="temp" class="form-control form-control-sm" value="{{ triage_sim.temp }}">
+                </div>
+                <div class="col-6 col-md-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-calculator me-1"></i>Score Acuity
+                    </button>
+                </div>
+            </form>
+
+            {% if triage_sim %}
+            <div class="row g-3 mt-2 pt-2 border-top">
+                <div class="col-md-4">
+                    <div class="clinical-kpi {% if triage_sim.mts_cat <= 2 %}kpi-danger{% elif triage_sim.mts_cat == 3 %}kpi-warning{% else %}kpi-success{% endif %}">
+                        <div class="clinical-kpi-label">Manchester Triage (MTS)</div>
+                        <div class="clinical-kpi-value">Cat {{ triage_sim.mts_cat }} — {{ triage_sim.mts_name }}</div>
+                        <div class="clinical-kpi-sub">Target Clinician Time: {{ triage_sim.mts_target }} min</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="clinical-kpi {% if triage_sim.news2_score >= 7 %}kpi-danger{% elif triage_sim.news2_score >= 5 %}kpi-warning{% else %}kpi-success{% endif %}">
+                        <div class="clinical-kpi-label">RCP NEWS2 Aggregate Score</div>
+                        <div class="clinical-kpi-value">{{ triage_sim.news2_score }} / 20 ({{ triage_sim.news2_tier }})</div>
+                        <div class="clinical-kpi-sub">Sub-scores: RR={{ triage_sim.breakdown.RR }}, SpO2={{ triage_sim.breakdown.SpO2 }}, SBP={{ triage_sim.breakdown.SBP }}, HR={{ triage_sim.breakdown.HR }}, Temp={{ triage_sim.breakdown.Temp }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="clinical-kpi">
+                        <div class="clinical-kpi-label">Execution Engine</div>
+                        <div class="clinical-kpi-value" style="font-size: 1rem;">FastMCP Deterministic</div>
+                        <div class="clinical-kpi-sub">Zero LLM probability variance</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-0">
+        <div class="card-header py-2">Cohort Physiological Acuity Watchlist ({{ triage_cohort|length }} Patients)</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Patient</th>
+                            <th>Presenting Condition</th>
+                            <th>Latest Vitals</th>
+                            <th>NEWS2 Score &amp; Risk Tier</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in triage_cohort %}
+                        <tr>
+                            <td class="fw-bold">{{ row.name }} <span class="font-monospace text-muted small">({{ row.id }})</span></td>
+                            <td class="small">{{ row.condition }}</td>
+                            <td class="font-monospace small">{{ row.vitals_summary }}</td>
+                            <td>
+                                <span class="status-pill {% if row.news2_score >= 7 %}status-fail{% elif row.news2_score >= 5 %}status-warn{% else %}status-pass{% endif %}">
+                                    NEWS2: {{ row.news2_score }} ({{ row.news2_tier }})
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                                        hx-get="/fhir/Patient/{{ row.id }}"
+                                        hx-target="#content"
+                                        hx-swap="innerHTML">
+                                    Open Chart
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

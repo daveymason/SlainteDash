@@ -1,10 +1,11 @@
-"""Tests for Phase 11 (9-Agent Hub & 7 Vertical Cockpits) and Phase 9 Lite (GDPR/CVE/Audit Agents)."""
+"""Tests for Phase 11 (9-Agent Hub, Dedicated Agent Pages & 7 Vertical Cockpits) and Phase 9 Lite."""
 from agents_hub import (
     AGENTS_CATALOG,
     build_signed_audit_snapshot,
     run_cve_vulnerability_scan,
     run_gdpr_privacy_scan,
     run_immutable_audit_scan,
+    verify_sqlite_immutability_live,
 )
 from verticals import VERTICALS_CATALOG, get_vertical_list
 import db
@@ -37,7 +38,7 @@ def test_agents_hub_view_and_per_agent_settings(admin_client, app):
     res = admin_client.get('/fhir/Auditor', headers={'HX-Request': 'true'})
     assert res.status_code == 200
     body = res.get_data(as_text=True)
-    assert 'SlainteTech Autonomous Agents Command Center' in body
+    assert 'Autonomous Clinical &amp; Security Agents' in body
     assert 'SlainteShield-CVE' in body
     assert 'SlainteGov-GDPR' in body
     assert 'SlainteGov-Audit' in body
@@ -54,6 +55,21 @@ def test_agents_hub_view_and_per_agent_settings(admin_client, app):
     assert 'ollama/k9/Doggo:3b' in save_res.get_data(as_text=True)
 
 
+def test_all_nine_dedicated_agent_dashboards_and_execution(admin_client):
+    for agent in AGENTS_CATALOG:
+        aid = agent['id']
+        get_res = admin_client.get(f'/fhir/Agent/{aid}', headers={'HX-Request': 'true'})
+        assert get_res.status_code == 200
+        html = get_res.get_data(as_text=True)
+        assert agent['code'] in html
+        assert agent['name'].replace('&', '&amp;') in html or agent['name'] in html
+
+        run_res = admin_client.post(f'/fhir/Agent/{aid}/run', data={}, headers={'HX-Request': 'true'})
+        assert run_res.status_code == 200
+        run_html = run_res.get_data(as_text=True)
+        assert agent['code'] in run_html
+
+
 def test_phase9_lite_cve_gdpr_audit_and_snapshot(admin_client, app):
     with app.app_context():
         cve = run_cve_vulnerability_scan(app.root_path, app.config)
@@ -65,6 +81,9 @@ def test_phase9_lite_cve_gdpr_audit_and_snapshot(admin_client, app):
 
         audit_scan = run_immutable_audit_scan(db)
         assert audit_scan['triggers_ok'] is True
+
+        tamper = verify_sqlite_immutability_live(db)
+        assert tamper['blocked'] is True
 
         snap = build_signed_audit_snapshot(db, 'test-secret')
         assert snap['schema'] == 'slaintetech.audit.snapshot.v1'
@@ -81,9 +100,21 @@ def test_phase9_lite_cve_gdpr_audit_and_snapshot(admin_client, app):
     assert 'Download Signed Audit Snapshot' in sec_html
 
 
-def test_vertical_cockpit_switcher(admin_client):
-    for key, expected_brand in [('dentist', 'SlainteDent'), ('astro', 'SlainteAstro'), ('gp', 'SlainteGP')]:
-        resp = admin_client.post('/verticals/switch', data={'vertical_key': key}, follow_redirects=True)
-        assert resp.status_code == 200
-        text = resp.get_data(as_text=True)
-        assert expected_brand in text
+def test_vertical_cockpit_switcher_sidebar_and_patients(admin_client):
+    # ED shows Live Triage in sidebar
+    ed_resp = admin_client.post('/verticals/switch', data={'vertical_key': 'ed'}, follow_redirects=True)
+    assert ed_resp.status_code == 200
+    ed_text = ed_resp.get_data(as_text=True)
+    assert 'SlainteED' in ed_text
+    assert 'Live Triage' in ed_text
+    assert '9 Autonomous Agents Active' not in ed_text
+    assert 'Pipeline Status' not in ed_text
+
+    # GP hides Live Triage from sidebar and adapts Patients view
+    gp_resp = admin_client.post('/verticals/switch', data={'vertical_key': 'gp'}, follow_redirects=True)
+    assert gp_resp.status_code == 200
+    gp_text = gp_resp.get_data(as_text=True)
+    assert 'SlainteGP' in gp_text
+    assert 'Live Triage' not in gp_text
+    assert '9 Autonomous Agents Active' not in gp_text
+    assert 'Pipeline Status' not in gp_text

@@ -15,19 +15,11 @@ missing.
 
 ## 🚀 Features
 
-- **Patient list & search** — by name, patient ID, identifier, birthdate or
-  phone, with sortable columns and paging.
-- **Patient details** — demographics, contact, identifiers, languages.
-- **Conditions / problem list** — auto-loads with the patient record.
-- **Lab results** — handles every FHIR `value[x]` type, including panels and
-  component-based observations such as blood pressure.
-- **Vital signs** — blood pressure, heart rate, temperature and respiratory
-  rate, fetched concurrently, with trend charts.
-- **Medications & allergies** — with upstream failures reported distinctly from
-  genuinely empty records.
-- **Stats & insights** — demographic breakdowns and server-side totals, with charts.
-- **Access control** — username/password sign-in against an approved user list, with roles.
-- **Audit log** — append-only record of who viewed which patient, when.
+- **9 Dedicated Autonomous Agent Dashboards (`/agents` & `/agents/<agent_id>`)** — Every agent in the 9-agent fleet has its own interactive operational page (`01 BOLA Red-Team`, `02 FHIR R4 Integrity`, `03 CVE & Supply-Chain`, `04 GDPR Art. 9 Privacy`, `05 GovAudit & Provenance`, `06 Clinical Ingestion Pipeline`, `07 Cited Patient Summariser`, `08 Rx-Guard Allergy Safety`, `09 Dx-Triage & NEWS2 Acuity`), accessible from each agent card, the Agent Sub-Nav bar, and the top-bar `Agents ▾` menu.
+- **7 Role-Adaptive Clinical Cockpits (`"Sign in as..."`)** — Switch between `SlainteED` (Emergency Dept), `SlainteGP` (General Practice), `SlainteDent` (Dental Surgery), `SlaintePharm` (Community Pharmacy), `SlainteEMS` (Ambulance/ePCR), `SlainteSport` (Elite Sports Medicine), and `SlainteAstro` (Astronaut Bio-Telemetry). Switching cockpits dynamically adapts the **Sidebar** (`Live Triage` shown only for `SlainteED` and `SlainteEMS`) and the **Patients Roster** (custom clinical columns, KPIs, and safety gates per specialty).
+- **Patient list & search** — by name, patient ID, GMS identifier, birthdate or phone, with sortable columns, paging, and cockpit-specific clinical summaries.
+- **Patient details & embedded bedside copilots** — demographics, conditions, lab results, vital signs with 24h NEWS2 sparklines, medications, allergies, plus embedded **Agent 07 (Cited Bedside Brief)** and **Agent 08 (Rx-Guard Allergy Cross-Check)**.
+- **Minimalist Clinical UI & Access Control** — High-contrast, accessible medical interface (`static/styles.css`) with progressive login lockout, SQLite WAL rate limiting, and an append-only SQLite `audit_log` & `ai_exchange` ledger.
 
 ---
 
