@@ -110,13 +110,14 @@ class OpenAIProvider:
 
         status.key_valid = True
 
-        if self.model in available:
+        bare_model = self.model[len('openai/'):] if self.model.startswith('openai/') else self.model
+        if self.model in available or bare_model in available:
             status.model_available = True
             status.message = f'Key accepted, and "{self.model}" is available on this account.'
             return status
 
         status.suggestions = difflib.get_close_matches(
-            self.model, available, n=_MAX_SUGGESTIONS, cutoff=0.3
+            bare_model, available, n=_MAX_SUGGESTIONS, cutoff=0.3
         ) or sorted(available)[:_MAX_SUGGESTIONS]
         status.message = (
             f'The key works, but this account has no model called "{self.model}". '
@@ -135,8 +136,9 @@ class OpenAIProvider:
         """
         if self.reasoning_effort:
             kwargs.setdefault('reasoning_effort', self.reasoning_effort)
+        bare_model = self.model[len('openai/'):] if self.model.startswith('openai/') else self.model
         stream = self._client().chat.completions.create(
-            model=self.model, messages=messages, stream=True, **kwargs
+            model=bare_model, messages=messages, stream=True, **kwargs
         )
         for chunk in stream:
             for choice in getattr(chunk, 'choices', None) or []:
@@ -146,8 +148,77 @@ class OpenAIProvider:
                     yield text
 
 
-def from_config(config):
+class OllamaProvider:
+    """Provider backed by a local sovereign Ollama daemon (no cloud API key required)."""
+
+    def __init__(self, model, base_url='http://localhost:11434', timeout=30.0):
+        self.model = model or ''
+        self.bare_model = self.model[len('ollama/'):] if self.model.startswith('ollama/') else self.model
+        self.base_url = (base_url or 'http://localhost:11434').rstrip('/')
+        self.timeout = timeout
+        self.api_key = 'local-ollama'
+        self.reasoning_effort = ''
+
+    def check(self):
+        import requests
+        status = ProviderStatus(model=self.model, key_configured=True, key_valid=True)
+        if not self.bare_model:
+            status.message = 'No local Ollama model is configured.'
+            return status
+        for candidate_base in [self.base_url, 'http://localhost:11434', 'http://host.docker.internal:11434']:
+            try:
+                resp = requests.get(f'{candidate_base}/api/tags', timeout=4.0)
+                if resp.status_code == 200:
+                    models = [m.get('name', '') for m in resp.json().get('models', [])]
+                    if self.bare_model in models:
+                        status.model_available = True
+                        status.message = f'Local Ollama daemon online at {candidate_base}; "{self.bare_model}" is loaded and ready.'
+                        return status
+                    status.suggestions = models[:_MAX_SUGGESTIONS]
+                    status.message = (
+                        f'Local Ollama is reachable at {candidate_base}, but "{self.bare_model}" is not pulled yet.'
+                    )
+                    return status
+            except Exception:
+                continue
+        status.key_valid = False
+        status.message = 'Could not reach local Ollama daemon on port 11434.'
+        return status
+
+    def stream_chat(self, messages, **kwargs):
+        import requests
+        prompt_parts = []
+        for m in messages:
+            role = m.get('role', 'user').upper()
+            prompt_parts.append(f'[{role}]\n{m.get("content", "")}')
+        full_prompt = '\n\n'.join(prompt_parts)
+        for candidate_base in [self.base_url, 'http://localhost:11434', 'http://host.docker.internal:11434']:
+            try:
+                resp = requests.post(
+                    f'{candidate_base}/api/generate',
+                    json={'model': self.bare_model, 'prompt': full_prompt, 'stream': False},
+                    timeout=self.timeout,
+                )
+                if resp.status_code == 200:
+                    text = resp.json().get('response', '')
+                    if text:
+                        yield text
+                        return
+            except Exception:
+                continue
+
+
+def from_config(config, model_override=None):
     """Build the provider described by a Flask config mapping."""
+    model = (model_override or config.get('AI_MODEL') or '').strip()
+    if model.startswith('ollama/'):
+        import os
+        ollama_base = config.get('OLLAMA_API_BASE') or os.environ.get('OLLAMA_API_BASE', 'http://localhost:11434')
+        return OllamaProvider(
+            model=model,
+            base_url=ollama_base,
+            timeout=config.get('AI_REQUEST_TIMEOUT', 60.0),
+        )
     effort = (config.get('AI_REASONING_EFFORT') or '').strip().lower()
     if effort and effort not in AI_REASONING_LEVELS:
         logger.warning(
@@ -157,7 +228,7 @@ def from_config(config):
         effort = ''
     return OpenAIProvider(
         api_key=config.get('OPENAI_API_KEY', ''),
-        model=config.get('AI_MODEL', ''),
+        model=model,
         timeout=config.get('AI_REQUEST_TIMEOUT', 60.0),
         reasoning_effort=effort,
     )

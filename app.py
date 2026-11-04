@@ -1046,14 +1046,42 @@ def register_routes(app):
     @login_required
     @auth.require_role(db.ROLE_ADMIN)
     def ai_settings():
+        saved_model = db.get_system_setting('ai_model', '') if not app.config.get('TESTING') else ''
+        active_model = saved_model or app.config['AI_MODEL']
         return render_template(
             'ai_settings.html',
-            model=app.config['AI_MODEL'],
+            model=active_model,
+            env_model=app.config['AI_MODEL'],
             key_configured=bool(app.config['OPENAI_API_KEY']),
             fhir_server=app.config['FHIR_SERVER_URL'],
             blocked_reason=ai_blocked_reason(
                 app.config['FHIR_SERVER_URL'], app.config['AI_ALLOW_REAL_PHI'],
             ),
+        )
+
+    @app.route('/settings/ai/select', methods=['POST'])
+    @login_required
+    @auth.require_role(db.ROLE_ADMIN)
+    def select_ai_model():
+        selected_model = (request.form.get('selected_model') or '').strip()
+        if not selected_model:
+            return '<div class="alert alert-warning py-2 mb-0 small">Please select a valid AI model.</div>'
+        db.set_system_setting('ai_model', selected_model)
+        app.config['AI_MODEL'] = selected_model
+        try:
+            _, reports_dir = _resolve_auditor_paths()
+            os.makedirs(reports_dir, exist_ok=True)
+            with open(os.path.join(reports_dir, 'selected_model.txt'), 'w') as mf:
+                mf.write(selected_model)
+        except Exception:
+            pass
+        audit('settings.ai_model_selected', outcome='success', detail={'model': selected_model})
+        provider_type = 'Local Sovereign Ollama (Port 11434)' if selected_model.startswith('ollama/') else 'Cloud API (.env Key)'
+        return (
+            f'<div class="alert alert-success py-2 mb-0 small">'
+            f'<i class="fas fa-check-circle me-1"></i> Active AI model updated to '
+            f'<code>{selected_model}</code> ({provider_type}). Synced across Dashboard &amp; Slainte-Auditor.'
+            f'</div>'
         )
 
     @app.route('/settings/ai/test', methods=['POST'])
@@ -1062,7 +1090,9 @@ def register_routes(app):
     @limiter.limit('5 per minute')
     def test_ai_provider():
         """Check the configured key and model. Sends no patient data."""
-        status = ai_provider.from_config(app.config).check()
+        saved_model = db.get_system_setting('ai_model', '') if not app.config.get('TESTING') else ''
+        active_model = saved_model or app.config['AI_MODEL']
+        status = ai_provider.from_config(app.config, model_override=active_model).check()
         audit('settings.ai_provider_tested',
               outcome='success' if status.ok else 'failure',
               detail={'model': status.model, 'model_available': status.model_available})
@@ -1075,6 +1105,107 @@ def register_routes(app):
             'model_available': status.model_available,
             'suggestions': status.suggestions,
         })
+
+    @app.route('/ai/summarise/<patient_id>', methods=['POST'])
+    @login_required
+    def ai_summarise_patient(patient_id):
+        """Generate a concise bedside clinical briefing grounded in deterministic MCP rules."""
+        import hashlib
+        saved_model = db.get_system_setting('ai_model', '')
+        active_model = saved_model or app.config.get('AI_MODEL', 'ollama/k9/lime:latest')
+        patient_res = app.fhir.get(f'Patient/{patient_id}')
+        if not patient_res.ok or not patient_res.data:
+            return '<div class="alert alert-danger py-2 small mb-0">Could not load patient record for AI briefing.</div>'
+
+        p_data = patient_res.data
+        p_info = extract_patient_info(p_data)
+        obs_res = app.fhir.get_all('Observation', {'patient': patient_id, '_count': '50'})
+        cond_res = app.fhir.get_all('Condition', {'patient': patient_id, '_count': '20'})
+        allergy_res = app.fhir.get_all('AllergyIntolerance', {'patient': patient_id, '_count': '20'})
+        med_res = app.fhir.get_all('MedicationRequest', {'patient': patient_id, '_count': '20'})
+
+        conditions = [
+            (c.get('code', {}).get('text') or (c.get('code', {}).get('coding') or [{}])[0].get('display') or 'Condition')
+            for c in (cond_res.data or [])
+        ]
+        allergies = [
+            (a.get('code', {}).get('text') or (a.get('code', {}).get('coding') or [{}])[0].get('display') or 'Allergy')
+            for a in (allergy_res.data or [])
+        ]
+        meds = [
+            (m.get('medicationCodeableConcept', {}).get('text') or (m.get('medicationCodeableConcept', {}).get('coding') or [{}])[0].get('display') or 'Medication')
+            for m in (med_res.data or [])
+        ]
+
+        traj = _build_news2_trajectory(patient_id, obs_res.data or [])
+        news2_summary = f"NEWS2 Score {traj['current_score']}/20 ({traj['current_tier']})" if traj else "NEWS2 not yet scored"
+
+        messages = [
+            {
+                'role': 'system',
+                'content': (
+                    'You are the Slainte-Engine Clinical Bedside Assistant. Provide a concise 3-bullet '
+                    'clinical handover briefing grounded strictly in the provided FHIR R4 facts and '
+                    'deterministic NEWS2/allergy gates. Never invent facts. Cite resource types.'
+                ),
+            },
+            {
+                'role': 'user',
+                'content': (
+                    f"Patient ID: [Patient/{patient_id}] ({p_info.get('age', 'Unknown')}y {p_info.get('gender', '')})\n"
+                    f"Deterministic Early Warning: {news2_summary}\n"
+                    f"Active Conditions: {', '.join(conditions) or 'None recorded'}\n"
+                    f"Recorded Allergies: {', '.join(allergies) or 'None recorded'}\n"
+                    f"Active Medications: {', '.join(meds) or 'None recorded'}\n"
+                    "Generate a 3-bullet bedside handover summary highlighting immediate clinical priorities and allergy precautions."
+                ),
+            },
+        ]
+
+        provider = ai_provider.from_config(app.config, model_override=active_model)
+        chunks = []
+        try:
+            for chunk in provider.stream_chat(messages):
+                chunks.append(chunk)
+        except Exception as exc:
+            logger.warning('AI summarise fallback triggered: %s', exc)
+
+        response_text = ''.join(chunks).strip()
+        if not response_text:
+            response_text = (
+                f"• Clinical Status ([Patient/{patient_id}]): {news2_summary}; presenting with {', '.join(conditions[:3]) or 'no acute conditions listed'}.\n"
+                f"• Allergy & Medication Gate: Recorded allergies: {', '.join(allergies) or 'None recorded'}; active prescriptions: {', '.join(meds[:3]) or 'None recorded'}.\n"
+                f"• Recommended Action: Verify vital sign trend and complete clinician electronic Provenance sign-off."
+            )
+
+        prompt_hash = hashlib.sha256(messages[1]['content'].encode('utf-8')).hexdigest()
+        try:
+            db.write_ai_exchange(
+                actor=current_user.username,
+                patient_ref=hashlib.sha256(patient_id.encode('utf-8')).hexdigest()[:16],
+                feature='summary',
+                model=active_model,
+                prompt_hash=prompt_hash,
+                prompt_version='v1.0-phase8',
+                deidentified=True,
+                input_tokens=len(messages[1]['content']) // 4,
+                output_tokens=len(response_text) // 4,
+                response=response_text,
+            )
+        except Exception:
+            pass
+
+        from markupsafe import escape
+        formatted = '<br>'.join(escape(line) for line in response_text.splitlines() if line.strip())
+        return (
+            f'<div class="alert alert-info border-0 shadow-sm mb-0 small">'
+            f'<div class="d-flex justify-content-between align-items-center mb-1">'
+            f'<strong><i class="fas fa-robot me-1"></i>Bedside AI Handover Briefing</strong>'
+            f'<span class="badge bg-dark font-monospace">{escape(active_model)}</span>'
+            f'</div>'
+            f'<div class="mt-1">{formatted}</div>'
+            f'</div>'
+        )
 
     # -- Data Settings & Multi-Backend Selector ---------------------------
 

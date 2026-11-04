@@ -2,76 +2,121 @@
 {% block title %}AI Settings &mdash; FHIR Patient Dashboard{% endblock %}
 
 {% block content %}
-<h2 class="text-primary mb-4"><i class="fas fa-cog"></i> AI Settings</h2>
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="text-primary mb-0"><i class="fas fa-robot me-2"></i>AI Settings &amp; Model Selector</h2>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+    </a>
+</div>
+
+{% set active_tab = 'ai' %}
+{% include "settings_nav.html" %}
 
 {% if blocked_reason %}
-<div class="alert alert-danger" role="alert">
+<div class="alert alert-danger" role="alert" style="max-width: 960px;">
     <i class="fas fa-ban me-2"></i>
     <strong>AI features are switched off.</strong> {{ blocked_reason }}
 </div>
 {% endif %}
 
-<div class="card mb-3" style="max-width: 760px;">
-    <div class="card-header bg-light">
-        <i class="fas fa-plug text-primary me-2"></i>Provider configuration
+<div class="row g-4" style="max-width: 960px;">
+    <!-- Column 1: Active AI Model Selector -->
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-dark text-white py-3">
+                <i class="fas fa-microchip text-info me-2"></i><strong>Select Active AI Model (Phase 8)</strong>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-3">
+                    Choose which AI engine powers bedside clinical briefings and the <code>Slainte-Auditor</code> red-team synthesis. Cloud models read their API key directly from <code>.env</code> (<code>OPENAI_API_KEY</code>); local Ollama models run 100% on-premise with no external key required.
+                </p>
+
+                <form hx-post="/settings/ai/select" hx-target="#ai-select-feedback">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-3">
+                        <label for="selected_model" class="form-label fw-bold small text-uppercase">Active AI Provider &amp; Model</label>
+                        <select name="selected_model" id="selected_model" class="form-select form-select-lg mb-2 font-monospace">
+                            <optgroup label="Local Sovereign Models (Ollama — Port 11434, No Key Needed)">
+                                <option value="ollama/k9/lime:latest" {% if model == 'ollama/k9/lime:latest' %}selected{% endif %}>k9/lime:latest</option>
+                                <option value="ollama/k9/lime-lite:latest" {% if model == 'ollama/k9/lime-lite:latest' %}selected{% endif %}>k9/lime-lite:latest</option>
+                                <option value="ollama/k9/Doggo:3b" {% if model == 'ollama/k9/Doggo:3b' %}selected{% endif %}>k9/Doggo:3b</option>
+                                <option value="ollama/k9/chihuahua:latest" {% if model == 'ollama/k9/chihuahua:latest' %}selected{% endif %}>k9/chihuahua:latest</option>
+                                <option value="ollama/recordstore:latest" {% if model == 'ollama/recordstore:latest' %}selected{% endif %}>recordstore:latest</option>
+                                <option value="ollama/gemma3:1b" {% if model == 'ollama/gemma3:1b' %}selected{% endif %}>gemma3:1b</option>
+                            </optgroup>
+                            <optgroup label="Cloud Frontier Models (Uses OPENAI_API_KEY in .env)">
+                                <option value="openai/gpt-6.1-luna" {% if model in ('openai/gpt-6.1-luna', 'gpt-6.1-luna') %}selected{% endif %}>openai/gpt-6.1-luna</option>
+                                <option value="openai/gpt-4o" {% if model in ('openai/gpt-4o', 'gpt-4o') %}selected{% endif %}>openai/gpt-4o</option>
+                                <option value="openai/gpt-4o-mini" {% if model in ('openai/gpt-4o-mini', 'gpt-4o-mini') %}selected{% endif %}>openai/gpt-4o-mini</option>
+                                {% if model and model not in ('ollama/k9/lime:latest', 'ollama/k9/lime-lite:latest', 'ollama/k9/Doggo:3b', 'ollama/k9/chihuahua:latest', 'ollama/recordstore:latest', 'ollama/gemma3:1b', 'openai/gpt-6.1-luna', 'gpt-6.1-luna', 'openai/gpt-4o', 'gpt-4o', 'openai/gpt-4o-mini', 'gpt-4o-mini') %}
+                                <option value="{{ model }}" selected>{{ model }}</option>
+                                {% endif %}
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 mt-3">
+                        <button type="submit" class="btn btn-primary px-4 fw-semibold">
+                            <i class="fas fa-save me-1"></i> Save Active Model
+                        </button>
+                        <button type="button" id="testProviderBtn" class="btn btn-outline-info">
+                            <i class="fas fa-plug me-1"></i> Check key and model
+                        </button>
+                    </div>
+                </form>
+
+                <div id="ai-select-feedback" class="mt-3"></div>
+                <div id="providerTestResult" class="mt-3" role="status" aria-live="polite"></div>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <dl class="row mb-0">
-            <dt class="col-sm-4">API key</dt>
-            <dd class="col-sm-8">
-                {% if key_configured %}
-                <span class="badge bg-success">Configured</span>
-                {% else %}
-                <span class="badge bg-warning text-dark">Not set</span>
-                {% endif %}
-                <div class="form-text">
-                    Read from the <code>OPENAI_API_KEY</code> environment variable.
-                    It is never written to the database and never sent to the browser.
-                </div>
-            </dd>
 
-            <dt class="col-sm-4">Model</dt>
-            <dd class="col-sm-8">
-                <code>{{ model or 'not set' }}</code>
-                <div class="form-text">
-                    Set with <code>AI_MODEL</code>. Use the check below to confirm
-                    this account actually has a model by that name.
-                </div>
-            </dd>
+    <!-- Column 2: Environment & PHI Gate Status -->
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light py-3">
+                <i class="fas fa-plug text-primary me-2"></i><strong>Provider configuration</strong>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-5 text-muted">Cloud API key</dt>
+                    <dd class="col-sm-7">
+                        {% if key_configured %}
+                        <span class="badge bg-success">Configured</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">Not set</span>
+                        {% endif %}
+                        <div class="form-text">
+                            Read from the <code>OPENAI_API_KEY</code> environment variable in <code>.env</code>.
+                            Never written to the database or sent to the browser.
+                        </div>
+                    </dd>
 
-            <dt class="col-sm-4">Patient data source</dt>
-            <dd class="col-sm-8">
-                <code>{{ fhir_server }}</code>
-                <div class="form-text">
-                    {% if blocked_reason %}
-                    Not recognised as a synthetic-data server, so no patient data
-                    will be sent to the model provider.
-                    {% else %}
-                    Cleared for AI use.
-                    {% endif %}
-                </div>
-            </dd>
-        </dl>
+                    <dt class="col-sm-5 text-muted mt-2">Active Model</dt>
+                    <dd class="col-sm-7 mt-2">
+                        <code>{{ model or 'not set' }}</code>
+                        <div class="form-text">
+                            Default env: <code>AI_MODEL</code>.
+                        </div>
+                    </dd>
+
+                    <dt class="col-sm-5 text-muted mt-2">Patient data source</dt>
+                    <dd class="col-sm-7 mt-2">
+                        <code class="text-break">{{ fhir_server }}</code>
+                        <div class="form-text">
+                            {% if blocked_reason %}
+                            Not recognised as a synthetic-data server, so no patient data
+                            will be sent to external cloud providers without <code>AI_ALLOW_REAL_PHI=true</code>.
+                            {% else %}
+                            Cleared for AI use.
+                            {% endif %}
+                        </div>
+                    </dd>
+                </dl>
+            </div>
+        </div>
     </div>
-    <div class="card-footer bg-white">
-        <button id="testProviderBtn" class="btn btn-primary">
-            Check key and model
-        </button>
-        <span class="form-text ms-2">Contacts the provider. Sends no patient data.</span>
-        <div id="providerTestResult" class="mt-3" role="status" aria-live="polite"></div>
-    </div>
-</div>
-
-<div class="alert alert-secondary" style="max-width: 760px;">
-    <i class="fas fa-info-circle me-2"></i>
-    Configuration only &mdash; no AI feature uses this yet. The context builder,
-    prompts and the first summarise button are the next step.
-</div>
-
-<div class="mt-4">
-    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-        <i class="fas fa-arrow-left"></i> Back to dashboard
-    </a>
 </div>
 {% endblock %}
 

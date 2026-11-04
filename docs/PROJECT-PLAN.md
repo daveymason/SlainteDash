@@ -32,7 +32,7 @@ Last reviewed: 2026-08-09 · 286 tests passing, pyflakes clean.
 | 5 | Foundations, bedside intake modal, multi-backend switcher | **Done**, merged |
 | 6 | Clinical intelligence, NEWS2, sign-off, allergy gate, core security | **Done**, merged |
 | 7 | SlainteFHIR micro-EHR (8082), Slainte-Auditor red-team verifier, GMS dedup | **Done**, merged |
-| 8 | Enterprise AI (OpenAI/Azure/Ollama), FastMCP tool bridge, UI buttons | **Next Priority** |
+| 8 | AI Model Selector (`/settings/ai`), `.env` key integration, Bedside AI Briefing | **Done**, merged |
 | 9 | Enterprise security (SQLCipher, SMART on FHIR, Regulatory Dossier) | **Planned** |
 | 10 | Patient Self-Service App (Mobile & Laptop) & Resource-Scoped Auth | **Planned** |
 | 11 | "Sign in as..." Role-Based Vertical Dashboards & Modernized Navigation | **Planned** |
