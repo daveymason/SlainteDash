@@ -24,7 +24,7 @@
 
     function syncActiveNav() {
         var params = new URLSearchParams(window.location.search);
-        var currentView = params.get('view') || 'triage';
+        var currentView = params.get('view') || (window.location.pathname === '/agents' ? 'agents' : 'triage');
         document.querySelectorAll('.sidebar .nav-link').forEach(function (link) {
             var href = link.getAttribute('href') || '';
             var target = link.getAttribute('hx-get') || '';
@@ -55,9 +55,11 @@
     window.addEventListener('popstate', function () {
         syncActiveNav();
         var params = new URLSearchParams(window.location.search);
-        var currentView = params.get('view') || 'triage';
+        var currentView = params.get('view') || (window.location.pathname === '/agents' ? 'agents' : 'triage');
         var views = {
             'triage': '/fhir/Triage',
+            'agents': '/fhir/Auditor',
+            'auditor': '/fhir/Auditor',
             'pipeline': '/pipeline/status',
             'patients': '/fhir/Patients',
             'stats': '/fhir/Demographics',
@@ -106,10 +108,10 @@
         restoreMtsCollapsibleState();
     });
 
-    // Surface failures instead of leaving a panel silently blank.
+    // Surface failures instead of leaving a panel or spinner silently stuck.
     document.body.addEventListener('htmx:responseError', function (event) {
         var target = event.detail.target;
-        if (target && !target.innerHTML.trim()) {
+        if (target) {
             target.innerHTML =
                 '<div class="alert alert-danger mb-0">' +
                 '<i class="fas fa-exclamation-triangle me-2"></i>' +

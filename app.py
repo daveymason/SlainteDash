@@ -1668,23 +1668,34 @@ def register_routes(app):
         """Locate slainte-auditor, fhir_store, and audit_reports across Docker or local workspace."""
         import sys
         candidates = [
+            '/workspace',
             os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'slainte-engine')),
             os.path.abspath(os.path.join(os.path.dirname(__file__), '..')),
-            '/workspace',
+            os.path.abspath(os.path.dirname(__file__)),
         ]
-        engine_root = candidates[0]
+        engine_root = '/workspace' if os.path.isdir('/workspace/data') else candidates[1]
         for cand in candidates:
-            if os.path.isfile(os.path.join(cand, 'slainte-auditor', 'auditor_runner.py')):
+            if (
+                os.path.isfile(os.path.join(cand, 'slainte-auditor', 'auditor_runner.py'))
+                or os.path.isfile(os.path.join(cand, 'auditor', 'auditor_runner.py'))
+                or os.path.isdir(os.path.join(cand, 'data', 'fhir_store'))
+            ):
                 engine_root = cand
                 break
         auditor_dir = os.path.join(engine_root, 'slainte-auditor')
+        if not os.path.isdir(auditor_dir):
+            auditor_dir = os.path.join(engine_root, 'auditor')
         if os.path.isdir(auditor_dir) and auditor_dir not in sys.path:
             sys.path.insert(0, auditor_dir)
         store_dir = os.path.join(engine_root, 'data', 'fhir_store')
         if not os.path.isdir(store_dir):
             store_dir = app.config.get('FHIR_STORE_PATH', '/workspace/data/fhir_store')
-        report_dir = os.path.join(engine_root, 'data', 'audit_reports')
-        os.makedirs(report_dir, exist_ok=True)
+        report_dir = os.environ.get('REPORT_OUTPUT_DIR') or os.path.join(engine_root, 'data', 'audit_reports')
+        try:
+            os.makedirs(report_dir, exist_ok=True)
+        except OSError:
+            report_dir = os.path.join(app.instance_path, 'audit_reports')
+            os.makedirs(report_dir, exist_ok=True)
         return auditor_dir, store_dir, report_dir
 
     def _get_auditor_telemetry(force_run=False, model_name=None):

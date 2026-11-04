@@ -26,15 +26,10 @@
         <ul class="nav flex-column">
             {% for key, fragment_url, icon, label, badge in nav_views %}
             <li class="nav-item">
-                <a class="nav-link d-flex align-items-center justify-content-between" href="/?view={{ key }}" data-view="{{ key }}"
+                <a class="nav-link" href="/?view={{ key }}" data-view="{{ key }}"
                    {% if spa_shell %}hx-get="{{ fragment_url }}" hx-push-url="/?view={{ key }}" hx-target="#content" hx-swap="innerHTML"{% endif %}>
-                    <span>
-                        <i class="{{ icon }} fa-fw"></i>
-                        <span>{{ label }}</span>
-                    </span>
-                    {% if badge %}
-                    <span class="badge rounded-pill bg-warning text-dark ms-1" style="font-size: 0.68rem;">{{ badge }}</span>
-                    {% endif %}
+                    <i class="{{ icon }} fa-fw"></i>
+                    <span>{{ label }}{% if badge %} <strong class="badge rounded-pill bg-warning text-dark ms-1" style="font-size: 0.65rem;">{{ badge }}</strong>{% endif %}</span>
                 </a>
             </li>
             {% endfor %}
