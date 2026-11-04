@@ -28,29 +28,29 @@
 
 ## Active Final Phases (Execution Order) 🚀
 
-### Step 1: Phase 11 + Phase 9 Lite (Unified) — The 9-Agent Command Center & 7 "Sign in as..." Vertical Cockpits
-*(Executed first so the Security, GDPR, Vulnerability, and Audit agents can inspect all 7 vertical role boundaries.)*
+### Step 1: Phase 11 + Phase 9 Lite (Unified) — The 9-Agent Command Center & 7 "Sign in as..." Vertical Cockpits ✅ COMPLETED
+*(Executed first so the Security, GDPR, Vulnerability, and Audit agents inspect all 7 vertical role boundaries.)*
 
-- [ ] **Sidebar "Agents" Hub (`/agents`) & Per-Agent Settings Modal**:
-  - [ ] Replace the single `"Slainte-Auditor"` sidebar link with **"Agents"** (`/agents`), displaying all **9 Autonomous Agents** across 3 squads with live status, bound FastMCP tools, execution triggers, and a **Settings / Configure** button for every agent:
+- [x] **Sidebar "Agents" Hub (`/agents`) & Per-Agent Settings Modal**:
+  - [x] Replaced the single `"Slainte-Auditor"` sidebar link with **"Agents"** (`/agents`), displaying all **9 Autonomous Agents** across 3 squads with live status, bound FastMCP tools, execution triggers, and a **Settings / Configure** drawer for every agent:
     1. **Agent 01 — BOLA & Role-Boundary Red-Team Agent (`SlainteShield-BOLA`)**: Cross-patient (`CompartmentDefinition/Patient`) and cross-vertical BOLA probing via Dual-Phase Reflection ($\mathcal{M}$).
     2. **Agent 02 — FHIR R4 Conformance & Terminology Agent (`SlainteShield-FHIR`)**: SNOMED-CT, LOINC, UCUM, Irish GMS OID & `$validate` verification + OASIS SARIF v2.1.0 export.
     3. **Agent 03 — Software Supply-Chain & App Vulnerability Agent (`SlainteShield-CVE`)**: Audits pinned dependencies (`requirements.txt`), active `CSP` & `SRI sha384-` headers, session flags (`HttpOnly`, `SameSite`), and `SqliteStorage` rate-limiter posture.
     4. **Agent 04 — GDPR & Clinical Data Privacy Agent (`SlainteGov-GDPR`)**: Enforces EU GDPR Art. 9 & Irish HIQA data minimisation (`AI_DEIDENTIFY`, `AI_ALLOW_REAL_PHI` BAA gate, and salted SHA-256 subject pseudonymisation `LOG_HASH_SALT`).
-    5. **Agent 05 — Immutable Clinical & AI Audit Trail Agent (`SlainteGov-Audit` — Phase 9 Lite `G1` & `G10`)**: Verifies SQLite append-only triggers on `audit_log` & `ai_exchange`, provides the live `ai_exchange` & `audit_log` reader in the UI, validates `Provenance` SHA-256 signatures, and exports one-click signed audit snapshots.
+    5. **Agent 05 — Immutable Clinical & AI Audit Trail Agent (`SlainteGov-Audit` — Phase 9 Lite `G1` & `G10`)**: Verifies SQLite append-only triggers on `audit_log` & `ai_exchange`, provides the live `ai_exchange` & `audit_log` reader in `/settings/security`, validates `Provenance` SHA-256 signatures, and exports one-click signed audit snapshots (`/agents/audit/snapshot`).
     6. **Agent 06 — Multimodal Clinical Ingestion Agent (`SlainteEngine-Ingest`)**: Manages `/data/raw` & bedside CSV/PDF/OCR ingestion into deduplicated FHIR R4 bundles.
     7. **Agent 07 — Patient Summariser & Handover Agent (`SlainteScribe-Brief`)**: Configurable in `/agents` AND **embedded directly on every Patient Details page** (`POST /ai/summarise/<patient_id>`).
-    8. **Agent 08 — Medication & Allergy Safety Agent (`SlainteRx-Guard`)**: Configurable in `/agents` AND **embedded directly in the Intake Modal, Patient Details, and Pharmacy Cockpit** (`check_drug_allergy_contraindications`).
+    8. **Agent 08 — Medication & Allergy Safety Agent (`SlainteRx-Guard`)**: Configurable in `/agents` AND **embedded directly in the Intake Modal, Patient Details (`POST /ai/crosscheck/<patient_id>`), and Pharmacy Cockpit** (`check_drug_allergy_contraindications`).
     9. **Agent 09 — Acuity Triage & Deterioration Agent (`SlainteDx-Triage`)**: Configurable in `/agents` AND **embedded directly in the Live Triage Queue & Patient 24h NEWS2 Sparkline card**.
-- [ ] **"Sign in as..." 7 Role-Based Vertical Cockpits & Modernized Navigation**:
-  - [ ] Add role/vertical selector on `/login` (`Sign in as...`) and a live **Vertical Cockpit Switcher** in the top header bar:
-    - [ ] **1. Emergency Department (`SlainteED`)**: Collapsible MTS Cat 1–5 queue, 24h NEWS2 sparklines, acute intake.
-    - [ ] **2. General Practice (`SlainteGP`)**: SOAP consultation notes, HSE Chronic Disease Management (CDM) tracking, repeat prescribing safety gate.
-    - [ ] **3. Dentistry (`SlainteDent`)**: Pre-op allergy/anticoagulant clearance gate, 32-tooth FDI Odontogram & 6-sextant BPE summary, dental referral ingestion.
-    - [ ] **4. Pharmacy (`SlaintePharm`)**: Active `MedicationRequest` dispensing queue, deterministic Beta-Lactam/NSAID cross-reactivity gate, GMS validation.
-    - [ ] **5. Ambulance / EMS (`SlainteEMS`)**: High-contrast pre-hospital ePCR field intake, rapid ambulance MTS/NEWS2 scoring, hospital ETA handoff.
-    - [ ] **6. Elite Sports Club (`SlainteSport`)**: Squad readiness & physiological load telemetry, concussion return-to-play `Provenance` sign-off, athlete BOLA privacy.
-    - [ ] **7. Astronaut Health Monitoring (`SlainteAstro`)**: 100% air-gapped deep-space bio-telemetry running local 3B models + deterministic FastMCP diagnostics.
+- [x] **"Sign in as..." 7 Role-Based Vertical Cockpits & Modernized Navigation**:
+  - [x] Added role/vertical selector on `/login` (`Sign in as...`) and a live **Vertical Cockpit Switcher** (`POST /verticals/switch`) in the top header bar:
+    - [x] **1. Emergency Department (`SlainteED`)**: Collapsible MTS Cat 1–5 queue, 24h NEWS2 sparklines, acute intake.
+    - [x] **2. General Practice (`SlainteGP`)**: SOAP consultation notes, HSE Chronic Disease Management (CDM) tracking, repeat prescribing safety gate.
+    - [x] **3. Dentistry (`SlainteDent`)**: Pre-op allergy/anticoagulant clearance gate, 32-tooth FDI Odontogram & 6-sextant BPE summary, dental referral ingestion.
+    - [x] **4. Pharmacy (`SlaintePharm`)**: Active `MedicationRequest` dispensing queue, deterministic Beta-Lactam/NSAID cross-reactivity gate, GMS validation.
+    - [x] **5. Ambulance / EMS (`SlainteEMS`)**: High-contrast pre-hospital ePCR field intake, rapid ambulance MTS/NEWS2 scoring, hospital ETA handoff.
+    - [x] **6. Elite Sports Club (`SlainteSport`)**: Squad readiness & physiological load telemetry, concussion return-to-play `Provenance` sign-off, athlete BOLA privacy.
+    - [x] **7. Astronaut Health Monitoring (`SlainteAstro`)**: 100% air-gapped deep-space bio-telemetry running local 3B models + deterministic FastMCP diagnostics.
 
 ### Step 2: Phase 12 — `SlaintePages` Public Startup & Product Website (`SlainteTech AI Security Labs`)
 - [ ] Build the Next.js App Router + Netlify + Docker marketing and product platform in `/home/adman-voids/Desktop/Code/SlaintePages` matching `SlainteDash` styling, featuring `/agents/*` (all 9 agents), `/verticals/*` (all 7 vertical cockpits), `/platform/mcp-guardrails`, and SEO + GEO (`public/llms.txt` + JSON-LD).

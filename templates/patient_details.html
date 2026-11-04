@@ -100,12 +100,23 @@
                             hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
                             hx-target="#ai-bedside-briefing-{{ patient['id'] }}"
                             hx-swap="innerHTML">
-                        <i class="fas fa-robot me-1"></i> Generate AI Bedside Briefing
+                        <i class="fas fa-notes-medical me-1"></i> Agent 07: Patient Summariser
                     </button>
+                    <button class="btn btn-outline-danger fw-semibold"
+                            hx-post="/ai/crosscheck/{{ patient['id'] }}"
+                            hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
+                            hx-target="#ai-rxguard-{{ patient['id'] }}"
+                            hx-swap="innerHTML">
+                        <i class="fas fa-pills me-1"></i> Agent 08: Rx-Guard Allergy Check
+                    </button>
+                    <a href="/?view=agents" class="btn btn-sm btn-link text-muted text-decoration-none">
+                        <i class="fas fa-cog me-1"></i> Configure Embedded Agents
+                    </a>
                 </div>
             </div>
         </div>
         <div id="ai-bedside-briefing-{{ patient['id'] }}" class="mt-3"></div>
+        <div id="ai-rxguard-{{ patient['id'] }}" class="mt-2"></div>
     </div>
 </div>
 

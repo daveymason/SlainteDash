@@ -6,25 +6,35 @@
      hrefs -- a normal navigation to "/?view=...", which the index route turns
      into the right initial fragment. #}
 {% set nav_views = [
-    ('triage', '/fhir/Triage', 'fas fa-ambulance text-danger', 'Live Triage'),
-    ('pipeline', '/pipeline/status', 'fas fa-cogs text-info', 'Pipeline Status'),
-    ('auditor', '/fhir/Auditor', 'fas fa-shield-alt text-warning', 'Slainte-Auditor'),
-    ('patients', '/fhir/Patients', 'fas fa-users', 'Patients'),
-    ('stats', '/fhir/Demographics', 'fas fa-chart-pie', 'Stats'),
-    ('insights', '/fhir/Dashboard', 'fas fa-chart-bar', 'Insights'),
+    ('triage', '/fhir/Triage', 'fas fa-ambulance text-danger', 'Live Triage', None),
+    ('agents', '/fhir/Auditor', 'fas fa-robot text-warning', 'Agents', '9'),
+    ('patients', '/fhir/Patients', 'fas fa-users text-info', 'Patients', None),
+    ('pipeline', '/pipeline/status', 'fas fa-cogs text-success', 'Pipeline Status', None),
+    ('stats', '/fhir/Demographics', 'fas fa-chart-pie', 'Stats', None),
+    ('insights', '/fhir/Dashboard', 'fas fa-chart-bar', 'Insights', None),
 ] %}
 <nav class="sidebar">
     <div class="position-sticky">
-        <div class="sidebar-logo py-3 px-2 mb-2 d-flex justify-content-center align-items-center">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="img-fluid" style="max-height: 40px;">
+        <div class="sidebar-logo py-3 px-2 mb-1 d-flex flex-column align-items-center text-center">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="img-fluid mb-2" style="max-height: 40px;">
+            {% if active_vertical %}
+            <span class="badge bg-{{ active_vertical.badge_color }} px-2 py-1 w-100 text-truncate" style="font-size: 0.7rem;" title="{{ active_vertical.title }}">
+                <i class="{{ active_vertical.icon }} me-1"></i>{{ active_vertical.brand }}
+            </span>
+            {% endif %}
         </div>
         <ul class="nav flex-column">
-            {% for key, fragment_url, icon, label in nav_views %}
+            {% for key, fragment_url, icon, label, badge in nav_views %}
             <li class="nav-item">
-                <a class="nav-link" href="/?view={{ key }}" data-view="{{ key }}"
+                <a class="nav-link d-flex align-items-center justify-content-between" href="/?view={{ key }}" data-view="{{ key }}"
                    {% if spa_shell %}hx-get="{{ fragment_url }}" hx-push-url="/?view={{ key }}" hx-target="#content" hx-swap="innerHTML"{% endif %}>
-                    <i class="{{ icon }} fa-fw"></i>
-                    <span>{{ label }}</span>
+                    <span>
+                        <i class="{{ icon }} fa-fw"></i>
+                        <span>{{ label }}</span>
+                    </span>
+                    {% if badge %}
+                    <span class="badge rounded-pill bg-warning text-dark ms-1" style="font-size: 0.68rem;">{{ badge }}</span>
+                    {% endif %}
                 </a>
             </li>
             {% endfor %}

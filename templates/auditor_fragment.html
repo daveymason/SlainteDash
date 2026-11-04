@@ -4,10 +4,10 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
         <div>
             <h1 class="h3 mb-1 fw-bold">
-                <i class="fas fa-shield-alt text-warning me-2" aria-hidden="true"></i>Slainte-Auditor: Autonomous FHIR R4 Verifier
+                <i class="fas fa-robot text-warning me-2" aria-hidden="true"></i>SlainteTech Autonomous Agents Command Center
             </h1>
-            <p class="text-muted mb-0" style="font-size: 0.9rem; text-wrap: pretty; max-width: 80ch;">
-                Continuous HL7 FHIR R4 compartment authorization auditing, Dual-Phase Reflection memory (<var>M</var>), and SNOMED-CT / LOINC / UCUM ontology verification.
+            <p class="text-muted mb-0" style="font-size: 0.9rem; text-wrap: pretty; max-width: 85ch;">
+                Manage, configure, and execute all <strong>9 Autonomous Security, GDPR Governance, and Clinical Agents</strong> bound by deterministic FastMCP guardrails on HL7 FHIR R4.
             </p>
         </div>
         <form class="d-flex flex-wrap align-items-center gap-2 m-0"
@@ -17,7 +17,7 @@
             {% set cur_model = telemetry.selected_model or 'openai/gpt-6.1-luna' %}
             <div class="input-group input-group-sm" style="width: auto;">
                 <span class="input-group-text bg-dark text-info border-dark">
-                    <i class="fas fa-microchip me-1" aria-hidden="true"></i>Model
+                    <i class="fas fa-microchip me-1" aria-hidden="true"></i>Fleet Model
                 </span>
                 <select name="model_name"
                         aria-label="Select OpenHands Auditor Model"
@@ -57,8 +57,12 @@
             </span>
             <button type="submit"
                     class="btn btn-warning btn-sm fw-bold px-3 py-2 shadow-sm">
-                <i class="fas fa-sync-alt me-1" aria-hidden="true"></i>Run Audit Cycle Now
+                <i class="fas fa-sync-alt me-1" aria-hidden="true"></i>Run All Agents &amp; Audit Cycle
             </button>
+            <a href="/agents/audit/snapshot"
+               class="btn btn-outline-primary btn-sm px-3 py-2">
+                <i class="fas fa-download me-1" aria-hidden="true"></i>Signed Audit Snapshot
+            </a>
             <a href="/fhir/auditor/sarif"
                target="_blank"
                class="btn btn-outline-secondary btn-sm px-3 py-2">
@@ -67,7 +71,204 @@
         </form>
     </div>
 
-    <!-- Top Row: 5 Key Statistics Boxes -->
+    {% if agents %}
+    <!-- 9-Agent Autonomous Fleet Directory & Per-Agent Settings -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-dark text-white d-flex flex-wrap justify-content-between align-items-center py-2">
+            <span><i class="fas fa-network-wired text-info me-2"></i><strong>Autonomous 9-Agent Fleet Registry &amp; Per-Agent Settings</strong></span>
+            {% if active_vertical %}
+            <span class="badge bg-{{ active_vertical.badge_color }}">
+                Active Cockpit: {{ active_vertical.brand }} ({{ active_vertical.active_agents|length }}/9 Agents Assigned)
+            </span>
+            {% endif %}
+        </div>
+        <div class="card-body p-3">
+            <div class="row g-3">
+                {% for agent in agents %}
+                {% set is_in_vertical = (not active_vertical) or (agent.id in active_vertical.active_agents) %}
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="card h-100 border {% if is_in_vertical %}border-{{ agent.color }}{% else %}border-secondary-subtle{% endif %} shadow-sm">
+                        <div class="card-body p-3 d-flex flex-column justify-content-between">
+                            <div>
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-{{ agent.color }} px-2 py-1">#{{ agent.number }}</span>
+                                        <span class="fw-bold font-monospace small text-dark">{{ agent.code }}</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1">
+                                        {% if is_in_vertical %}
+                                        <span class="badge bg-info-subtle text-info border border-info" style="font-size: 0.68rem;">Cockpit Bound</span>
+                                        {% endif %}
+                                        {% if agent.enabled %}
+                                        <span class="badge bg-success" style="font-size: 0.7rem;">ACTIVE</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary" style="font-size: 0.7rem;">PAUSED</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <h6 class="fw-bold mb-1">
+                                    <i class="{{ agent.icon }} text-{{ agent.color }} me-1"></i>{{ agent.name }}
+                                </h6>
+                                <p class="text-muted small mb-2" style="font-size: 0.8rem;">{{ agent.summary }}</p>
+                                <div class="mb-2">
+                                    <div class="text-uppercase text-muted fw-bold" style="font-size: 0.65rem;">Bound FastMCP Tools / Engine:</div>
+                                    <div class="d-flex flex-wrap gap-1 mt-1">
+                                        {% for tool in agent.mcp_tools %}
+                                        <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.68rem;">{{ tool }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <div class="small text-muted mb-2" style="font-size: 0.74rem;">
+                                    <i class="fas fa-map-pin text-primary me-1"></i><strong>Embedded in:</strong> {{ agent.embedded_in|join(' • ') }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                                    <span class="font-monospace text-muted text-truncate" style="font-size: 0.72rem; max-width: 190px;" title="{{ agent.assigned_model }}">
+                                        <i class="fas fa-microchip me-1"></i>{{ agent.assigned_model }}
+                                    </span>
+                                    <button class="btn btn-sm btn-outline-dark py-0 px-2"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#agent-cfg-{{ agent.id }}"
+                                            aria-expanded="false">
+                                        <i class="fas fa-cog me-1"></i>Settings
+                                    </button>
+                                </div>
+
+                                <!-- Collapsible Per-Agent Settings Drawer -->
+                                <div class="collapse mt-2" id="agent-cfg-{{ agent.id }}">
+                                    <form class="p-2 rounded bg-light border small"
+                                          hx-post="/agents/{{ agent.id }}/settings"
+                                          hx-target="#agent-save-msg-{{ agent.id }}"
+                                          hx-swap="innerHTML">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" name="enabled" id="en-{{ agent.id }}" {% if agent.enabled %}checked{% endif %}>
+                                            <label class="form-check-label fw-semibold" for="en-{{ agent.id }}">Autonomous Execution Enabled</label>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label mb-1 fw-semibold" style="font-size: 0.72rem;">Assigned LLM Model</label>
+                                            <select name="assigned_model" class="form-select form-select-sm font-monospace" style="font-size: 0.75rem;">
+                                                {% for m_val, m_label in available_models %}
+                                                <option value="{{ m_val }}" {% if agent.assigned_model == m_val %}selected{% endif %}>{{ m_label }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="form-label mb-1 fw-semibold" style="font-size: 0.72rem;">{{ agent.guardrail_label }}</label>
+                                            <select name="guardrail" class="form-select form-select-sm" style="font-size: 0.75rem;">
+                                                {% for g_opt in agent.guardrail_options %}
+                                                <option value="{{ g_opt }}" {% if agent.active_guardrail == g_opt %}selected{% endif %}>{{ g_opt }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-primary w-100 py-1">
+                                            <i class="fas fa-save me-1"></i>Save Agent Settings
+                                        </button>
+                                        <div id="agent-save-msg-{{ agent.id }}"></div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Diagnostic Row for Agents 03 (CVE), 04 (GDPR), and 05 (Immutable Audit) -->
+    <div class="row g-3 mb-4">
+        <!-- Agent 03: CVE & Software Vulnerability Scanner -->
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center">
+                    <span class="small fw-bold"><i class="fas fa-bug text-info me-1"></i>Agent 03: SlainteShield-CVE</span>
+                    <span class="badge bg-success">PASS ({{ cve_scan.pinned_count }}/{{ cve_scan.total_packages }} Pinned)</span>
+                </div>
+                <div class="card-body p-3 small">
+                    <ul class="list-unstyled mb-0">
+                        {% for chk in cve_scan.checks %}
+                        <li class="mb-2 pb-1 border-bottom">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong class="text-dark">{{ chk.check }}</strong>
+                                <span class="badge {% if chk.status == 'PASS' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ chk.status }}</span>
+                            </div>
+                            <div class="text-muted" style="font-size: 0.75rem;">{{ chk.detail }} &bull; <code>{{ chk.cwe }}</code></div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agent 04: GDPR Art. 9 & Clinical Privacy Scanner -->
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center">
+                    <span class="small fw-bold"><i class="fas fa-user-shield text-success me-1"></i>Agent 04: SlainteGov-GDPR</span>
+                    <span class="badge bg-success">EU GDPR Art. 9 Verified</span>
+                </div>
+                <div class="card-body p-3 small">
+                    <ul class="list-unstyled mb-0">
+                        {% for chk in gdpr_scan.checks %}
+                        <li class="mb-2 pb-1 border-bottom">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong class="text-dark">{{ chk.article }}</strong>
+                                <span class="badge {% if chk.status == 'PASS' %}bg-success{% else %}bg-info text-dark{% endif %}">{{ chk.status }}</span>
+                            </div>
+                            <div class="text-muted" style="font-size: 0.75rem;">{{ chk.detail }}</div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agent 05: Immutable Audit Trail & Provenance Verifier -->
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-dark text-white py-2 d-flex justify-content-between align-items-center">
+                    <span class="small fw-bold"><i class="fas fa-fingerprint text-primary me-1"></i>Agent 05: SlainteGov-Audit</span>
+                    <span class="badge {% if audit_scan.triggers_ok %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ audit_scan.triggers_found|length }}/4 SQLite Triggers Active
+                    </span>
+                </div>
+                <div class="card-body p-3 small d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex justify-content-between mb-2 pb-1 border-bottom">
+                            <span>Immutable <code>audit_log</code> Events:</span>
+                            <strong class="text-primary">{{ audit_scan.audit_count }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2 pb-1 border-bottom">
+                            <span>Immutable <code>ai_exchange</code> Records:</span>
+                            <strong class="text-info">{{ audit_scan.ai_exchange_count }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2 pb-1 border-bottom">
+                            <span>FHIR <code>Provenance</code> SHA-256 Signatures:</span>
+                            <strong class="text-success">{{ audit_scan.provenance_count }} verified</strong>
+                        </div>
+                        <div class="text-muted mb-2" style="font-size: 0.74rem;">
+                            Triggers: <code>{{ audit_scan.triggers_found|join(', ') }}</code>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <a href="/settings/security" class="btn btn-sm btn-outline-primary w-50">
+                            <i class="fas fa-list-alt me-1"></i>View AI Ledger
+                        </a>
+                        <a href="/agents/audit/snapshot" class="btn btn-sm btn-primary w-50">
+                            <i class="fas fa-download me-1"></i>Export Snapshot
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Top Row: 5 Key Statistics Boxes (Agents 01 & 02 Deep Telemetry) -->
     <div class="row g-3 mb-4">
         <!-- Stat Box 1: Reachability Pruning -->
         <div class="col-12 col-sm-6 col-xl">

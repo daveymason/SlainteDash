@@ -303,6 +303,26 @@ def register_routes(app):
     fhir = app.fhir
     auth_limit = app.config['RATELIMIT_AUTH']
 
+    from verticals import VERTICALS_CATALOG, get_active_vertical, get_vertical_list
+    from agents_hub import (
+        AVAILABLE_MODELS,
+        build_signed_audit_snapshot,
+        get_agent_by_id,
+        get_all_agents_with_settings,
+        run_cve_vulnerability_scan,
+        run_gdpr_privacy_scan,
+        run_immutable_audit_scan,
+        save_agent_settings,
+    )
+
+    @app.context_processor
+    def inject_vertical_and_fleet():
+        from flask import session
+        return {
+            'active_vertical': get_active_vertical(session, db),
+            'all_verticals': get_vertical_list(),
+        }
+
     # -- shell -------------------------------------------------------------
 
     @app.route('/')
@@ -318,6 +338,7 @@ def register_routes(app):
             'insights': '/fhir/Dashboard',
             'pipeline': '/pipeline/status',
             'auditor': '/fhir/Auditor',
+            'agents': '/fhir/Auditor',
         }
         view_arg = request.args.get('view')
         if view_arg is None:
@@ -329,6 +350,20 @@ def register_routes(app):
         else:
             initial_view = views['patients']
         return render_template('index.html', initial_view=initial_view)
+
+    @app.route('/verticals/switch', methods=['POST'])
+    @login_required
+    def switch_vertical():
+        from flask import session
+        v_key = (request.form.get('vertical_key') or 'ed').strip().lower()
+        if v_key not in VERTICALS_CATALOG:
+            v_key = 'ed'
+        session['active_vertical'] = v_key
+        db.set_system_setting('default_vertical', v_key)
+        vert = VERTICALS_CATALOG[v_key]
+        audit('vertical.switched', outcome='success', detail={'vertical': v_key, 'brand': vert['brand']})
+        target_view = vert.get('default_view', 'triage')
+        return redirect(url_for('index', view=target_view))
 
     @app.route('/health')
     def health_check():
@@ -404,7 +439,13 @@ def register_routes(app):
 
         login_user(auth.User(record))
         db.record_login(username)
-        audit('login.success', resource_type='User', resource_id=pseudonymize(username))
+        selected_vertical = (request.form.get('vertical_key') or '').strip().lower()
+        if selected_vertical in VERTICALS_CATALOG:
+            from flask import session
+            session['active_vertical'] = selected_vertical
+            db.set_system_setting('default_vertical', selected_vertical)
+        audit('login.success', resource_type='User', resource_id=pseudonymize(username),
+              detail={'vertical': selected_vertical or 'ed'})
         return redirect(url_for('index'))
 
     @app.route('/register', methods=['GET', 'POST'])
@@ -1200,11 +1241,77 @@ def register_routes(app):
         return (
             f'<div class="alert alert-info border-0 shadow-sm mb-0 small">'
             f'<div class="d-flex justify-content-between align-items-center mb-1">'
-            f'<strong><i class="fas fa-robot me-1"></i>Bedside AI Handover Briefing</strong>'
+            f'<strong><i class="fas fa-robot me-1"></i>Agent 07 (SlainteScribe-Brief): Bedside AI Handover Briefing</strong>'
             f'<span class="badge bg-dark font-monospace">{escape(active_model)}</span>'
             f'</div>'
             f'<div class="mt-1">{formatted}</div>'
             f'</div>'
+        )
+
+    @app.route('/ai/crosscheck/<patient_id>', methods=['POST'])
+    @login_required
+    def ai_crosscheck_patient(patient_id):
+        """Agent 08 (SlainteRx-Guard): Deterministic Drug-Allergy & Contraindication check on Patient Card."""
+        import hashlib
+        from fhir_utils import check_drug_allergy_contraindications
+
+        allergy_res = app.fhir.get_all('AllergyIntolerance', {'patient': patient_id, '_count': '30'})
+        med_res = app.fhir.get_all('MedicationRequest', {'patient': patient_id, '_count': '30'})
+
+        algs_list = []
+        for a in (allergy_res.data or []):
+            txt = a.get('code', {}).get('text') or (a.get('code', {}).get('coding') or [{}])[0].get('display')
+            if txt:
+                algs_list.append({'substance': txt, 'display': txt, 'criticality': a.get('criticality', 'high')})
+
+        meds_list = []
+        for m in (med_res.data or []):
+            txt = m.get('medicationCodeableConcept', {}).get('text') or (m.get('medicationCodeableConcept', {}).get('coding') or [{}])[0].get('display')
+            if txt:
+                meds_list.append({'name': txt, 'display': txt})
+
+        alerts = check_drug_allergy_contraindications(algs_list, meds_list)
+        summary_msg = (
+            f"Rx-Guard inspected {len(algs_list)} allergy record(s) against {len(meds_list)} active prescription(s): "
+            f"{len(alerts)} contraindication(s) detected."
+        )
+        try:
+            db.write_ai_exchange(
+                actor=current_user.username,
+                patient_ref=hashlib.sha256(patient_id.encode('utf-8')).hexdigest()[:16],
+                feature='section',
+                model='SlainteRx-Guard (FastMCP Deterministic)',
+                prompt_hash=hashlib.sha256(f'rx-guard:{patient_id}'.encode('utf-8')).hexdigest(),
+                prompt_version='v1.0-rxguard',
+                deidentified=True,
+                input_tokens=len(algs_list) * 12 + len(meds_list) * 12,
+                output_tokens=len(summary_msg) // 4,
+                response=summary_msg,
+            )
+        except Exception:
+            pass
+
+        if alerts:
+            items_html = ''.join(
+                f'<li><strong>[{a["severity"]}] {a["allergen"]} &harr; {a["medication"]}:</strong> {a["message"]}</li>'
+                for a in alerts
+            )
+            return (
+                f'<div class="alert alert-danger border-0 shadow-sm mb-0 small">'
+                f'<div class="d-flex justify-content-between align-items-center mb-1">'
+                f'<strong><i class="fas fa-pills me-1"></i>Agent 08 (SlainteRx-Guard): Contraindication Alert</strong>'
+                f'<span class="badge bg-danger">BLOCK / INTERCEPT</span>'
+                f'</div>'
+                f'<ul class="mb-0 ps-3 mt-1">{items_html}</ul>'
+                f'</div>'
+            )
+        return (
+            f'<div class="alert alert-success border-0 shadow-sm mb-0 small">'
+            f'<div class="d-flex justify-content-between align-items-center">'
+            f'<span><i class="fas fa-shield-alt me-1"></i><strong>Agent 08 (SlainteRx-Guard):</strong> '
+            f'Verified {len(algs_list)} allergy record(s) vs. {len(meds_list)} prescription(s) — zero cross-reactivity detected.</span>'
+            f'<span class="badge bg-success">CLEAR</span>'
+            f'</div></div>'
         )
 
     # -- Data Settings & Multi-Backend Selector ---------------------------
@@ -1361,21 +1468,30 @@ def register_routes(app):
     @app.route('/settings/security')
     @login_required
     def settings_security():
-        audit_count = 0
-        recent_audits = []
-        try:
-            with app.app_context():
-                cur = db.get_db().cursor()
-                cur.execute("SELECT COUNT(*) FROM audit;")
-                audit_count = cur.fetchone()[0]
-                cur.execute("SELECT action, user_id, outcome, timestamp FROM audit ORDER BY timestamp DESC LIMIT 6;")
-                recent_audits = [
-                    {'action': r[0], 'user_id': r[1], 'outcome': r[2], 'timestamp': r[3]}
-                    for r in cur.fetchall()
-                ]
-        except Exception:
-            pass
-        return render_template('settings_security.html', audit_count=audit_count, recent_audits=recent_audits)
+        _, store_dir, _ = _resolve_auditor_paths()
+        audit_scan = run_immutable_audit_scan(db, store_dir)
+        cve_scan = run_cve_vulnerability_scan(os.path.dirname(__file__), app.config)
+        gdpr_scan = run_gdpr_privacy_scan(app.config, db)
+        recent_audits = [
+            {
+                'action': r.get('action', ''),
+                'user_id': r.get('actor', ''),
+                'outcome': r.get('outcome', 'success'),
+                'timestamp': r.get('occurred_at', ''),
+            }
+            for r in audit_scan.get('recent_audits', [])
+        ]
+        return render_template(
+            'settings_security.html',
+            audit_count=audit_scan.get('audit_count', 0),
+            ai_exchange_count=audit_scan.get('ai_exchange_count', 0),
+            provenance_count=audit_scan.get('provenance_count', 0),
+            triggers_ok=audit_scan.get('triggers_ok', True),
+            recent_audits=recent_audits,
+            recent_ai_exchanges=audit_scan.get('recent_ai_exchanges', []),
+            cve_scan=cve_scan,
+            gdpr_scan=gdpr_scan,
+        )
 
     @app.route('/settings/user')
     @login_required
@@ -1619,23 +1735,39 @@ def register_routes(app):
             'logs': ['[Slainte-Auditor] Click "Run Audit Cycle Now" to execute the 4-stage verification pipeline.'],
         }
 
+    def _get_agents_hub_context(force_run=False, model_name=None):
+        telemetry = _get_auditor_telemetry(force_run=force_run, model_name=model_name)
+        _, store_dir, _ = _resolve_auditor_paths()
+        default_m = telemetry.get('selected_model') or app.config.get('AI_MODEL') or 'ollama/k9/lime:latest'
+        return {
+            'telemetry': telemetry,
+            'agents': get_all_agents_with_settings(db, default_model=default_m),
+            'available_models': AVAILABLE_MODELS,
+            'cve_scan': run_cve_vulnerability_scan(os.path.dirname(__file__), app.config),
+            'gdpr_scan': run_gdpr_privacy_scan(app.config, db),
+            'audit_scan': run_immutable_audit_scan(db, store_dir),
+        }
+
     @app.route('/fhir/Auditor')
+    @app.route('/fhir/Agents')
+    @app.route('/agents')
     @login_required
     def auditor_view():
         if not request.headers.get('HX-Request') and not app.testing:
             return render_template('index.html', initial_view='/fhir/Auditor')
-        return render_template('auditor.html', telemetry=_get_auditor_telemetry(force_run=False))
+        return render_template('auditor.html', **_get_agents_hub_context(force_run=False))
 
     @app.route('/fhir/auditor_fragment')
     @login_required
     def auditor_fragment():
-        return render_template('auditor_fragment.html', telemetry=_get_auditor_telemetry(force_run=False))
+        return render_template('auditor_fragment.html', **_get_agents_hub_context(force_run=False))
 
     @app.route('/fhir/auditor/run', methods=['POST'])
     @login_required
     def auditor_run_now():
         selected_model = (request.form.get('model_name') or '').strip() or None
-        telemetry = _get_auditor_telemetry(force_run=True, model_name=selected_model)
+        ctx = _get_agents_hub_context(force_run=True, model_name=selected_model)
+        telemetry = ctx['telemetry']
         audit(
             'auditor.run_cycle',
             outcome='success',
@@ -1646,7 +1778,35 @@ def register_routes(app):
                 'terminology_findings': telemetry.get('stats', {}).get('terminology_findings_count', 0),
             },
         )
-        return render_template('auditor_fragment.html', telemetry=telemetry)
+        return render_template('auditor_fragment.html', **ctx)
+
+    @app.route('/agents/<agent_id>/settings', methods=['POST'])
+    @login_required
+    def update_agent_settings(agent_id):
+        agent = get_agent_by_id(agent_id)
+        if not agent:
+            return '<div class="alert alert-danger py-1 px-2 small mb-0">Unknown agent ID.</div>', 404
+        enabled = request.form.get('enabled') == 'on' or request.form.get('enabled') == 'true'
+        model = request.form.get('assigned_model', 'ollama/k9/lime:latest')
+        guardrail = request.form.get('guardrail', agent['default_guardrail'])
+        saved = save_agent_settings(db, agent_id, enabled, model, guardrail)
+        audit('agent.settings_updated', outcome='success', detail={'agent_id': agent_id, **saved})
+        state_badge = '<span class="badge bg-success">ACTIVE</span>' if enabled else '<span class="badge bg-secondary">PAUSED</span>'
+        return (
+            f'<div class="alert alert-success py-2 px-3 small mb-0 mt-2">'
+            f'<i class="fas fa-check-circle me-1"></i><strong>{agent["code"]}</strong> settings saved: '
+            f'{state_badge} &bull; Model: <code>{saved["model"]}</code> &bull; Policy: <em>{saved["guardrail"]}</em>'
+            f'</div>'
+        )
+
+    @app.route('/agents/audit/snapshot')
+    @login_required
+    def download_signed_audit_snapshot():
+        payload = build_signed_audit_snapshot(db, app.config.get('SECRET_KEY', 'slainte-audit-key'))
+        audit('audit.snapshot_exported', outcome='success', detail={'entries': payload['audit_log_entries']})
+        response = jsonify(payload)
+        response.headers['Content-Disposition'] = 'attachment; filename="slainte_signed_audit_snapshot.json"'
+        return response
 
     @app.route('/fhir/auditor/sarif')
     @login_required

@@ -33,8 +33,8 @@ Last reviewed: 2026-08-09 · 286 tests passing, pyflakes clean.
 | 6 | Clinical intelligence, NEWS2, sign-off, allergy gate, core security | **Done**, merged |
 | 7 | SlainteFHIR micro-EHR (8082), Slainte-Auditor red-team verifier, GMS dedup | **Done**, merged |
 | 8 | AI Model Selector (`/settings/ai`), `.env` key integration, Bedside AI Briefing | **Done**, merged |
-| 11 + 9 Lite | **Next Priority:** Sidebar "Agents" Hub (9 Agents + Settings + Embedded Copilots), GDPR/CVE/Audit Agents, & "Sign in as..." 7 Vertical Cockpits | **Active Next** |
-| 12 | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js + Netlify + Docker) | **Planned (Step 2)** |
+| 11 + 9 Lite | Sidebar "Agents" Hub (9 Agents + Settings + Embedded Copilots), GDPR/CVE/Audit Agents, & "Sign in as..." 7 Vertical Cockpits | **Done**, merged |
+| 12 | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js + Netlify + Docker) | **Active Next Priority** |
 | 10 | Standalone Mobile/Laptop Patient App (Shared `SlainteFHIR` Backend) | **Deferred (Separate Post-Funding Project)** |
 
 The dashboard (`SlainteDash`) operates as the primary clinical interface of the

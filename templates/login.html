@@ -3,18 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In &mdash; FHIR Patient Dashboard</title>
+    <title>Sign In &mdash; SlainteTech Clinical Cockpit</title>
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
     <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet">
 </head>
-<body class="d-flex justify-content-center align-items-center vh-100">
-    <div class="card p-4" style="min-width: 340px; max-width: 420px;">
+<body class="d-flex justify-content-center align-items-center min-vh-100 py-4">
+    <div class="card p-4 shadow-sm" style="min-width: 360px; max-width: 460px;">
         <div class="card-body">
-            <div class="text-center mb-3">
+            <div class="text-center mb-2">
                 <img src="{{ url_for('static', filename='logo.png') }}" alt="" style="height: 48px;">
             </div>
-            <h3 class="card-title text-center mb-3">Sign In</h3>
+            <h3 class="card-title text-center mb-1">Sign In</h3>
+            <p class="text-center text-muted small mb-3">SlainteTech AI Security Labs &bull; Multi-Vertical FHIR R4 Cockpit</p>
 
             {% if notice %}
             <div class="alert alert-success py-2 small" role="status">{{ notice }}</div>
@@ -26,16 +27,36 @@
             <form method="post" action="{{ url_for('login') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
-                    <label for="username" class="form-label">Username</label>
+                    <label for="username" class="form-label fw-semibold small">Username</label>
                     <input type="text" class="form-control" id="username" name="username"
                            autocomplete="username" required autofocus>
                 </div>
                 <div class="mb-3">
-                    <label for="password" class="form-label">Password</label>
+                    <label for="password" class="form-label fw-semibold small">Password</label>
                     <input type="password" class="form-control" id="password" name="password"
                            autocomplete="current-password" required>
                 </div>
-                <button type="submit" class="btn btn-primary w-100">Sign In</button>
+                <div class="mb-3">
+                    <label for="vertical_key" class="form-label fw-semibold small">Sign in as... (Specialty Cockpit)</label>
+                    <select class="form-select" id="vertical_key" name="vertical_key">
+                        {% if all_verticals %}
+                            {% for vert in all_verticals %}
+                            <option value="{{ vert.key }}" {% if active_vertical and active_vertical.key == vert.key %}selected{% endif %}>
+                                {{ vert.brand }} &mdash; {{ vert.role_label }} ({{ vert.title }})
+                            </option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="ed">SlainteED &mdash; Emergency Department</option>
+                            <option value="gp">SlainteGP &mdash; General Practice</option>
+                            <option value="dentist">SlainteDent &mdash; Dental Surgery</option>
+                            <option value="pharmacy">SlaintePharm &mdash; Clinical Pharmacy</option>
+                            <option value="ems">SlainteEMS &mdash; Pre-Hospital Ambulance</option>
+                            <option value="sports">SlainteSport &mdash; Elite Sports Club</option>
+                            <option value="astro">SlainteAstro &mdash; Astronaut Bio-Telemetry</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 fw-semibold">Sign In &amp; Launch Cockpit</button>
             </form>
 
             <p class="text-center small text-muted mt-3 mb-0">

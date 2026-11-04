@@ -1,8 +1,41 @@
-<header class="bg-dark text-white p-3 mb-4">
-    <div class="container-fluid d-flex align-items-center justify-content-end">
+<header class="bg-dark text-white p-3 mb-4 border-bottom border-secondary">
+    <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <!-- Left: Active Clinical Vertical Cockpit Indicator -->
+        <div class="d-flex align-items-center gap-2">
+            {% if active_vertical %}
+            <span class="badge bg-{{ active_vertical.badge_color }} px-3 py-2 shadow-sm d-flex align-items-center gap-2">
+                <i class="{{ active_vertical.icon }}"></i>
+                <span><strong>{{ active_vertical.brand }}</strong> &mdash; {{ active_vertical.title }}</span>
+            </span>
+            {% endif %}
+            <a href="/?view=agents" class="badge bg-dark border border-warning text-warning text-decoration-none px-2 py-2 d-none d-md-inline-flex align-items-center gap-1">
+                <i class="fas fa-robot"></i> 9 Autonomous Agents Active
+            </a>
+        </div>
+
+        <!-- Right: Vertical Role Switcher, User & Settings -->
         <div class="d-flex align-items-center gap-2">
             {% if current_user.is_authenticated %}
-            <span class="navbar-text me-2" id="currentUserDisplay">
+            <!-- Live "Sign in as..." Vertical Cockpit Switcher -->
+            {% if all_verticals %}
+            <form method="post" action="{{ url_for('switch_vertical') }}" class="m-0 d-flex align-items-center">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-secondary text-white border-secondary" title="Switch Clinical Vertical Cockpit">
+                        <i class="fas fa-layer-group me-1"></i>Cockpit
+                    </span>
+                    <select name="vertical_key" aria-label="Switch Clinical Vertical Cockpit" class="form-select form-select-sm bg-dark text-white border-secondary fw-semibold" onchange="this.form.submit()" style="max-width: 215px;">
+                        {% for vert in all_verticals %}
+                        <option value="{{ vert.key }}" {% if active_vertical and active_vertical.key == vert.key %}selected{% endif %}>
+                            {{ vert.brand }} ({{ vert.role_label }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+            {% endif %}
+
+            <span class="navbar-text me-1 ms-1" id="currentUserDisplay">
                 <i class="fas fa-user-circle me-1"></i>{{ current_user.username }}
                 <span class="badge bg-secondary ms-1">{{ current_user.role }}</span>
             </span>
@@ -14,7 +47,12 @@
                     <i class="fas fa-sliders-h"></i> Settings
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="settingsDropdown">
-                    <li><h6 class="dropdown-header text-uppercase small fw-bold">Clinical &amp; System</h6></li>
+                    <li><h6 class="dropdown-header text-uppercase small fw-bold">Clinical &amp; Autonomous Agents</h6></li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2" href="/?view=agents">
+                            <i class="fas fa-robot text-warning"></i> Autonomous Agents Hub (9 Agents)
+                        </a>
+                    </li>
                     <li>
                         <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('settings_data') }}">
                             <i class="fas fa-database text-primary"></i> Data Settings (FHIR Backend)
@@ -34,7 +72,7 @@
                     </li>
                     <li>
                         <a class="dropdown-item d-flex align-items-center gap-2" href="{{ url_for('settings_security') }}">
-                            <i class="fas fa-shield-alt text-success"></i> Security &amp; Audit Logs
+                            <i class="fas fa-shield-alt text-success"></i> Security, GDPR &amp; Audit Logs
                         </a>
                     </li>
                     <li>
