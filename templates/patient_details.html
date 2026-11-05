@@ -276,7 +276,10 @@
                         </div>
                     </div>
                 </div>
-                <div id="labResults" class="fade-me-in"></div>
+                <div id="labResults" class="fade-me-in"
+                     hx-get="/fhir/LabResults/{{ patient['id'] }}"
+                     hx-trigger="load"
+                     hx-indicator="#lab-results-loader"></div>
             </div>
         </div>
     </div>
@@ -299,7 +302,10 @@
                         </div>
                     </div>
                 </div>
-                <div id="vitalSigns" class="fade-me-in"></div>
+                <div id="vitalSigns" class="fade-me-in"
+                     hx-get="/fhir/VitalSigns/{{ patient['id'] }}"
+                     hx-trigger="load"
+                     hx-indicator="#vital-signs-loader"></div>
             </div>
         </div>
     </div>
@@ -325,7 +331,10 @@
                         </div>
                     </div>
                 </div>
-                <div id="medications" class="fade-me-in"></div>
+                <div id="medications" class="fade-me-in"
+                     hx-get="/fhir/Medications/{{ patient['id'] }}"
+                     hx-trigger="load"
+                     hx-indicator="#medications-loader"></div>
             </div>
         </div>
     </div>
@@ -348,7 +357,10 @@
                         </div>
                     </div>
                 </div>
-                <div id="allergies" class="fade-me-in"></div>
+                <div id="allergies" class="fade-me-in"
+                     hx-get="/fhir/Allergies/{{ patient['id'] }}"
+                     hx-trigger="load"
+                     hx-indicator="#allergies-loader"></div>
             </div>
         </div>
     </div>

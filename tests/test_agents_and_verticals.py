@@ -118,3 +118,19 @@ def test_vertical_cockpit_switcher_sidebar_and_patients(admin_client):
     assert 'Live Triage' not in gp_text
     assert '9 Autonomous Agents Active' not in gp_text
     assert 'Pipeline Status' not in gp_text
+
+
+def test_embedded_patient_summarise_and_rxguard_agents(admin_client):
+    sum_resp = admin_client.post('/ai/summarise/P101')
+    assert sum_resp.status_code == 200
+    sum_html = sum_resp.get_data(as_text=True)
+    assert 'Agent 07 (SlainteScribe-Brief)' in sum_html
+    assert 'Patient/P101' in sum_html
+
+    rx_resp = admin_client.post('/ai/crosscheck/patient-case-7')
+    assert rx_resp.status_code == 200
+    rx_html = rx_resp.get_data(as_text=True)
+    assert 'Agent 08 (SlainteRx-Guard)' in rx_html
+    assert 'BLOCK / INTERCEPT' in rx_html
+    assert 'Penicillin' in rx_html
+

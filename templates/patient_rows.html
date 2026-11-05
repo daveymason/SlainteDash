@@ -54,14 +54,24 @@
             {% endif %}
         </div>
         <div class="text-muted" style="font-size: 0.75rem;">{{ patient.address }} &bull; {{ patient.telecom }}</div>
+        <div id="row-ai-summary-{{ patient.id }}" class="mt-1"></div>
     </td>
     <td>
-        <button class="btn btn-sm btn-primary"
-                hx-get="/fhir/Patient/{{ patient.id }}"
-                hx-target="#content"
-                hx-swap="innerHTML transition:true">
-            View Details <i class="fas fa-arrow-right ms-1"></i>
-        </button>
+        <div class="d-flex flex-column gap-1">
+            <button class="btn btn-sm btn-primary"
+                    hx-get="/fhir/Patient/{{ patient.id }}"
+                    hx-target="#content"
+                    hx-swap="innerHTML transition:true">
+                View Details <i class="fas fa-arrow-right ms-1"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary"
+                    hx-post="/ai/summarise/{{ patient.id }}"
+                    hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
+                    hx-target="#row-ai-summary-{{ patient.id }}"
+                    hx-swap="innerHTML">
+                <i class="fas fa-notes-medical me-1"></i> Agent 07 Summary
+            </button>
+        </div>
     </td>
 </tr>
 {% endfor %}

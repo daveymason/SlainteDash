@@ -126,6 +126,8 @@ class LocalFhirStore:
             subj_ref = ""
             if isinstance(res.get("subject"), dict):
                 subj_ref = res["subject"].get("reference", "")
+            elif isinstance(res.get("patient"), dict):
+                subj_ref = res["patient"].get("reference", "")
             
             target_pid = current_patient_id
             if subj_ref.startswith("Patient/"):
@@ -440,6 +442,10 @@ class LocalFhirStore:
                     codes_to_match.add(c)
                     if "|" in c:
                         codes_to_match.add(c.split("|")[-1])
+                if "59408-5" in codes_to_match or "2708-6" in codes_to_match:
+                    codes_to_match.update({"59408-5", "2708-6"})
+                if "85354-9" in codes_to_match or "55284-4" in codes_to_match:
+                    codes_to_match.update({"85354-9", "55284-4"})
                 matched = []
                 for o in obs_list:
                     cd = o.get("code", {})

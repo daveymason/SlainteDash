@@ -134,6 +134,8 @@ class OpenAIProvider:
         sent when configured, so a model that rejects the parameter is a
         blank env var away from working rather than a code change.
         """
+        if not self.api_key:
+            return
         if self.reasoning_effort:
             kwargs.setdefault('reasoning_effort', self.reasoning_effort)
         bare_model = self.model[len('openai/'):] if self.model.startswith('openai/') else self.model
@@ -192,12 +194,17 @@ class OllamaProvider:
             role = m.get('role', 'user').upper()
             prompt_parts.append(f'[{role}]\n{m.get("content", "")}')
         full_prompt = '\n\n'.join(prompt_parts)
-        for candidate_base in [self.base_url, 'http://localhost:11434', 'http://host.docker.internal:11434']:
+        seen_bases = []
+        for b in [self.base_url, 'http://localhost:11434', 'http://host.docker.internal:11434']:
+            if b and b not in seen_bases:
+                seen_bases.append(b)
+        req_timeout = (1.5, min(float(self.timeout or 6.0), 6.0))
+        for candidate_base in seen_bases:
             try:
                 resp = requests.post(
                     f'{candidate_base}/api/generate',
                     json={'model': self.bare_model, 'prompt': full_prompt, 'stream': False},
-                    timeout=self.timeout,
+                    timeout=req_timeout,
                 )
                 if resp.status_code == 200:
                     text = resp.json().get('response', '')
