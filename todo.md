@@ -121,7 +121,7 @@
   - [x] Retired multi-tier runtime fragmentation (separate OpenHands container shell loops and bespoke auditor scripts) in favor of the canonical `BaseAgent` Python architecture.
   - [x] Built `agents/runner.py`: Standard execution engine handling synchronous copilot invocations, background daemon loops, and batch sweeps through one typed interface (`AgentExecutionResult`).
   - [x] Built `agents/cli.py` & `agents/__main__.py`: Unified CLI (`python -m agents [list|run|health|audit]`) allowing operators and CI/CD pipelines to run any agent directly.
-- [x] **New Agents Expansion (Agents 12–16) — Built & Ready for Human Review**:
+- [x] **New Agents Expansion (Agents 12–16) — Built & Verified**:
   - [x] **Agent 12 — Clinic Onboarding & Migration Agent (`SlainteGov-Onboard` — `/agents/clinic_onboarding`)**: Introspects raw practice dumps (CSV/HL7v2/PDF), maps unstandardized codes to LOINC/SNOMED-CT via MCP, and compiles verified Irish Core FHIR R4 Bundles.
   - [x] **Agent 13 — Discharge & Transfer Coordinator (`SlainteCare-Transfer` — `/agents/discharge_transfer`)**: Assesses physiological stability (NEWS2 <= 2), performs discharge medication reconciliation against documented allergies, and drafts structured primary care transfer summaries.
   - [x] **Agent 14 — Emergency Pre-Alert Agent (`SlainteEMS-Alert` — `/agents/ems_prealert`)**: Evaluates ambulance vital signs and complaints to determine Manchester Triage urgency (Cat 1–2) and dispatch real-time pre-arrival alerts with ETA to receiving Emergency Departments.
@@ -130,17 +130,34 @@
   - [x] Enriched `AGENTS_CATALOG` in `agents/registry.py` from 11 to 16 agents; added concrete class dispatch in `get_agent_instance()`.
   - [x] Expanded test suite in `tests/test_agents_fleet.py` (344/344 passing tests across monorepo).
 
-### Step 4: Phase 13 — Production Hardening, Cloud SQL PostgreSQL RLS & Pilot Launch 🚀
+### Step 3.7: Phase 12.7 — Manual Human Review & UI/UX Audit across Dashboard & Public Site ✅ COMPLETED
+- [x] **Bootstrap-Native Spacing & Rhythm Audit**: Standardized padding (`p-3`, `p-4`), card margins (`mb-3`), and grid gaps across all templates without arbitrary inline styles.
+- [x] **Button Micro-Interactions & Hover Feedback**: Enhanced `.btn` styles in `static/styles.css` with smooth cubic-bezier micro-transitions (`translateY(-1px)` hover, accessible `:focus-visible` rings).
+- [x] **Consistent Asynchronous Loading States**: Hardened `.htmx-indicator` and `.btn.htmx-request` styles providing immediate visual feedback and dimming on background actions.
+- [x] **De-Cluttering & Elimination of "Vibe-Coding" Jargon**: Removed redundant titles, duplicate pills, and unnecessary badges in top nav; streamlined header into clean enterprise medical layout.
+- [x] **WCAG 2.2 AA Contrast & Bedside Readability**: Verified 4.5:1 text contrast and 44px coarse-pointer touch targets for Care-at-Home tablet and ambulance ePCR use.
+- [x] **Pixel-Perfect Screen Captures**: Captured 11 high-resolution screenshots saved to `data/audit_reports/ui_screenshots/` covering dashboard login, patients roster, patient details chart, agents hub, dedicated agent dashboards (Agent 16 NIS2 & Agent 08 Rx-Guard), acute triage board, and the public Next.js marketing pages.
+
+### Step 3.8: Phase 12.8 — Agent Interaction with UI Specification ✅ COMPLETED
+- [x] **16-Agent UI Interaction Matrix**: Documented full interaction lifecycle (invocation trigger, computed output, and presentation format in UI) for all 16 agents in `PROJECT-PLAN.md`.
+- [x] **Clean Agent Navigation Bar & Dropdown**:
+  - [x] Updated `frontend/templates/header.html` dropdown to include all 16 agents neatly categorized into 3 semantic squads: *SlainteShield Security*, *SlainteGov Governance*, and *SlainteCare Bedside*.
+  - [x] Built responsive, horizontally scrollable `agent-subnav` ribbon for 1-click lateral navigation across all 16 agent operational dashboards.
+  - [x] Implemented dedicated interactive dashboard panels in `frontend/templates/agent_detail.html` for Agents 12, 13, 14, 15, and 16.
+
+### Step 3.9: Phase 12.9 — Public Site Expansion & Enterprise Visuals ✅ COMPLETED
+- [x] **16-Agent Expansion on Public Marketing Platform**: Expanded `website/src/data/agentsData.ts` to include all 16 agents; generated 38 static pages with zero build errors.
+- [x] **Authentic Enterprise Healthcare Photography**: Downloaded, optimized, and integrated high-resolution clinical photography into `website/src/app/page.tsx` and `website/public-site/images/` showcasing multi-disciplinary rounds, bedside EHR consultation, trauma resuscitation, community care surveillance, and hospital cybersecurity SOC operations.
+
+### Step 4: Phase 13 — Production Hardening, Multi-Tenant PostgreSQL 16 RLS Migration (Startup Free-Tier Strategy) & Pilot Launch 🚀
 - [x] **External FHIR Sandbox Live Integration Testing**: Connected dynamic FHIR client (`/settings/data`) to external testbeds (HAPI FHIR R4 public demo, synthetic cohort intake, bidirectional write-back, and provenance signing). Verified live.
-- [ ] **Multi-Tenant PostgreSQL 16 RLS Migration & Google Cloud Platform Architecture**:
-  - [ ] Provision Cloud SQL for PostgreSQL 16 (Private IP VPC, automated backups, SSL/TLS, `uuid-ossp`, `pgcrypto`).
-  - [ ] Execute `deploy/postgres_rls_schema.sql` cutover (`FORCE ROW LEVEL SECURITY` across hospital trusts, clinical RBAC roles, and patients).
+- [ ] **Multi-Tenant PostgreSQL 16 RLS Migration (Startup Free-Tier / Multi-Cloud Strategy)**:
+  - [ ] Evaluate startup-friendly free tiers: **Neon Serverless Postgres** (Free Tier: 0.5 GB, autoscale vCPU, native RLS, instant branching), **Supabase** (Free Tier: 500 MB PostgreSQL 16, built-in RLS), **AWS RDS Free Tier** (db.t4g.micro for 12 months), or **IBM Cloud Databases for PostgreSQL** (free credits via Startup with IBM).
+  - [ ] Connect selected free-tier PostgreSQL instance and execute `deploy/postgres_rls_schema.sql` (`FORCE ROW LEVEL SECURITY` across hospital trust boundaries, clinical roles, and patients).
   - [ ] Run high-concurrency benchmarks under multi-worker gunicorn.
-  - [ ] Evaluate Cloud Run / GKE deployment for container fleet (`slainte-dashboard`, `slainte-fhir`, `slainte-mcp`, `slainte-openhands`, `caddy`).
-  - [ ] Connect Vertex AI (Gemini 1.5/2.0) with enterprise BAA for sovereign clinical agent inference.
-- [ ] **Production Domain & Public Ingress TLS**:
-  - [ ] Purchase custom domain (Operator action).
-  - [ ] Point DNS A/AAAA records to Caddy ingress host for automated Let's Encrypt / ZeroSSL TLS certificates.
+- [ ] **Production Domain & Automated Public Ingress TLS**:
+  - [ ] Purchase custom production domain (Operator action: e.g. `slainte.health` or similar).
+  - [ ] Point DNS A/AAAA records to Caddy ingress host for automated Let's Encrypt / ZeroSSL TLS certificates with automatic renewal.
 
 ### Future Standalone Project (Deferred Post-Funding)
 - [ ] **Phase 10 (Standalone Mobile/Laptop Patient App)**: Dedicated patient-facing mobile & web client sharing the `SlainteFHIR` backend.
