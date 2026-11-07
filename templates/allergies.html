@@ -1,5 +1,48 @@
+{% if flash_message %}
+<div class="alert alert-{{ flash_message[0] }} py-2 px-3 small m-3 mb-0">
+    <i class="fas fa-check-circle me-1"></i> {{ flash_message[1] }}
+</div>
+{% endif %}
+
+{% if patient_id %}
+<div class="collapse border-bottom bg-light p-3" id="addAllergyCollapse-{{ patient_id }}">
+    <form hx-post="/fhir/Allergies/{{ patient_id }}/add"
+          hx-target="#allergies"
+          hx-swap="innerHTML">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small fw-bold mb-1">Allergen (SNOMED-CT)</label>
+                <input type="text" name="allergen_text" list="allergenList-{{ patient_id }}"
+                       class="form-control form-control-sm"
+                       placeholder="e.g. Penicillin" required>
+                <datalist id="allergenList-{{ patient_id }}">
+                    {% for code, disp in (allergens_catalog or []) %}
+                    <option value="{{ disp }}">SNOMED {{ code }}</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold mb-1">Criticality</label>
+                <select name="criticality" class="form-select form-select-sm">
+                    <option value="high">High (Severe)</option>
+                    <option value="low">Low (Mild)</option>
+                    <option value="unable-to-assess">Unassessed</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">Manifestation / Reaction</label>
+                <div class="input-group input-group-sm">
+                    <input type="text" name="reaction_text" class="form-control" placeholder="e.g. Anaphylaxis / Rash">
+                    <button type="submit" class="btn btn-danger">Save</button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endif %}
+
 {% if error %}
-<div class="alert alert-danger mb-3">
+<div class="alert alert-danger m-3 mb-0">
     <i class="fas fa-exclamation-triangle me-2"></i>
     <strong>Allergies could not be loaded.</strong> {{ error }}
     <div class="small mt-1">
@@ -7,53 +50,43 @@
     </div>
 </div>
 {% elif allergies %}
-<div class="card mb-3">
-    <div class="card-header bg-light">
-        <i class="fas fa-allergies text-danger me-2"></i>Allergies &amp; Intolerances
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Date Recorded</th>
-                        <th>Allergen</th>
-                        <th>Reactions</th>
-                        <th>Criticality</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for allergy in allergies %}
-                    <tr>
-                        <td>{{ allergy.date }}</td>
-                        <td><span class="fw-bold">{{ allergy.name }}</span></td>
-                        <td>
-                            {% for reaction in allergy.reactions %}
-                                <span class="badge bg-warning text-dark me-1">{{ reaction }}</span>
-                            {% else %}
-                                <span class="text-muted">No reactions recorded</span>
-                            {% endfor %}
-                        </td>
-                        <td>
-                            <span class="badge rounded-pill
-                                {% if allergy.severity in ('high', 'severe') %}bg-danger
-                                {% elif allergy.severity in ('moderate',) %}bg-warning text-dark
-                                {% elif allergy.severity in ('low', 'mild') %}bg-info text-dark
-                                {% else %}bg-secondary{% endif %}">
-                                {{ allergy.severity|capitalize }}
-                            </span>
-                        </td>
-                        <td>{{ allergy.status }}</td>
-                    </tr>
+<div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Recorded</th>
+                <th>Allergen</th>
+                <th>Reaction</th>
+                <th>Criticality</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for allergy in allergies %}
+            <tr>
+                <td class="small text-muted">{{ allergy.date }}</td>
+                <td><span class="fw-semibold">{{ allergy.name }}</span></td>
+                <td class="small">
+                    {% for reaction in allergy.reactions %}
+                        <span class="status-pill status-warn me-1">{{ reaction }}</span>
+                    {% else %}
+                        <span class="text-muted">Not specified</span>
                     {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+                </td>
+                <td>
+                    <span class="status-pill
+                        {% if allergy.severity in ('high', 'severe') %}status-fail
+                        {% elif allergy.severity in ('moderate',) %}status-warn
+                        {% else %}status-neutral{% endif %}">
+                        {{ allergy.severity|capitalize }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% else %}
-<div class="alert alert-info mb-3">
+<div class="alert alert-info m-3 mb-0">
     <i class="fas fa-info-circle me-2"></i> No allergy records found for this patient.
 </div>
 {% endif %}

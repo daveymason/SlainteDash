@@ -1,0 +1,644 @@
+{% if flash_message %}
+<div class="alert alert-{{ flash_message[0] }} py-2 px-3 small mb-3">
+    <i class="fas fa-check-circle me-1"></i> {{ flash_message[1] }}
+</div>
+{% endif %}
+
+{% if v_key == 'dentist' %}
+<!-- B1: SlainteDent — Interactive 32-Tooth FDI Odontogram & 6-Sextant BPE Periodontal Workstation -->
+<div class="card mb-4">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center py-2 gap-2">
+        <span><i class="fas fa-tooth text-primary me-2"></i><strong>Interactive FDI 32-Tooth Odontogram &amp; BPE Periodontal Workstation</strong></span>
+        <div class="d-flex align-items-center gap-2">
+            <label class="small text-muted fw-semibold mb-0">Dental Patient:</label>
+            <select class="form-select form-select-sm" style="width: auto; min-width: 220px;"
+                    hx-get="/fhir/CockpitWorkspace?vertical=dentist"
+                    name="patient_id"
+                    hx-target="#cockpit-specialty-workspace"
+                    hx-swap="innerHTML">
+                {% for pt in cohort_patients %}
+                <option value="{{ pt.id }}" {% if pt.id == selected_pid %}selected{% endif %}>
+                    {{ pt.name }} ({{ pt.id }})
+                </option>
+                {% endfor %}
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2"
+                    hx-get="/fhir/Patient/{{ selected_pid }}"
+                    hx-target="#content">
+                Full Chart
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Pre-Operative Medical Clearance Banner -->
+        <div class="row g-2 mb-3">
+            <div class="col-md-6">
+                <div class="p-2 rounded border {% if penicillin_flag %}border-danger bg-danger-subtle{% else %}bg-light{% endif %} small h-100">
+                    <div class="fw-bold {% if penicillin_flag %}text-danger{% else %}text-dark{% endif %}">
+                        <i class="fas fa-allergies me-1"></i>Pre-Op Antibiotic &amp; Latex Allergy Gate
+                    </div>
+                    <div class="mt-1">
+                        {% if allergies_list %}
+                            {% for alg in allergies_list %}
+                            <span class="status-pill status-fail me-1">{{ alg }}</span>
+                            {% endfor %}
+                            {% if penicillin_flag %}
+                            <div class="text-danger fw-semibold mt-1">AVOID Amoxicillin / Co-Amoxiclav &mdash; consider Clarithromycin or Metronidazole.</div>
+                            {% endif %}
+                        {% else %}
+                            <span class="status-pill status-pass">NKDA Verified</span> No documented antibiotic or latex allergies.
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-2 rounded border {% if hemostasis_flags %}border-warning bg-warning-subtle{% else %}bg-light{% endif %} small h-100">
+                    <div class="fw-bold text-dark">
+                        <i class="fas fa-tint text-danger me-1"></i>Surgical Hemostasis &amp; Active Regimen
+                    </div>
+                    <div class="mt-1">
+                        {% if hemostasis_flags %}
+                            <span class="status-pill status-warn me-1">Bleeding Risk</span>
+                            Active antiplatelet/anticoagulant: <strong>{{ hemostasis_flags|join(', ') }}</strong> (local hemostatic suture protocol required).
+                        {% elif meds_list %}
+                            Active meds: {{ meds_list|join(', ') }}
+                        {% else %}
+                            <span class="status-pill status-pass">Standard Hemostasis</span> No active anticoagulants recorded.
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <form hx-post="/fhir/Cockpit/dentist/save"
+              hx-target="#cockpit-specialty-workspace"
+              hx-swap="innerHTML">
+            <input type="hidden" name="patient_id" value="{{ selected_pid }}">
+            <input type="hidden" name="teeth_json" id="fdiTeethJsonInput" value="{{ teeth_json }}">
+
+            <!-- Tooth Status Brush Bar -->
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 p-2 rounded bg-light border">
+                <div class="d-flex flex-wrap align-items-center gap-1">
+                    <span class="small fw-bold text-muted me-2">Select Charting Tool (then click teeth):</span>
+                    {% for st_key, meta in tooth_status_meta.items() %}
+                    <button type="button"
+                            class="btn btn-sm py-0 px-2 fdi-brush-btn {% if st_key == 'carious' %}active fw-bold border-dark{% endif %}"
+                            data-brush="{{ st_key }}"
+                            onclick="window.setFdiBrush('{{ st_key }}', this)"
+                            style="background-color: {{ meta.bg }}; border: 1px solid {{ meta.border }}; color: {{ meta.text }}; font-size: 0.74rem;">
+                        {{ meta.short }}: {{ meta.label }}
+                    </button>
+                    {% endfor %}
+                </div>
+                <span class="small text-muted">Last charted: {{ dental_chart.updated }} ({{ dental_chart.author }})</span>
+            </div>
+
+            <!-- 32-Tooth FDI Adult Dentition Grid -->
+            <div class="odontogram-container p-3 rounded border bg-white mb-3">
+                <div class="d-flex justify-content-between small text-muted fw-bold mb-1">
+                    <span>MAXILLARY RIGHT (Q1: 18&ndash;11)</span>
+                    <span>MAXILLARY LEFT (Q2: 21&ndash;28)</span>
+                </div>
+                <div class="odontogram-arch mb-3 pb-2 border-bottom">
+                    <div class="odontogram-quadrant pe-2 border-end">
+                        {% for t in fdi_upper_right %}
+                        {% set st = dental_chart.teeth.get(t, 'sound') %}
+                        {% set meta = tooth_status_meta[st] %}
+                        <button type="button" class="fdi-tooth-btn" data-tooth="{{ t }}" data-status="{{ st }}"
+                                onclick="window.paintFdiTooth(this)"
+                                style="background-color: {{ meta.bg }}; border-color: {{ meta.border }}; color: {{ meta.text }};">
+                            <span class="tooth-num">{{ t }}</span>
+                            <span class="tooth-code">{{ meta.short }}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                    <div class="odontogram-quadrant ps-2">
+                        {% for t in fdi_upper_left %}
+                        {% set st = dental_chart.teeth.get(t, 'sound') %}
+                        {% set meta = tooth_status_meta[st] %}
+                        <button type="button" class="fdi-tooth-btn" data-tooth="{{ t }}" data-status="{{ st }}"
+                                onclick="window.paintFdiTooth(this)"
+                                style="background-color: {{ meta.bg }}; border-color: {{ meta.border }}; color: {{ meta.text }};">
+                            <span class="tooth-num">{{ t }}</span>
+                            <span class="tooth-code">{{ meta.short }}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="odontogram-arch">
+                    <div class="odontogram-quadrant pe-2 border-end">
+                        {% for t in fdi_lower_right %}
+                        {% set st = dental_chart.teeth.get(t, 'sound') %}
+                        {% set meta = tooth_status_meta[st] %}
+                        <button type="button" class="fdi-tooth-btn" data-tooth="{{ t }}" data-status="{{ st }}"
+                                onclick="window.paintFdiTooth(this)"
+                                style="background-color: {{ meta.bg }}; border-color: {{ meta.border }}; color: {{ meta.text }};">
+                            <span class="tooth-num">{{ t }}</span>
+                            <span class="tooth-code">{{ meta.short }}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                    <div class="odontogram-quadrant ps-2">
+                        {% for t in fdi_lower_left %}
+                        {% set st = dental_chart.teeth.get(t, 'sound') %}
+                        {% set meta = tooth_status_meta[st] %}
+                        <button type="button" class="fdi-tooth-btn" data-tooth="{{ t }}" data-status="{{ st }}"
+                                onclick="window.paintFdiTooth(this)"
+                                style="background-color: {{ meta.bg }}; border-color: {{ meta.border }}; color: {{ meta.text }};">
+                            <span class="tooth-num">{{ t }}</span>
+                            <span class="tooth-code">{{ meta.short }}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between small text-muted fw-bold mt-1">
+                    <span>MANDIBULAR RIGHT (Q4: 48&ndash;41)</span>
+                    <span>MANDIBULAR LEFT (Q3: 31&ndash;38)</span>
+                </div>
+            </div>
+
+            <!-- 6-Sextant Basic Periodontal Examination (BPE) & Operative Note -->
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-6">
+                    <label class="form-label small fw-bold mb-1">6-Sextant Basic Periodontal Examination (BPE 0&ndash;4*)</label>
+                    <div class="row g-2">
+                        {% for sex_key, sex_lbl in bpe_sextants %}
+                        <div class="col-4">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text fw-semibold" style="font-size: 0.72rem;">{{ sex_lbl }}</span>
+                                <select name="bpe_{{ sex_key }}" class="form-select form-select-sm fw-bold">
+                                    {% for code_opt in ['0', '1', '2', '3', '4', '4*'] %}
+                                    <option value="{{ code_opt }}" {% if dental_chart.bpe.get(sex_key) == code_opt %}selected{% endif %}>{{ code_opt }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <label class="form-label small fw-bold mb-1">Operative / Endodontic Note</label>
+                    <input type="text" name="dental_notes" class="form-control form-control-sm"
+                           value="{{ dental_chart.notes }}"
+                           placeholder="e.g. #46 symptomatic pulpitis — extirpation &amp; Ledermix dressing">
+                </div>
+                <div class="col-lg-2 d-grid">
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold">
+                        <i class="fas fa-save me-1"></i>Save Odontogram
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+(function() {
+    window._fdiActiveBrush = 'carious';
+    window._fdiMeta = {{ tooth_status_meta|tojson }};
+    window.setFdiBrush = function(brushKey, btnEl) {
+        window._fdiActiveBrush = brushKey;
+        document.querySelectorAll('.fdi-brush-btn').forEach(function(b) {
+            b.classList.remove('active', 'fw-bold', 'border-dark');
+        });
+        if (btnEl) {
+            btnEl.classList.add('active', 'fw-bold', 'border-dark');
+        }
+    };
+    window.paintFdiTooth = function(btnEl) {
+        var input = document.getElementById('fdiTeethJsonInput');
+        if (!input) return;
+        var map = {};
+        try { map = JSON.parse(input.value || '{}'); } catch (e) { map = {}; }
+        var tooth = btnEl.getAttribute('data-tooth');
+        var current = btnEl.getAttribute('data-status') || 'sound';
+        var next = (current === window._fdiActiveBrush) ? 'sound' : window._fdiActiveBrush;
+        map[tooth] = next;
+        input.value = JSON.stringify(map);
+        btnEl.setAttribute('data-status', next);
+        var meta = window._fdiMeta[next] || window._fdiMeta['sound'];
+        btnEl.style.backgroundColor = meta.bg;
+        btnEl.style.borderColor = meta.border;
+        btnEl.style.color = meta.text;
+        var codeSpan = btnEl.querySelector('.tooth-code');
+        if (codeSpan) codeSpan.textContent = meta.short;
+    };
+})();
+</script>
+
+{% elif v_key == 'pharmacy' %}
+<!-- B2: SlaintePharm — Live Clinical Prescription Dispensing & Contraindication Queue -->
+<div class="card mb-4">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center py-2">
+        <span><i class="fas fa-prescription-bottle-alt text-primary me-2"></i><strong>Clinical Prescription Dispensing &amp; PSI Safety Queue</strong></span>
+        <div class="d-flex gap-2">
+            <span class="status-pill status-neutral">Pending: {{ pending_count }}</span>
+            <span class="status-pill {% if flagged_count > 0 %}status-fail{% else %}status-pass{% endif %}">Rx-Guard Alerts: {{ flagged_count }}</span>
+            <span class="status-pill status-pass">Dispensed: {{ dispensed_count }}</span>
+            <span class="status-pill status-warn">On-Hold: {{ hold_count }}</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Patient &amp; GMS</th>
+                        <th>Prescribed Medication &amp; Regimen</th>
+                        <th>Agent 08 (`SlainteRx-Guard`) Screen</th>
+                        <th>Queue Status</th>
+                        <th class="text-end">Pharmacist Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in dispense_queue %}
+                    <tr class="{% if item.status == 'active' and item.rx_alerts %}table-danger{% endif %}">
+                        <td>
+                            <div class="fw-semibold">
+                                <a href="#" class="text-decoration-none"
+                                   hx-get="/fhir/Patient/{{ item.patient_id }}"
+                                   hx-target="#content">{{ item.patient_name }}</a>
+                            </div>
+                            <div class="small text-muted font-monospace">GMS: {{ item.gms }}</div>
+                        </td>
+                        <td>
+                            <div class="fw-bold">{{ item.drug_name }}</div>
+                            <div class="small text-secondary">{{ item.dosage }}</div>
+                            {% if item.note %}
+                            <div class="small text-muted fst-italic"><i class="fas fa-comment-medical me-1"></i>{{ item.note }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.rx_alerts %}
+                                {% for al in item.rx_alerts %}
+                                <div class="status-pill status-fail mb-1">
+                                    <i class="fas fa-biohazard"></i> {{ al.allergen }} &harr; {{ al.medication }}
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <span class="status-pill status-pass"><i class="fas fa-check"></i> Clear ({{ item.allergies|length }} Alg Checked)</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-pill
+                                {% if item.status == 'completed' %}status-pass
+                                {% elif item.status in ('on-hold', 'stopped') %}status-warn
+                                {% else %}status-neutral{% endif %}">
+                                {% if item.status == 'completed' %}Dispensed{% else %}{{ item.status|capitalize }}{% endif %}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            {% if item.status == 'active' %}
+                            <div class="d-inline-flex gap-1">
+                                <form hx-post="/fhir/Cockpit/pharmacy/dispense"
+                                      hx-target="#cockpit-specialty-workspace"
+                                      hx-swap="innerHTML">
+                                    <input type="hidden" name="med_id" value="{{ item.id }}">
+                                    <input type="hidden" name="patient_id" value="{{ item.patient_id }}">
+                                    <input type="hidden" name="new_status" value="completed">
+                                    <button type="submit" class="btn btn-sm {% if item.rx_alerts %}btn-outline-danger{% else %}btn-success{% endif %} py-0 px-2" style="font-size: 0.74rem;">
+                                        {% if item.rx_alerts %}Override &amp; Dispense{% else %}Dispense Verified{% endif %}
+                                    </button>
+                                </form>
+                                <form hx-post="/fhir/Cockpit/pharmacy/dispense"
+                                      hx-target="#cockpit-specialty-workspace"
+                                      hx-swap="innerHTML">
+                                    <input type="hidden" name="med_id" value="{{ item.id }}">
+                                    <input type="hidden" name="patient_id" value="{{ item.patient_id }}">
+                                    <input type="hidden" name="new_status" value="on-hold">
+                                    <input type="hidden" name="pharm_note" value="Held pending prescriber cross-reactivity review">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning text-dark py-0 px-2" style="font-size: 0.74rem;">
+                                        Hold Rx
+                                    </button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <form hx-post="/fhir/Cockpit/pharmacy/dispense"
+                                  hx-target="#cockpit-specialty-workspace"
+                                  hx-swap="innerHTML"
+                                  class="d-inline">
+                                <input type="hidden" name="med_id" value="{{ item.id }}">
+                                <input type="hidden" name="patient_id" value="{{ item.patient_id }}">
+                                <input type="hidden" name="new_status" value="active">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.72rem;">
+                                    Re-Queue
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted py-3">No prescriptions in queue.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% elif v_key == 'gp' %}
+<!-- B3: SlainteGP — GP SOAP Consultation & Chronic Disease Management (CDM) Workspace -->
+<div class="card mb-4">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center py-2 gap-2">
+        <span><i class="fas fa-user-md text-primary me-2"></i><strong>GP Consultation &amp; HSE Chronic Disease Management (CDM) Workspace</strong></span>
+        <div class="d-flex align-items-center gap-2">
+            <label class="small text-muted fw-semibold mb-0">Consultation Patient:</label>
+            <select class="form-select form-select-sm" style="width: auto; min-width: 220px;"
+                    hx-get="/fhir/CockpitWorkspace?vertical=gp"
+                    name="patient_id"
+                    hx-target="#cockpit-specialty-workspace"
+                    hx-swap="innerHTML">
+                {% for pt in cohort_patients %}
+                <option value="{{ pt.id }}" {% if pt.id == selected_pid %}selected{% endif %}>
+                    {{ pt.name }} ({{ pt.id }})
+                </option>
+                {% endfor %}
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2"
+                    hx-get="/fhir/Patient/{{ selected_pid }}"
+                    hx-target="#content">
+                Full Chart
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- CDM Biomarker & Problem Strip -->
+        <div class="p-2 rounded bg-light border mb-3 small d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <strong>Active CDM Conditions:</strong>
+                {% if cdm_conditions %}
+                    {{ cdm_conditions|join(' • ') }}
+                {% else %}
+                    General Primary Care Review
+                {% endif %}
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                {% for lb in cdm_labs[:4] %}
+                <span class="badge bg-white text-dark border">{{ lb.label }}: <strong>{{ lb.value }}</strong></span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- Structured SOAP Consultation Composer -->
+            <div class="col-lg-7">
+                <form hx-post="/fhir/Cockpit/gp/soap"
+                      hx-target="#cockpit-specialty-workspace"
+                      hx-swap="innerHTML"
+                      class="p-3 rounded border bg-white h-100">
+                    <input type="hidden" name="patient_id" value="{{ selected_pid }}">
+                    <div class="fw-bold small text-uppercase text-muted mb-2">
+                        <i class="fas fa-pen-nib text-primary me-1"></i>Structured SOAP Consultation Note (LOINC 11506-3)
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold mb-1">S &mdash; Subjective / Presenting History</label>
+                            <textarea name="soap_s" class="form-control form-control-sm" rows="2" placeholder="Symptoms, home glucose/BP diary, medication adherence..."></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold mb-1">O &mdash; Objective / Examination</label>
+                            <textarea name="soap_o" class="form-control form-control-sm" rows="2" placeholder="Chest clear, HS dual + nil, foot pulses intact..."></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold mb-1">A &mdash; Assessment / CDM Coding</label>
+                            <input type="text" name="soap_a" class="form-control form-control-sm" placeholder="e.g. T2DM &amp; HTN biannual CDM review">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold mb-1">P &mdash; Plan / Follow-up &amp; Referral</label>
+                            <input type="text" name="soap_p" class="form-control form-control-sm" placeholder="e.g. Continue Metformin/Ramipril, repeat HbA1c in 6m">
+                        </div>
+                    </div>
+                    <div class="row g-2 align-items-end pt-1">
+                        <div class="col-4 col-sm-3">
+                            <label class="form-label small text-muted mb-1">Clinic SBP</label>
+                            <input type="number" name="gp_sbp" class="form-control form-control-sm" placeholder="mmHg">
+                        </div>
+                        <div class="col-4 col-sm-3">
+                            <label class="form-label small text-muted mb-1">Clinic DBP</label>
+                            <input type="number" name="gp_dbp" class="form-control form-control-sm" placeholder="mmHg">
+                        </div>
+                        <div class="col-4 col-sm-2">
+                            <label class="form-label small text-muted mb-1">Pulse</label>
+                            <input type="number" name="gp_hr" class="form-control form-control-sm" placeholder="bpm">
+                        </div>
+                        <div class="col-12 col-sm-4 d-grid">
+                            <button type="submit" class="btn btn-sm btn-primary fw-semibold">
+                                <i class="fas fa-check me-1"></i>File SOAP &amp; Vitals
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Repeat Prescribing & Recent GP Notes -->
+            <div class="col-lg-5">
+                <div class="p-3 rounded border bg-white h-100">
+                    <div class="fw-bold small text-uppercase text-muted mb-2">
+                        <i class="fas fa-redo text-success me-1"></i>Repeat Prescription Renewal (28-Day GMS)
+                    </div>
+                    {% if cdm_meds %}
+                    <ul class="list-group list-group-flush mb-3">
+                        {% for med in cdm_meds %}
+                        <li class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+                            <div class="small">
+                                <div class="fw-semibold">{{ med.name }}</div>
+                                <div class="text-muted" style="font-size: 0.73rem;">{{ med.dosage }}</div>
+                            </div>
+                            <form hx-post="/fhir/Cockpit/gp/renew"
+                                  hx-target="#cockpit-specialty-workspace"
+                                  hx-swap="innerHTML">
+                                <input type="hidden" name="patient_id" value="{{ selected_pid }}">
+                                <input type="hidden" name="med_id" value="{{ med.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-success py-0 px-2" style="font-size: 0.73rem;">
+                                    Renew 28d
+                                </button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="small text-muted mb-3">No active repeat medications on file.</p>
+                    {% endif %}
+
+                    {% if gp_notes %}
+                    <div class="fw-bold small text-uppercase text-muted mb-1">Recent Filed Notes</div>
+                    {% for n in gp_notes[:2] %}
+                    <div class="p-2 rounded bg-light border mb-1 small">
+                        <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
+                            <span>{{ n.title }}</span><span>{{ n.date_display }}</span>
+                        </div>
+                        <div class="text-dark mt-1" style="white-space: pre-line; font-size: 0.76rem;">{{ n.body }}</div>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% elif v_key in ('ems', 'ed') %}
+<!-- B4: SlainteEMS / SlainteED — Rapid Field ePCR & Resuscitation Pre-Alert Console -->
+<div class="card mb-4">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center py-2">
+        <span><i class="fas fa-ambulance text-danger me-2"></i><strong>Rapid Field ePCR &amp; Receiving ED Resuscitation Pre-Alert Console</strong></span>
+        <span class="status-pill status-fail">Deterministic MTS Cat 1&ndash;5 + NEWS2 Auto-Triage</span>
+    </div>
+    <div class="card-body">
+        {% if epcr_result %}
+        <div class="alert alert-success border-success py-2 px-3 mb-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <span class="status-pill status-fail me-1">MTS Cat {{ epcr_result.mts_cat }}: {{ epcr_result.mts_name }} ({{ epcr_result.mts_target }}m)</span>
+                    <span class="status-pill status-warn me-1">NEWS2: {{ epcr_result.news2_score }}/20 ({{ epcr_result.news2_tier }})</span>
+                    <strong>{{ epcr_result.full_name }}</strong> (<code>{{ epcr_result.patient_id }}</code>) &mdash; {{ epcr_result.complaint }}
+                </div>
+                <button type="button" class="btn btn-sm btn-primary py-0 px-2"
+                        hx-get="/fhir/Patient/{{ epcr_result.patient_id }}"
+                        hx-target="#content">
+                    Open Patient Chart &rarr;
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        <form hx-post="/fhir/Cockpit/ems/epcr"
+              hx-target="#cockpit-specialty-workspace"
+              hx-swap="innerHTML">
+            <div class="row g-2 mb-2">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold mb-1">Casualty Name</label>
+                    <input type="text" name="full_name" class="form-control form-control-sm" placeholder="e.g. Padraig O'Sullivan" required>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold mb-1">DOB</label>
+                    <input type="date" name="dob" class="form-control form-control-sm" value="1968-09-14">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold mb-1">Sex</label>
+                    <select name="gender" class="form-select form-select-sm">
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="unknown">Unknown</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label small fw-bold mb-1">Mechanism / Chief Presentation (SNOMED Mapped)</label>
+                    <input type="text" name="complaint" class="form-control form-control-sm"
+                           placeholder="e.g. Central crushing chest pain radiating to jaw, diaphoretic" required>
+                </div>
+            </div>
+            <div class="row g-2 align-items-end">
+                <div class="col-4 col-md-1">
+                    <label class="form-label small fw-bold mb-1">SBP</label>
+                    <input type="number" name="systolic_bp" class="form-control form-control-sm" placeholder="92" required>
+                </div>
+                <div class="col-4 col-md-1">
+                    <label class="form-label small fw-bold mb-1">DBP</label>
+                    <input type="number" name="diastolic_bp" class="form-control form-control-sm" placeholder="58" required>
+                </div>
+                <div class="col-4 col-md-1">
+                    <label class="form-label small fw-bold mb-1">HR</label>
+                    <input type="number" name="heart_rate" class="form-control form-control-sm" placeholder="124" required>
+                </div>
+                <div class="col-4 col-md-1">
+                    <label class="form-label small fw-bold mb-1">SpO2%</label>
+                    <input type="number" name="spo2" class="form-control form-control-sm" placeholder="91" required>
+                </div>
+                <div class="col-4 col-md-1">
+                    <label class="form-label small fw-bold mb-1">RR</label>
+                    <input type="number" name="respiratory_rate" class="form-control form-control-sm" placeholder="26" required>
+                </div>
+                <div class="col-4 col-md-1">
+                    <label class="form-label small fw-bold mb-1">Temp</label>
+                    <input type="number" step="0.1" name="temperature" class="form-control form-control-sm" placeholder="37.4">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold mb-1">Known Allergies</label>
+                    <input type="text" name="allergies" class="form-control form-control-sm" placeholder="e.g. Penicillin">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small fw-bold mb-1">Field Meds Given</label>
+                    <input type="text" name="medications" class="form-control form-control-sm" placeholder="e.g. Aspirin 300mg">
+                </div>
+                <div class="col-12 col-md-2 d-grid">
+                    <button type="submit" class="btn btn-sm btn-danger fw-bold">
+                        <i class="fas fa-broadcast-tower me-1"></i>Push ED Alert
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% elif v_key in ('sports', 'astro') %}
+<!-- B5: SlainteSport / SlainteAstro — Bio-Telemetry Readiness & Medical Clearance Board -->
+<div class="card mb-4">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center py-2">
+        <span>
+            <i class="{{ vert_meta.icon }} text-primary me-2"></i>
+            <strong>{% if v_key == 'astro' %}Crew Bio-Telemetry &amp; EVA Flight Surgeon Clearance Board{% else %}Squad Physiological Readiness &amp; SCAT6 Return-to-Play Board{% endif %}</strong>
+        </span>
+        <div class="d-flex gap-2">
+            <span class="status-pill status-pass">Cleared: {{ cleared_count }}</span>
+            <span class="status-pill status-warn">Awaiting Sign-Off: {{ pending_clearance_count }}</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% if v_key == 'astro' %}Crew Member{% else %}Athlete{% endif %}</th>
+                        <th>Clinical / Telemetry Presentation</th>
+                        <th>Live Bio-Telemetry</th>
+                        <th>NEWS2 Drift</th>
+                        <th>Clearance Status</th>
+                        <th class="text-end">{% if v_key == 'astro' %}Flight Surgeon Sign-Off{% else %}Team Doctor Sign-Off{% endif %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in roster_board %}
+                    <tr>
+                        <td>
+                            <a href="#" class="fw-bold text-decoration-none"
+                               hx-get="/fhir/Patient/{{ row.id }}"
+                               hx-target="#content">{{ row.name }}</a>
+                            <div class="small text-muted font-monospace">{{ row.id }}</div>
+                        </td>
+                        <td class="small">{{ row.primary_condition }}</td>
+                        <td class="small font-monospace">{{ row.vitals_summary }}</td>
+                        <td>
+                            <span class="status-pill {% if row.news2_score >= 5 %}status-fail{% elif row.news2_score >= 2 %}status-warn{% else %}status-pass{% endif %}">
+                                NEWS2: {{ row.news2_score }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if row.cleared %}
+                            <span class="status-pill status-pass"><i class="fas fa-certificate"></i> Cleared &amp; Signed</span>
+                            {% else %}
+                            <span class="status-pill status-warn">Pending Evaluation</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if row.cleared %}
+                            <span class="small text-muted">{{ row.clearance_time }}</span>
+                            {% else %}
+                            <form hx-post="/fhir/Cockpit/clearance/{{ row.id }}"
+                                  hx-target="#cockpit-specialty-workspace"
+                                  hx-swap="innerHTML"
+                                  class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-success py-0 px-2" style="font-size: 0.74rem;">
+                                    <i class="fas fa-signature me-1"></i>{% if v_key == 'astro' %}Sign EVA Clearance{% else %}Sign Return-to-Play{% endif %}
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}

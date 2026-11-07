@@ -1,11 +1,4 @@
-// Shared HTMX wiring.
-//
-// The previous version of this file carried a 60-second client-side dashboard
-// cache that could never run: it assigned xhr.onload and then cancelled the
-// request via preventDefault(), so the request was never sent and the handler
-// never fired. It also drove a four-step "progress" animation that started
-// after the content had already arrived. Both are gone -- caching belongs on
-// the server, and a progress bar that reports no progress is worse than none.
+// Shared HTMX wiring & global clinical display preferences.
 
 (function () {
     'use strict';
@@ -36,6 +29,32 @@
         });
     }
 
+    // Apply persisted bedside readability, high-contrast priority mode, and triage polling interval
+    function applyDisplayPreferences() {
+        try {
+            var savedSize = localStorage.getItem('slainte_font_size');
+            if (savedSize && ['100%', '115%', '130%'].indexOf(savedSize) !== -1) {
+                document.documentElement.style.fontSize = savedSize;
+            }
+            var savedContrast = localStorage.getItem('slainte_high_contrast') === 'true';
+            document.body.classList.toggle('high-contrast-mode', savedContrast);
+
+            var savedRate = localStorage.getItem('slainte_refresh_rate') || '15s';
+            var triageEl = document.getElementById('triage-queue-content');
+            if (triageEl && window.htmx) {
+                var desiredTrigger = (savedRate === 'manual') ? 'refreshQueue' : ('every ' + savedRate);
+                if (triageEl.getAttribute('data-applied-rate') !== desiredTrigger) {
+                    triageEl.setAttribute('hx-trigger', desiredTrigger);
+                    triageEl.setAttribute('data-applied-rate', desiredTrigger);
+                    window.htmx.process(triageEl);
+                }
+            }
+        } catch (e) {
+            // Ignore storage errors in restricted browsing contexts
+        }
+    }
+    window.applyDisplayPreferences = applyDisplayPreferences;
+
     // Restore collapsible MTS categories state across live polling swaps
     function restoreMtsCollapsibleState() {
         document.querySelectorAll('.mts-category-card').forEach(function (el) {
@@ -50,6 +69,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        applyDisplayPreferences();
         syncActiveNav();
         restoreMtsCollapsibleState();
     });
@@ -87,7 +107,6 @@
         }
     }, true);
 
-    // Global toggle helpers accessible from window
     window.expandAllCategories = function (openState) {
         document.querySelectorAll('.mts-category-card').forEach(function (el) {
             el.open = Boolean(openState);
@@ -107,13 +126,12 @@
         });
     };
 
-    // Highlight the sidebar entry matching whatever was just loaded.
-    document.body.addEventListener('htmx:afterSwap', function (event) {
+    document.body.addEventListener('htmx:afterSwap', function () {
+        applyDisplayPreferences();
         syncActiveNav();
         restoreMtsCollapsibleState();
     });
 
-    // Surface failures instead of leaving a panel or spinner silently stuck.
     document.body.addEventListener('htmx:responseError', function (event) {
         var target = event.detail.target;
         if (target) {

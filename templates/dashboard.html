@@ -23,6 +23,19 @@
 </div>
 
 {% if active_vertical %}
+<!-- Interactive Specialty Clinical Workstation (Bucket B) -->
+<div id="cockpit-specialty-workspace"
+     hx-get="/fhir/CockpitWorkspace"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+    <div class="card mb-4">
+        <div class="card-body py-3 text-center text-muted small">
+            <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
+            Loading {{ active_vertical.brand }} clinical workstation...
+        </div>
+    </div>
+</div>
+
 <div class="card mb-4">
     <div class="card-header d-flex flex-wrap justify-content-between align-items-center py-2">
         <span><i class="{{ active_vertical.icon }} text-primary me-2"></i>{{ active_vertical.specialty_panel_title }}</span>

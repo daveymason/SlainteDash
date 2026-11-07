@@ -532,3 +532,87 @@ span.spinner-border.htmx-indicator.htmx-request {
         padding: 0.5rem 1rem;
     }
 }
+
+/* Clinical Monogram & Compact Patient Header */
+.clinical-monogram {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background-color: var(--tropical-dark);
+    color: #FFFFFF;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* FDI 32-Tooth Odontogram Layout */
+.odontogram-arch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.odontogram-quadrant {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(34px, 1fr));
+    gap: 4px;
+}
+
+.fdi-tooth-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 2px;
+    border-radius: 6px;
+    border: 1.5px solid #CBD5E1;
+    cursor: pointer;
+    transition: transform 0.08s ease;
+    min-height: 46px;
+}
+
+.fdi-tooth-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14);
+}
+
+.fdi-tooth-btn .tooth-num {
+    font-size: 0.74rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.fdi-tooth-btn .tooth-code {
+    font-size: 0.65rem;
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+@media (max-width: 992px) {
+    .odontogram-arch {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Global High-Contrast Priority Mode (WCAG AAA Bedside Visibility) */
+body.high-contrast-mode {
+    --clinical-bg: #FFFFFF;
+    --clinical-border: #64748B;
+    --clinical-text: #020617;
+    --clinical-muted: #1E293B;
+}
+
+body.high-contrast-mode .card {
+    border-width: 1.5px;
+    border-color: #475569;
+}
+
+body.high-contrast-mode .status-fail,
+body.high-contrast-mode .mts-category-card[data-cat="1"],
+body.high-contrast-mode .mts-category-card[data-cat="2"] {
+    outline: 2px solid #991B1B;
+    font-weight: 800;
+}

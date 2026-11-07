@@ -1,0 +1,64 @@
+{% if flash_message %}
+<div class="alert alert-{{ flash_message[0] }} py-2 px-3 small m-3 mb-0">
+    <i class="fas fa-check-circle me-1"></i> {{ flash_message[1] }}
+</div>
+{% endif %}
+
+{% if patient_id %}
+<div class="collapse border-bottom bg-light p-3" id="addNoteCollapse-{{ patient_id }}">
+    <form hx-post="/fhir/Notes/{{ patient_id }}/add"
+          hx-target="#clinicalNotes"
+          hx-swap="innerHTML">
+        <div class="row g-2">
+            <div class="col-md-5">
+                <label class="form-label small fw-bold mb-1">Note Classification (LOINC)</label>
+                <select name="note_type" class="form-select form-select-sm">
+                    {% for code, disp, cat in (note_types_catalog or [('11506-3', 'SOAP Clinical Consultation Note', 'GP/Progress')]) %}
+                    <option value="{{ code }}">{{ disp }} ({{ code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-7">
+                <label class="form-label small fw-bold mb-1">Clinical Summary / Handover Entry</label>
+                <textarea name="note_text" class="form-control form-control-sm" rows="3"
+                          placeholder="Document S/O/A/P findings, escalation plan, operative details, or clinical handover..." required></textarea>
+            </div>
+            <div class="col-12 d-flex justify-content-end gap-2 mt-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        data-bs-toggle="collapse" data-bs-target="#addNoteCollapse-{{ patient_id }}">Cancel</button>
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="fas fa-file-medical me-1"></i> File FHIR DocumentReference
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="alert alert-danger m-3 mb-0">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    <strong>Clinical notes could not be loaded.</strong> {{ error }}
+</div>
+{% elif notes %}
+<div class="list-group list-group-flush">
+    {% for note in notes %}
+    <div class="list-group-item py-2 px-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-1">
+            <div class="fw-bold small text-dark">
+                <i class="fas fa-file-alt text-primary me-1"></i>{{ note.title }}
+            </div>
+            <div class="small text-muted">
+                <span class="badge bg-light text-dark border me-1">{{ note.author }}</span>
+                <span class="font-monospace">{{ note.date_display }}</span>
+            </div>
+        </div>
+        <div class="small text-secondary" style="white-space: pre-line;">{{ note.body }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="p-3 text-muted small">
+    <i class="fas fa-info-circle me-1"></i> No clinical consultation notes recorded on file yet. Click <strong>+ File Note</strong> above to document a clinical encounter.
+</div>
+{% endif %}

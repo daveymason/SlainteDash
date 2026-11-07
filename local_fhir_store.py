@@ -29,6 +29,7 @@ class LocalFhirStore:
         self._cache_encounters: Dict[str, List[Dict[str, Any]]] = {}
         self._cache_medications: Dict[str, List[Dict[str, Any]]] = {}
         self._cache_allergies: Dict[str, List[Dict[str, Any]]] = {}
+        self._cache_documents: Dict[str, List[Dict[str, Any]]] = {}
         self._cache_provenance: Dict[str, List[Dict[str, Any]]] = {}
         self._cache_bundles: Dict[str, Dict[str, Any]] = {}
         self._gms_to_pid: Dict[str, str] = {}
@@ -58,6 +59,7 @@ class LocalFhirStore:
             self._cache_encounters.clear()
             self._cache_medications.clear()
             self._cache_allergies.clear()
+            self._cache_documents.clear()
             self._cache_provenance.clear()
             self._cache_bundles.clear()
             self._gms_to_pid.clear()
@@ -163,6 +165,11 @@ class LocalFhirStore:
                     existing = [a for a in self._cache_allergies.get(target_pid, []) if a.get("id") == alg_id]
                     if not existing:
                         self._cache_allergies.setdefault(target_pid, []).append(res)
+                elif rt == "DocumentReference":
+                    doc_id = res.get("id")
+                    existing = [d for d in self._cache_documents.get(target_pid, []) if d.get("id") == doc_id]
+                    if not existing:
+                        self._cache_documents.setdefault(target_pid, []).append(res)
                 elif rt == "Provenance":
                     prov_id = res.get("id")
                     prov_pid = target_pid
@@ -333,13 +340,21 @@ class LocalFhirStore:
                     return FhirResult(True, data=patient, status_code=200)
                 return FhirResult(False, status_code=404, error=f"Patient {resource_id} not found in store.")
             
-            # Lookup Observation by ID
-            if resource_type == "Observation":
-                for obs_list in self._cache_observations.values():
-                    for obs in obs_list:
-                        if obs.get("id") == resource_id:
-                            return FhirResult(True, data=obs, status_code=200)
-                return FhirResult(False, status_code=404, error=f"Observation {resource_id} not found.")
+            # Lookup Observation / Condition / MedicationRequest / AllergyIntolerance / DocumentReference by ID
+            cache_map = {
+                "Observation": self._cache_observations,
+                "Condition": self._cache_conditions,
+                "MedicationRequest": self._cache_medications,
+                "AllergyIntolerance": self._cache_allergies,
+                "DocumentReference": self._cache_documents,
+                "Provenance": self._cache_provenance,
+            }
+            if resource_type in cache_map:
+                for item_list in cache_map[resource_type].values():
+                    for item in item_list:
+                        if item.get("id") == resource_id:
+                            return FhirResult(True, data=item, status_code=200)
+                return FhirResult(False, status_code=404, error=f"{resource_type} {resource_id} not found.")
 
         # 2. Search / List: Patient
         if resource_type == "Patient":
@@ -467,7 +482,10 @@ class LocalFhirStore:
             target_pid = params.get("patient") or params.get("subject")
             if target_pid and target_pid.startswith("Patient/"):
                 target_pid = target_pid.split("/")[-1]
-            conds = self._cache_conditions.get(str(target_pid), []) if target_pid else []
+            if target_pid:
+                conds = list(self._cache_conditions.get(str(target_pid), []))
+            else:
+                conds = [c for lst in self._cache_conditions.values() for c in lst]
             bundle = {
                 "resourceType": "Bundle",
                 "type": "searchset",
@@ -481,7 +499,10 @@ class LocalFhirStore:
             target_pid = params.get("patient") or params.get("subject")
             if target_pid and target_pid.startswith("Patient/"):
                 target_pid = target_pid.split("/")[-1]
-            encs = self._cache_encounters.get(str(target_pid), []) if target_pid else []
+            if target_pid:
+                encs = list(self._cache_encounters.get(str(target_pid), []))
+            else:
+                encs = [e for lst in self._cache_encounters.values() for e in lst]
             bundle = {
                 "resourceType": "Bundle",
                 "type": "searchset",
@@ -495,7 +516,10 @@ class LocalFhirStore:
             target_pid = params.get("patient") or params.get("subject")
             if target_pid and target_pid.startswith("Patient/"):
                 target_pid = target_pid.split("/")[-1]
-            meds = self._cache_medications.get(str(target_pid), []) if target_pid else []
+            if target_pid:
+                meds = list(self._cache_medications.get(str(target_pid), []))
+            else:
+                meds = [m for lst in self._cache_medications.values() for m in lst]
             bundle = {
                 "resourceType": "Bundle",
                 "type": "searchset",
@@ -509,7 +533,10 @@ class LocalFhirStore:
             target_pid = params.get("patient") or params.get("subject")
             if target_pid and target_pid.startswith("Patient/"):
                 target_pid = target_pid.split("/")[-1]
-            allergies = self._cache_allergies.get(str(target_pid), []) if target_pid else []
+            if target_pid:
+                allergies = list(self._cache_allergies.get(str(target_pid), []))
+            else:
+                allergies = [a for lst in self._cache_allergies.values() for a in lst]
             bundle = {
                 "resourceType": "Bundle",
                 "type": "searchset",
@@ -518,11 +545,135 @@ class LocalFhirStore:
             }
             return FhirResult(True, data=bundle, status_code=200)
 
-        # 6. Metadata probe
+        # 8. DocumentReference search
+        if resource_type == "DocumentReference":
+            target_pid = params.get("patient") or params.get("subject")
+            if target_pid and target_pid.startswith("Patient/"):
+                target_pid = target_pid.split("/")[-1]
+            if target_pid:
+                docs = list(self._cache_documents.get(str(target_pid), []))
+            else:
+                docs = [d for lst in self._cache_documents.values() for d in lst]
+            bundle = {
+                "resourceType": "Bundle",
+                "type": "searchset",
+                "total": len(docs),
+                "entry": [{"resource": d} for d in docs]
+            }
+            return FhirResult(True, data=bundle, status_code=200)
+
+        # 9. Provenance search
+        if resource_type == "Provenance":
+            target_pid = params.get("patient") or params.get("subject") or params.get("target")
+            if target_pid and "Patient/" in target_pid:
+                target_pid = target_pid.split("Patient/")[-1]
+            if target_pid:
+                provs = list(self._cache_provenance.get(str(target_pid), []))
+            else:
+                provs = [p for lst in self._cache_provenance.values() for p in lst]
+            bundle = {
+                "resourceType": "Bundle",
+                "type": "searchset",
+                "total": len(provs),
+                "entry": [{"resource": p} for p in provs]
+            }
+            return FhirResult(True, data=bundle, status_code=200)
+
+        # 10. Metadata probe
         if resource_type == "metadata":
             return FhirResult(True, data={"resourceType": "CapabilityStatement", "status": "active"}, status_code=200)
 
         return FhirResult(True, data={"resourceType": "Bundle", "type": "searchset", "total": 0, "entry": []}, status_code=200)
+
+    def _upsert_local_resource(self, resource: Dict[str, Any]) -> FhirResult:
+        self._refresh_if_needed()
+        rt = resource.get("resourceType")
+        if not rt:
+            return FhirResult(False, status_code=400, error="Missing resourceType")
+        if rt == "Bundle":
+            self.save_bundle(resource)
+            return FhirResult(True, data=resource, status_code=201)
+
+        res = dict(resource)
+        rid = res.get("id") or f"{rt.lower()}-{int(time.time() * 1000)}"
+        res["id"] = rid
+
+        pid = None
+        if rt == "Patient":
+            pid = str(rid)
+            self._cache_patients[pid] = res
+        else:
+            for field in ("subject", "patient"):
+                if isinstance(res.get(field), dict) and res[field].get("reference", "").startswith("Patient/"):
+                    pid = res[field]["reference"].split("/", 1)[1]
+                    break
+            if not pid and rt == "Provenance":
+                for t in res.get("target", []):
+                    if "Patient/" in t.get("reference", ""):
+                        pid = t["reference"].split("Patient/")[-1]
+                        break
+
+        cache_map = {
+            "Observation": self._cache_observations,
+            "Condition": self._cache_conditions,
+            "Encounter": self._cache_encounters,
+            "MedicationRequest": self._cache_medications,
+            "AllergyIntolerance": self._cache_allergies,
+            "DocumentReference": self._cache_documents,
+            "Provenance": self._cache_provenance,
+        }
+        if pid and rt in cache_map:
+            lst = cache_map[rt].setdefault(pid, [])
+            replaced = False
+            for idx, existing in enumerate(lst):
+                if existing.get("id") == rid:
+                    lst[idx] = res
+                    replaced = True
+                    break
+            if not replaced:
+                lst.append(res)
+
+            # Persist to bundle_<pid>.json on disk
+            bpath = os.path.join(self.store_path, f"bundle_{pid}.json")
+            bundle_obj = self._cache_bundles.get(pid)
+            if not isinstance(bundle_obj, dict) or "entry" not in bundle_obj:
+                pat_res = self._cache_patients.get(pid, {"resourceType": "Patient", "id": pid})
+                bundle_obj = {"resourceType": "Bundle", "type": "collection", "entry": [{"resource": pat_res}]}
+            entries = bundle_obj.setdefault("entry", [])
+            updated_in_bundle = False
+            for e in entries:
+                er = e.get("resource", {})
+                if er.get("resourceType") == rt and er.get("id") == rid:
+                    e["resource"] = res
+                    updated_in_bundle = True
+                    break
+            if not updated_in_bundle:
+                entries.append({"resource": res})
+            self._cache_bundles[pid] = bundle_obj
+            try:
+                with open(bpath, "w", encoding="utf-8") as bf:
+                    json.dump(bundle_obj, bf, indent=2)
+                self._file_mtimes[bpath] = os.path.getmtime(bpath)
+            except Exception as exc:
+                logger.warning("Could not persist resource to %s: %s", bpath, exc)
+
+        return FhirResult(True, data=res, status_code=201)
+
+    def post(self, path: str, data: Optional[Dict[str, Any]] = None, json_data: Optional[Dict[str, Any]] = None) -> FhirResult:
+        payload = dict(json_data if json_data is not None else (data or {}))
+        clean_path = path.strip("/").split("/")[0]
+        if clean_path and clean_path != "$validate" and not payload.get("resourceType"):
+            payload["resourceType"] = clean_path
+        return self._upsert_local_resource(payload)
+
+    def put(self, path: str, data: Optional[Dict[str, Any]] = None, json_data: Optional[Dict[str, Any]] = None) -> FhirResult:
+        payload = dict(json_data if json_data is not None else (data or {}))
+        parts = path.strip("/").split("/")
+        if parts and parts[0]:
+            payload["resourceType"] = parts[0]
+        if len(parts) > 1 and parts[1]:
+            payload["id"] = parts[1]
+        return self._upsert_local_resource(payload)
 
     def get_absolute(self, url: str) -> FhirResult:
         return self.get("Patient")

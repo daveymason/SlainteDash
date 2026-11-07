@@ -2,28 +2,37 @@
 {% block title %}Users &mdash; FHIR Patient Dashboard{% endblock %}
 
 {% block content %}
-<h2 class="text-primary mb-4"><i class="fas fa-user-shield"></i> Users</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="h4 fw-bold text-dark mb-1"><i class="fas fa-user-shield text-primary me-2"></i>Clinician &amp; Operator Access Control</h2>
+        <p class="text-muted small mb-0">
+            Newly registered accounts remain <strong>pending</strong> and cannot read clinical records until activated by an administrator.
+        </p>
+    </div>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i> Back to Workstation
+    </a>
+</div>
 
-<p class="text-muted">
-    A new account is recorded as <strong>pending</strong> when it registers, and
-    cannot read any patient data until it is activated here.
-</p>
-
-<div class="table-responsive">
-    <table class="table table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Last sign-in</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="admin-user-rows">
-            {% include "admin_user_rows.html" %}
-        </tbody>
-    </table>
+<div class="card mb-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Last Sign-In</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-user-rows">
+                    {% include "admin_user_rows.html" %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}

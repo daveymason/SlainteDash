@@ -34,6 +34,16 @@ from fhir_utils import (
     observation_code, observation_value, patient_display_name, patient_initials,
     sort_key,
 )
+from clinical_workflows import (
+    ALL_FDI_TEETH, BPE_SEXTANTS, CLINICAL_ALLERGENS_CATALOG,
+    CLINICAL_CONDITIONS_CATALOG, CLINICAL_MEDICATIONS_CATALOG,
+    FDI_LOWER_LEFT, FDI_LOWER_RIGHT, FDI_UPPER_LEFT, FDI_UPPER_RIGHT,
+    NOTE_TYPES_CATALOG, TOOTH_STATUS_META, build_allergy_resource,
+    build_clinical_note, build_condition_resource,
+    build_dental_chart_observation, build_medication_request,
+    build_provenance_signoff, build_vital_observations, extract_note_view,
+    parse_dental_chart_observation, persist_fhir_resource,
+)
 import rate_limit_storage
 from logging_setup import configure_logging, pseudonymize, validate_salt
 
@@ -751,22 +761,23 @@ def register_routes(app):
         vitals = {}
         obs_res = fhir.get('Observation', params={'patient': patient_id, '_count': 50})
         if obs_res.ok:
+            # Entries are newest-first or chronological; iterate oldest->newest or take newest first
             for o in obs_res.entries:
                 cd = o.get("code", {})
                 codes = [c.get("code") for c in cd.get("coding", [])]
                 val = o.get("valueQuantity", {}).get("value")
                 if val is not None:
-                    if "8480-6" in codes:
+                    if "8480-6" in codes and "systolic_bp" not in vitals:
                         vitals["systolic_bp"] = val
-                    elif "8867-4" in codes:
+                    elif "8867-4" in codes and "heart_rate" not in vitals:
                         vitals["heart_rate"] = val
-                    elif "9279-1" in codes:
+                    elif "9279-1" in codes and "respiratory_rate" not in vitals:
                         vitals["respiratory_rate"] = val
-                    elif "2708-6" in codes or "59408-5" in codes:
+                    elif ("2708-6" in codes or "59408-5" in codes) and "spo2" not in vitals:
                         vitals["spo2"] = val
-                    elif "8310-5" in codes:
+                    elif "8310-5" in codes and "temperature" not in vitals:
                         vitals["temperature"] = val
-                    elif "9269-2" in codes:
+                    elif "9269-2" in codes and "gcs" not in vitals:
                         vitals["gcs"] = val
 
         trajectory_data = generate_vitals_trajectory(vitals)
@@ -774,56 +785,143 @@ def register_routes(app):
         provenance = None
         if hasattr(fhir, 'get_provenance'):
             provenance = fhir.get_provenance(patient_id)
+        if provenance is None and not app.testing:
+            prov_res = fhir.get('Provenance', params={'patient': patient_id})
+            if prov_res.ok and prov_res.entries:
+                provenance = prov_res.entries[0]
 
         audit('patient.view', resource_type='Patient', resource_id=pseudonymize(patient_id))
         return render_template(
             'patient_details.html',
             patient=patient,
             trajectory=trajectory_data,
-            provenance=provenance
+            provenance=provenance,
+            conditions_catalog=CLINICAL_CONDITIONS_CATALOG,
+            medications_catalog=CLINICAL_MEDICATIONS_CATALOG,
+            allergens_catalog=CLINICAL_ALLERGENS_CATALOG,
+            note_types_catalog=NOTE_TYPES_CATALOG,
         )
 
-
-    # -- clinical panels ---------------------------------------------------
-
-    @app.route('/fhir/Conditions/<patient_id>')
+    @app.route('/fhir/News2Card/<patient_id>')
     @login_required
-    def get_conditions(patient_id):
-        result = fhir.get('Condition', params={'patient': patient_id, '_count': 20})
+    def get_news2_card(patient_id):
+        from fhir_utils import generate_vitals_trajectory
+        vitals = {}
+        obs_res = fhir.get('Observation', params={'patient': patient_id, '_count': 50, '_sort': '-date'})
+        if obs_res.ok:
+            for o in obs_res.entries:
+                cd = o.get("code", {})
+                codes = [c.get("code") for c in cd.get("coding", [])]
+                val = o.get("valueQuantity", {}).get("value")
+                if val is not None:
+                    if "8480-6" in codes and "systolic_bp" not in vitals:
+                        vitals["systolic_bp"] = val
+                    elif "8867-4" in codes and "heart_rate" not in vitals:
+                        vitals["heart_rate"] = val
+                    elif "9279-1" in codes and "respiratory_rate" not in vitals:
+                        vitals["respiratory_rate"] = val
+                    elif ("2708-6" in codes or "59408-5" in codes) and "spo2" not in vitals:
+                        vitals["spo2"] = val
+                    elif "8310-5" in codes and "temperature" not in vitals:
+                        vitals["temperature"] = val
+                    elif "9269-2" in codes and "gcs" not in vitals:
+                        vitals["gcs"] = val
+        trajectory_data = generate_vitals_trajectory(vitals)
+        return render_template('news2_card.html', trajectory=trajectory_data, patient_id=patient_id)
+
+
+    # -- clinical panels & write workflows (Bucket A) ----------------------
+
+    def _render_conditions_fragment(patient_id, flash_message=None):
+        result = fhir.get('Condition', params={'patient': patient_id, '_count': 30})
         if not result.ok:
             audit('patient.conditions', outcome='failure', resource_type='Patient',
                   resource_id=pseudonymize(patient_id))
-            return render_template('conditions.html', conditions=[], error=result.error)
+            return render_template('conditions.html', conditions=[], error=result.error,
+                                   patient_id=patient_id, conditions_catalog=CLINICAL_CONDITIONS_CATALOG)
 
         conditions = []
         for resource in result.entries:
             onset_display, onset_sort = condition_onset(resource)
             recorded = resource.get('recordedDate')
+            c_status = first_coding_display(resource.get('clinicalStatus', {}), fallback='Unknown')
             conditions.append({
+                'id': resource.get('id', ''),
                 'onset': onset_display or format_fhir_date(recorded),
                 'sort_key': onset_sort or sort_key(recorded),
                 'name': first_coding_display(resource.get('code', {}),
                                              fallback='Unknown condition'),
-                'clinical_status': first_coding_display(resource.get('clinicalStatus', {}),
-                                                        fallback='Unknown'),
+                'clinical_status': c_status.lower() if c_status != 'Unknown' else 'Unknown',
                 'verification_status': first_coding_display(resource.get('verificationStatus', {})),
             })
         conditions.sort(key=lambda item: item['sort_key'], reverse=True)
 
         audit('patient.conditions', resource_type='Patient', resource_id=pseudonymize(patient_id))
-        return render_template('conditions.html', conditions=conditions, error=None)
+        return render_template(
+            'conditions.html',
+            conditions=conditions,
+            error=None,
+            patient_id=patient_id,
+            conditions_catalog=CLINICAL_CONDITIONS_CATALOG,
+            flash_message=flash_message,
+        )
+
+    @app.route('/fhir/Conditions/<patient_id>')
+    @login_required
+    def get_conditions(patient_id):
+        return _render_conditions_fragment(patient_id)
+
+    @app.route('/fhir/Conditions/<patient_id>/add', methods=['POST'])
+    @login_required
+    def add_condition(patient_id):
+        cond_text = (request.form.get('condition_text') or '').strip()
+        snomed_code = (request.form.get('snomed_code') or '').strip()
+        clinical_status = (request.form.get('clinical_status') or 'active').strip().lower()
+        if not cond_text:
+            return _render_conditions_fragment(patient_id, flash_message=('danger', 'Enter or select a clinical diagnosis.'))
+        res_obj = build_condition_resource(patient_id, cond_text, snomed_code=snomed_code, clinical_status=clinical_status)
+        save_res = persist_fhir_resource(fhir, app.config, res_obj, is_update=False)
+        if not save_res.ok:
+            return _render_conditions_fragment(patient_id, flash_message=('danger', save_res.error or 'Could not save condition.'))
+        audit('patient.condition_added', outcome='success', resource_type='Condition',
+              resource_id=pseudonymize(patient_id), detail={'condition': cond_text, 'status': clinical_status})
+        return _render_conditions_fragment(patient_id, flash_message=('success', f'Recorded diagnosis: {cond_text}.'))
+
+    @app.route('/fhir/Conditions/<patient_id>/status', methods=['POST'])
+    @login_required
+    def update_condition_status(patient_id):
+        cond_id = (request.form.get('condition_id') or '').strip()
+        new_status = (request.form.get('new_status') or 'resolved').strip().lower()
+        if not cond_id or new_status not in ('active', 'resolved', 'inactive'):
+            return _render_conditions_fragment(patient_id)
+        existing = fhir.get(f'Condition/{cond_id}')
+        if existing.ok and isinstance(existing.data, dict):
+            cond_obj = dict(existing.data)
+        else:
+            cond_obj = {'resourceType': 'Condition', 'id': cond_id, 'subject': {'reference': f'Patient/{patient_id}'}}
+        cond_obj['clinicalStatus'] = {
+            'coding': [{
+                'system': 'http://terminology.hl7.org/CodeSystem/condition-clinical',
+                'code': new_status,
+                'display': new_status.capitalize(),
+            }]
+        }
+        persist_fhir_resource(fhir, app.config, cond_obj, is_update=True)
+        audit('patient.condition_status_updated', outcome='success', resource_type='Condition',
+              resource_id=pseudonymize(patient_id), detail={'condition_id': cond_id, 'status': new_status})
+        return _render_conditions_fragment(patient_id, flash_message=('success', f'Condition marked {new_status}.'))
 
     @app.route('/fhir/LabResults/<patient_id>')
     @login_required
     def get_lab_results(patient_id):
         result = fhir.get('Observation', params={
-            'patient': patient_id, '_sort': '-date', '_count': 10,
+            'patient': patient_id, '_sort': '-date', '_count': 15,
             'category': 'laboratory',
         })
         if not result.ok:
             audit('patient.labs', outcome='failure', resource_type='Patient',
                   resource_id=pseudonymize(patient_id))
-            return render_template('lab_results.html', lab_results=[], error=result.error)
+            return render_template('lab_results.html', lab_results=[], error=result.error, patient_id=patient_id)
 
         lab_results = []
         for resource in result.entries:
@@ -840,51 +938,34 @@ def register_routes(app):
         lab_results.sort(key=lambda item: item['sort_key'], reverse=True)
 
         audit('patient.labs', resource_type='Patient', resource_id=pseudonymize(patient_id))
-        return render_template('lab_results.html', lab_results=lab_results, error=None)
+        return render_template('lab_results.html', lab_results=lab_results, error=None, patient_id=patient_id)
 
-    @app.route('/fhir/VitalSigns/<patient_id>')
-    @login_required
-    def get_vital_signs(patient_id):
-        # Four queries for the main vital-sign codes, run concurrently, plus
-        # two more for blood pressure specifically: some servers record it as
-        # a single panel Observation (code 85354-9) with systolic/diastolic as
-        # components, but plenty of real data -- including a chunk of this
-        # app's own default FHIR sandbox -- instead records two independent
-        # Observations under 8480-6/8462-4 sharing an encounter and no panel
-        # wrapper at all. Missing that shape was why Vital Signs came up
-        # empty for patients whose blood pressure was recorded this way.
+    def _render_vitals_fragment(patient_id, flash_message=None):
         spec = {
             key: ('Observation', {
                 'patient': patient_id,
                 'code': f'http://loinc.org|{code}',
                 '_sort': '-date',
-                '_count': 10,
+                '_count': 12,
             })
             for key, (code, _label, _unit) in VITAL_SIGN_CODES.items()
         }
         spec['_standalone_systolic'] = ('Observation', {
             'patient': patient_id, 'code': f'http://loinc.org|{LOINC_SYSTOLIC}',
-            '_sort': '-date', '_count': 10,
+            '_sort': '-date', '_count': 12,
         })
         spec['_standalone_diastolic'] = ('Observation', {
             'patient': patient_id, 'code': f'http://loinc.org|{LOINC_DIASTOLIC}',
-            '_sort': '-date', '_count': 10,
+            '_sort': '-date', '_count': 12,
         })
         results = fhir.get_many(spec)
 
         vital_signs = []
         failures = []
-        # Chart series need ascending-by-date rows separate from the table's
-        # sort_key, and blood pressure needs raw systolic/diastolic numbers
-        # rather than the combined display string the table uses.
         chart_series = {
             key: {'label': label, 'unit': unit, 'rows': []}
             for key, (_code, label, unit) in VITAL_SIGN_CODES.items()
         }
-        # Encounter refs and timestamps already represented by a panel
-        # observation. Some servers expose the same measurement both as a
-        # panel and as standalone component observations; without this set
-        # the reading would be counted twice.
         bp_panel_keys = set()
 
         for key, (_code, label, _unit) in VITAL_SIGN_CODES.items():
@@ -929,16 +1010,8 @@ def register_routes(app):
                 try:
                     chart_series[key]['rows'].append((dt, date_label, float(value)))
                 except (TypeError, ValueError):
-                    pass  # a non-numeric reading still shows in the table, just not the chart
+                    pass
 
-        # Pair standalone systolic/diastolic Observations by shared encounter,
-        # falling back to an *exact* timestamp match when there is no
-        # encounter to key on -- the only way to reassemble a blood-pressure
-        # reading that was never linked by a panel wrapper in the source data.
-        # Same-day-only matching is deliberately not attempted: stitching a
-        # morning systolic to an evening diastolic would fabricate a reading
-        # that never happened. Unpairable values are dropped from this panel
-        # rather than guessed at.
         def _index_standalone_bp(result):
             indexed = {}
             if result is None or not result.ok:
@@ -951,10 +1024,7 @@ def register_routes(app):
                 pairing_key = (resource.get('encounter') or {}).get('reference') \
                     or (f'time:{effective}' if effective else None)
                 if pairing_key is None:
-                    continue  # no encounter, no timestamp: nothing safe to pair on
-                # setdefault, not assignment: on a key collision keep the
-                # first (newest -- results are date-descending) rather than
-                # silently replacing it with an older reading.
+                    continue
                 indexed.setdefault(pairing_key, {
                     'sort_key': sort_key(effective),
                     'date': format_fhir_date(effective),
@@ -967,7 +1037,7 @@ def register_routes(app):
         diastolic_by_key = _index_standalone_bp(results.get('_standalone_diastolic'))
         for pairing_key, systolic_entry in systolic_by_key.items():
             if pairing_key in bp_panel_keys:
-                continue  # already represented by a panel observation
+                continue
             diastolic_entry = diastolic_by_key.get(pairing_key)
             if diastolic_entry is None:
                 continue
@@ -983,7 +1053,6 @@ def register_routes(app):
                 systolic_entry['value'], diastolic_entry['value'],
             ))
 
-        # Undated readings sort to the bottom rather than masquerading as newest.
         vital_signs.sort(key=lambda item: item['sort_key'], reverse=True)
 
         error = None
@@ -997,19 +1066,51 @@ def register_routes(app):
 
         return render_template(
             'vital_signs.html', vital_signs=vital_signs, error=error,
-            charts=vitals_charts(chart_series),
+            charts=vitals_charts(chart_series), patient_id=patient_id,
+            flash_message=flash_message,
         )
 
-    @app.route('/fhir/Medications/<patient_id>')
+    @app.route('/fhir/VitalSigns/<patient_id>')
     @login_required
-    def get_medications(patient_id):
+    def get_vital_signs(patient_id):
+        return _render_vitals_fragment(patient_id)
+
+    @app.route('/fhir/VitalSigns/<patient_id>/add', methods=['POST'])
+    @login_required
+    def add_vital_signs(patient_id):
+        vitals_payload = {
+            'systolic_bp': request.form.get('systolic_bp'),
+            'diastolic_bp': request.form.get('diastolic_bp'),
+            'heart_rate': request.form.get('heart_rate'),
+            'spo2': request.form.get('spo2'),
+            'respiratory_rate': request.form.get('respiratory_rate'),
+            'temperature': request.form.get('temperature'),
+            'pain': request.form.get('pain'),
+        }
+        obs_list = build_vital_observations(patient_id, vitals_payload)
+        if not obs_list:
+            return _render_vitals_fragment(patient_id, flash_message=('danger', 'Enter at least one physiological vital reading.'))
+        for obs in obs_list:
+            persist_fhir_resource(fhir, app.config, obs, is_update=False)
+        audit('patient.vitals_recorded', outcome='success', resource_type='Observation',
+              resource_id=pseudonymize(patient_id), detail={'count': len(obs_list)})
+        from flask import make_response
+        resp = make_response(_render_vitals_fragment(
+            patient_id,
+            flash_message=('success', f'Recorded {len(obs_list)} LOINC vital sign observation(s) and updated NEWS2.'),
+        ))
+        resp.headers['HX-Trigger'] = 'vitalsUpdated'
+        return resp
+
+    def _render_medications_fragment(patient_id, flash_message=None, rx_guard_block=None):
         result = fhir.get('MedicationRequest', params={
-            'patient': patient_id, '_count': 20,
+            'patient': patient_id, '_count': 30,
         })
         if not result.ok:
             audit('patient.medications', outcome='failure', resource_type='Patient',
                   resource_id=pseudonymize(patient_id))
-            return render_template('medications.html', medications=[], error=result.error)
+            return render_template('medications.html', medications=[], error=result.error,
+                                   patient_id=patient_id, medications_catalog=CLINICAL_MEDICATIONS_CATALOG)
 
         medications = []
         for resource in result.entries:
@@ -1024,31 +1125,119 @@ def register_routes(app):
                 entry['text'] for entry in resource.get('dosageInstruction') or []
                 if isinstance(entry, dict) and entry.get('text')
             ]
+            notes = [
+                n.get('text') for n in (resource.get('note') or [])
+                if isinstance(n, dict) and n.get('text')
+            ]
             medications.append({
+                'id': resource.get('id', ''),
                 'date': format_fhir_date(authored),
                 'sort_key': sort_key(authored),
                 'name': name,
                 'dosage': ', '.join(dosage) or 'No specific instructions',
                 'status': resource.get('status', 'unknown'),
+                'override_note': notes[0] if notes else '',
             })
         medications.sort(key=lambda item: item['sort_key'], reverse=True)
 
         audit('patient.medications', resource_type='Patient',
               resource_id=pseudonymize(patient_id))
-        return render_template('medications.html', medications=medications, error=None)
+        return render_template(
+            'medications.html',
+            medications=medications,
+            error=None,
+            patient_id=patient_id,
+            medications_catalog=CLINICAL_MEDICATIONS_CATALOG,
+            flash_message=flash_message,
+            rx_guard_block=rx_guard_block,
+        )
 
-    @app.route('/fhir/Allergies/<patient_id>')
+    @app.route('/fhir/Medications/<patient_id>')
     @login_required
-    def get_allergies(patient_id):
+    def get_medications(patient_id):
+        return _render_medications_fragment(patient_id)
+
+    @app.route('/fhir/Medications/<patient_id>/add', methods=['POST'])
+    @login_required
+    def add_medication(patient_id):
+        drug_name = (request.form.get('drug_name') or '').strip()
+        dosage = (request.form.get('dosage') or '').strip()
+        snomed_code = (request.form.get('snomed_code') or '').strip()
+        override_reason = (request.form.get('override_reason') or '').strip()
+        if not drug_name:
+            return _render_medications_fragment(patient_id, flash_message=('danger', 'Select or enter a medication to prescribe.'))
+
+        # Agent 08 (SlainteRx-Guard) Live Pre-Flight Contraindication Interception
+        alg_res = fhir.get('AllergyIntolerance', params={'patient': patient_id, '_count': 30})
+        patient_allergies = []
+        if alg_res.ok:
+            for a in alg_res.entries:
+                if isinstance(a, dict):
+                    patient_allergies.append(first_coding_display(a.get('code', {}), fallback=''))
+        patient_allergies = [a for a in patient_allergies if a]
+        if not patient_allergies:
+            local_sum = _load_local_bundle_summary(patient_id)
+            patient_allergies = list(local_sum.get('allergies') or [])
+
+        alerts = check_drug_allergy_contraindications(patient_allergies, [drug_name])
+        if alerts and not override_reason:
+            audit('clinical.rx_guard_blocked', outcome='denied', resource_type='MedicationRequest',
+                  resource_id=pseudonymize(patient_id),
+                  detail={'drug': drug_name, 'alerts': [a['allergen'] for a in alerts]})
+            return _render_medications_fragment(
+                patient_id,
+                rx_guard_block={
+                    'drug_name': drug_name,
+                    'dosage': dosage,
+                    'snomed_code': snomed_code,
+                    'alerts': alerts,
+                },
+            )
+
+        med_res = build_medication_request(
+            patient_id=patient_id,
+            drug_name=drug_name,
+            dosage_text=dosage,
+            snomed_code=snomed_code,
+            author=current_user.username,
+            override_reason=override_reason,
+        )
+        save_res = persist_fhir_resource(fhir, app.config, med_res, is_update=False)
+        if not save_res.ok:
+            return _render_medications_fragment(patient_id, flash_message=('danger', save_res.error or 'Could not prescribe medication.'))
+        audit('patient.medication_prescribed', outcome='success', resource_type='MedicationRequest',
+              resource_id=pseudonymize(patient_id),
+              detail={'drug': drug_name, 'override': bool(override_reason)})
+        msg = f'Prescribed {drug_name} (Rx-Guard override logged).' if override_reason else f'Prescribed {drug_name} (Rx-Guard verified clear).'
+        return _render_medications_fragment(patient_id, flash_message=('success', msg))
+
+    @app.route('/fhir/Medications/<patient_id>/status', methods=['POST'])
+    @login_required
+    def update_medication_status(patient_id):
+        med_id = (request.form.get('med_id') or '').strip()
+        new_status = (request.form.get('new_status') or 'stopped').strip().lower()
+        if not med_id or new_status not in ('active', 'stopped', 'completed', 'on-hold'):
+            return _render_medications_fragment(patient_id)
+        existing = fhir.get(f'MedicationRequest/{med_id}')
+        if existing.ok and isinstance(existing.data, dict):
+            med_obj = dict(existing.data)
+        else:
+            med_obj = {'resourceType': 'MedicationRequest', 'id': med_id, 'subject': {'reference': f'Patient/{patient_id}'}}
+        med_obj['status'] = new_status
+        persist_fhir_resource(fhir, app.config, med_obj, is_update=True)
+        audit('patient.medication_status_updated', outcome='success', resource_type='MedicationRequest',
+              resource_id=pseudonymize(patient_id), detail={'med_id': med_id, 'status': new_status})
+        return _render_medications_fragment(patient_id, flash_message=('success', f'Prescription updated to {new_status}.'))
+
+    def _render_allergies_fragment(patient_id, flash_message=None):
         result = fhir.get('AllergyIntolerance', params={
-            'patient': patient_id, '_count': 20,
+            'patient': patient_id, '_count': 30,
         })
         if not result.ok:
-            # An allergy list that failed to load must never render as "none
-            # recorded" -- that reads as a positive clinical finding.
             audit('patient.allergies', outcome='failure', resource_type='Patient',
                   resource_id=pseudonymize(patient_id))
-            return render_template('allergies.html', allergies=[], error=result.error)
+            return render_template('allergies.html', allergies=[], error=result.error,
+                                   patient_id=patient_id, allergens_catalog=CLINICAL_ALLERGENS_CATALOG)
 
         allergies = []
         for resource in result.entries:
@@ -1062,6 +1251,7 @@ def register_routes(app):
                     if label:
                         reactions.append(label)
             allergies.append({
+                'id': resource.get('id', ''),
                 'date': format_fhir_date(recorded),
                 'sort_key': sort_key(recorded),
                 'name': first_coding_display(resource.get('code', {}),
@@ -1075,7 +1265,99 @@ def register_routes(app):
 
         audit('patient.allergies', resource_type='Patient',
               resource_id=pseudonymize(patient_id))
-        return render_template('allergies.html', allergies=allergies, error=None)
+        return render_template(
+            'allergies.html',
+            allergies=allergies,
+            error=None,
+            patient_id=patient_id,
+            allergens_catalog=CLINICAL_ALLERGENS_CATALOG,
+            flash_message=flash_message,
+        )
+
+    @app.route('/fhir/Allergies/<patient_id>')
+    @login_required
+    def get_allergies(patient_id):
+        return _render_allergies_fragment(patient_id)
+
+    @app.route('/fhir/Allergies/<patient_id>/add', methods=['POST'])
+    @login_required
+    def add_allergy(patient_id):
+        allergen_text = (request.form.get('allergen_text') or '').strip()
+        criticality = (request.form.get('criticality') or 'high').strip().lower()
+        reaction_text = (request.form.get('reaction_text') or '').strip()
+        snomed_code = (request.form.get('snomed_code') or '').strip()
+        if not allergen_text:
+            return _render_allergies_fragment(patient_id, flash_message=('danger', 'Enter or select an allergen substance.'))
+        alg_obj = build_allergy_resource(
+            patient_id=patient_id,
+            allergen_text=allergen_text,
+            criticality=criticality,
+            reaction_text=reaction_text,
+            snomed_code=snomed_code,
+        )
+        save_res = persist_fhir_resource(fhir, app.config, alg_obj, is_update=False)
+        if not save_res.ok:
+            return _render_allergies_fragment(patient_id, flash_message=('danger', save_res.error or 'Could not save allergy.'))
+        audit('patient.allergy_recorded', outcome='success', resource_type='AllergyIntolerance',
+              resource_id=pseudonymize(patient_id), detail={'allergen': allergen_text, 'criticality': criticality})
+        return _render_allergies_fragment(patient_id, flash_message=('success', f'Recorded allergy: {allergen_text} ({criticality}).'))
+
+    def _render_notes_fragment(patient_id, flash_message=None):
+        result = fhir.get('DocumentReference', params={'patient': patient_id, '_count': 25})
+        if not result.ok:
+            return render_template(
+                'clinical_notes.html',
+                notes=[],
+                error=result.error,
+                patient_id=patient_id,
+                note_types_catalog=NOTE_TYPES_CATALOG,
+            )
+        notes = []
+        for resource in result.entries:
+            if isinstance(resource, dict):
+                view = extract_note_view(resource)
+                view['date_display'] = format_fhir_date(view.get('date'))
+                view['sort_key'] = sort_key(view.get('date'))
+                notes.append(view)
+        notes.sort(key=lambda item: item['sort_key'], reverse=True)
+        return render_template(
+            'clinical_notes.html',
+            notes=notes,
+            error=None,
+            patient_id=patient_id,
+            note_types_catalog=NOTE_TYPES_CATALOG,
+            flash_message=flash_message,
+        )
+
+    @app.route('/fhir/Notes/<patient_id>')
+    @login_required
+    def get_clinical_notes(patient_id):
+        audit('patient.notes', resource_type='Patient', resource_id=pseudonymize(patient_id))
+        return _render_notes_fragment(patient_id)
+
+    @app.route('/fhir/Notes/<patient_id>/add', methods=['POST'])
+    @login_required
+    def add_clinical_note(patient_id):
+        from flask import session
+        note_type = (request.form.get('note_type') or '11506-3').strip()
+        note_text = (request.form.get('note_text') or '').strip()
+        if not note_text:
+            return _render_notes_fragment(patient_id, flash_message=('danger', 'Clinical note text cannot be empty.'))
+        active_vert = get_active_vertical(session, db)
+        brand = active_vert.get('brand', 'SlainteDash') if active_vert else 'SlainteDash'
+        doc_obj = build_clinical_note(
+            patient_id=patient_id,
+            note_type_code=note_type,
+            note_text=note_text,
+            author_username=current_user.username,
+            vertical_brand=brand,
+        )
+        save_res = persist_fhir_resource(fhir, app.config, doc_obj, is_update=False)
+        if not save_res.ok:
+            return _render_notes_fragment(patient_id, flash_message=('danger', save_res.error or 'Could not file clinical note.'))
+        audit('patient.note_created', outcome='success', resource_type='DocumentReference',
+              resource_id=pseudonymize(patient_id), detail={'type': note_type})
+        return _render_notes_fragment(patient_id, flash_message=('success', 'Clinical consultation note filed to FHIR R4 DocumentReference.'))
 
     # -- aggregate views ---------------------------------------------------
 
@@ -1167,6 +1449,528 @@ def register_routes(app):
             fhir_server_url=app.config['FHIR_SERVER_URL'],
             fhir_reachable=patients_result.ok,
             error=None if patients_result.ok else patients_result.error,
+        )
+
+    # -- specialty vertical workspaces (Bucket B) --------------------------
+
+    def _render_cockpit_workspace(patient_id_override=None, flash_message=None, epcr_result=None):
+        import json as _json
+        from flask import session
+        active_vert = get_active_vertical(session, db)
+        v_key = (request.args.get('vertical') or (active_vert['key'] if active_vert else 'ed')).strip().lower()
+        if v_key not in VERTICALS_CATALOG:
+            v_key = 'ed'
+        vert_meta = VERTICALS_CATALOG[v_key]
+
+        pt_res = fhir.get('Patient', params={'_count': 40})
+        cohort_patients = process_patient_results(pt_res.entries) if pt_res.ok else []
+        patients_by_id = {p['id']: p for p in cohort_patients}
+
+        ctx = {
+            'v_key': v_key,
+            'vert_meta': vert_meta,
+            'cohort_patients': cohort_patients,
+            'flash_message': flash_message,
+            'epcr_result': epcr_result,
+            'medications_catalog': CLINICAL_MEDICATIONS_CATALOG,
+            'conditions_catalog': CLINICAL_CONDITIONS_CATALOG,
+        }
+
+        if v_key == 'dentist':
+            default_pid = 'patient-case-8' if 'patient-case-8' in patients_by_id else (cohort_patients[0]['id'] if cohort_patients else 'patient-case-8')
+            selected_pid = (patient_id_override or request.args.get('patient_id') or default_pid).strip()
+            sub = fhir.get_many({
+                'obs': ('Observation', {'patient': selected_pid, '_count': 30}),
+                'alg': ('AllergyIntolerance', {'patient': selected_pid, '_count': 20}),
+                'med': ('MedicationRequest', {'patient': selected_pid, '_count': 20}),
+                'cond': ('Condition', {'patient': selected_pid, '_count': 20}),
+            })
+            obs_entries = sub['obs'].entries if sub['obs'].ok else []
+            alg_entries = sub['alg'].entries if sub['alg'].ok else []
+            med_entries = sub['med'].entries if sub['med'].ok else []
+            cond_entries = sub['cond'].entries if sub['cond'].ok else []
+
+            dental_chart = parse_dental_chart_observation(obs_entries, selected_pid)
+            allergies_list = [first_coding_display(a.get('code', {}), fallback='') for a in alg_entries if isinstance(a, dict)]
+            allergies_list = [a for a in allergies_list if a]
+            meds_list = []
+            for m in med_entries:
+                if isinstance(m, dict) and m.get('status') in (None, 'active'):
+                    m_txt = first_coding_display(m.get('medicationCodeableConcept', {}), fallback='')
+                    if m_txt:
+                        meds_list.append(m_txt)
+            conditions_list = [first_coding_display(c.get('code', {}), fallback='') for c in cond_entries if isinstance(c, dict)]
+            conditions_list = [c for c in conditions_list if c]
+
+            anticoag_keywords = ('warfarin', 'apixaban', 'rivaroxaban', 'ticagrelor', 'clopidogrel', 'aspirin', 'dabigatran')
+            hemostasis_flags = [m for m in meds_list if any(k in m.lower() for k in anticoag_keywords)]
+            penicillin_flag = any('penicillin' in a.lower() or 'amoxicillin' in a.lower() for a in allergies_list)
+
+            ctx.update({
+                'selected_pid': selected_pid,
+                'selected_patient': patients_by_id.get(selected_pid, {'id': selected_pid, 'name': selected_pid, 'identifier': 'N/A'}),
+                'dental_chart': dental_chart,
+                'teeth_json': _json.dumps(dental_chart['teeth']),
+                'fdi_upper_right': FDI_UPPER_RIGHT,
+                'fdi_upper_left': FDI_UPPER_LEFT,
+                'fdi_lower_right': FDI_LOWER_RIGHT,
+                'fdi_lower_left': FDI_LOWER_LEFT,
+                'tooth_status_meta': TOOTH_STATUS_META,
+                'bpe_sextants': BPE_SEXTANTS,
+                'allergies_list': allergies_list,
+                'meds_list': meds_list,
+                'conditions_list': conditions_list,
+                'hemostasis_flags': hemostasis_flags,
+                'penicillin_flag': penicillin_flag,
+            })
+
+        elif v_key == 'pharmacy':
+            med_res = fhir.get('MedicationRequest', params={'_count': 60})
+            alg_res = fhir.get('AllergyIntolerance', params={'_count': 80})
+            allergies_by_pt = {}
+            if alg_res.ok:
+                for a in alg_res.entries:
+                    if not isinstance(a, dict):
+                        continue
+                    p_ref = ((a.get('patient') or a.get('subject') or {}).get('reference') or '').replace('Patient/', '')
+                    a_name = first_coding_display(a.get('code', {}), fallback='')
+                    if p_ref and a_name:
+                        allergies_by_pt.setdefault(p_ref, []).append(a_name)
+
+            dispense_queue = []
+            if med_res.ok:
+                for m in med_res.entries:
+                    if not isinstance(m, dict):
+                        continue
+                    p_ref = ((m.get('subject') or {}).get('reference') or '').replace('Patient/', '')
+                    pt_info = patients_by_id.get(p_ref, {})
+                    pt_name = pt_info.get('name') or p_ref or 'Patient'
+                    gms = pt_info.get('identifier') or 'Unverified'
+                    drug_name = 'Unknown medication'
+                    if isinstance(m.get('medicationReference'), dict):
+                        drug_name = m['medicationReference'].get('display') or drug_name
+                    elif isinstance(m.get('medicationCodeableConcept'), dict):
+                        drug_name = first_coding_display(m['medicationCodeableConcept'], fallback=drug_name)
+                    dosage_list = [d.get('text') for d in (m.get('dosageInstruction') or []) if isinstance(d, dict) and d.get('text')]
+                    pt_algs = allergies_by_pt.get(p_ref) or pt_info.get('allergies') or []
+                    rx_alerts = check_drug_allergy_contraindications(pt_algs, [drug_name])
+                    notes = [n.get('text') for n in (m.get('note') or []) if isinstance(n, dict) and n.get('text')]
+                    status_val = (m.get('status') or 'active').lower()
+                    dispense_queue.append({
+                        'id': m.get('id', ''),
+                        'patient_id': p_ref,
+                        'patient_name': pt_name,
+                        'gms': gms,
+                        'drug_name': drug_name,
+                        'dosage': ', '.join(dosage_list) or 'Standard regimen',
+                        'status': status_val,
+                        'date': format_fhir_date(m.get('authoredOn')),
+                        'sort_key': sort_key(m.get('authoredOn')),
+                        'allergies': pt_algs,
+                        'rx_alerts': rx_alerts,
+                        'note': notes[-1] if notes else '',
+                    })
+            # Sort active + flagged to the top of the pharmacist queue
+            dispense_queue.sort(key=lambda item: (0 if item['status'] == 'active' else 1, 0 if item['rx_alerts'] else 1))
+            ctx.update({
+                'dispense_queue': dispense_queue[:35],
+                'pending_count': sum(1 for x in dispense_queue if x['status'] == 'active'),
+                'flagged_count': sum(1 for x in dispense_queue if x['status'] == 'active' and x['rx_alerts']),
+                'dispensed_count': sum(1 for x in dispense_queue if x['status'] == 'completed'),
+                'hold_count': sum(1 for x in dispense_queue if x['status'] in ('on-hold', 'stopped')),
+            })
+
+        elif v_key == 'gp':
+            default_pid = 'patient-case-6' if 'patient-case-6' in patients_by_id else (cohort_patients[0]['id'] if cohort_patients else 'patient-case-6')
+            selected_pid = (patient_id_override or request.args.get('patient_id') or default_pid).strip()
+            sub = fhir.get_many({
+                'labs': ('Observation', {'patient': selected_pid, 'category': 'laboratory', '_count': 12}),
+                'med': ('MedicationRequest', {'patient': selected_pid, '_count': 20}),
+                'cond': ('Condition', {'patient': selected_pid, '_count': 20}),
+                'notes': ('DocumentReference', {'patient': selected_pid, '_count': 10}),
+            })
+            labs_list = []
+            if sub['labs'].ok:
+                for o in sub['labs'].entries:
+                    if isinstance(o, dict):
+                        val, unit = observation_value(o)
+                        if val != '':
+                            labs_list.append({'label': observation_code(o), 'value': f"{val} {unit}".strip(), 'date': format_fhir_date(o.get('effectiveDateTime'))})
+            meds_list = []
+            if sub['med'].ok:
+                for m in sub['med'].entries:
+                    if isinstance(m, dict):
+                        d_name = first_coding_display(m.get('medicationCodeableConcept', {}), fallback='Medication')
+                        d_inst = ', '.join([d.get('text') for d in (m.get('dosageInstruction') or []) if isinstance(d, dict) and d.get('text')])
+                        meds_list.append({
+                            'id': m.get('id', ''),
+                            'name': d_name,
+                            'dosage': d_inst or 'Repeat 28-day supply',
+                            'status': m.get('status', 'active'),
+                            'date': format_fhir_date(m.get('authoredOn')),
+                        })
+            conds_list = []
+            if sub['cond'].ok:
+                for c in sub['cond'].entries:
+                    if isinstance(c, dict):
+                        conds_list.append(first_coding_display(c.get('code', {}), fallback='Condition'))
+            notes_list = []
+            if sub['notes'].ok:
+                for doc in sub['notes'].entries:
+                    if isinstance(doc, dict):
+                        nv = extract_note_view(doc)
+                        nv['date_display'] = format_fhir_date(nv.get('date'))
+                        notes_list.append(nv)
+
+            ctx.update({
+                'selected_pid': selected_pid,
+                'selected_patient': patients_by_id.get(selected_pid, {'id': selected_pid, 'name': selected_pid, 'identifier': 'N/A', 'vitals_summary': 'Stable'}),
+                'cdm_labs': labs_list,
+                'cdm_meds': meds_list,
+                'cdm_conditions': conds_list,
+                'gp_notes': notes_list[:5],
+            })
+
+        elif v_key in ('ems', 'ed'):
+            acute_arrivals = sorted(
+                cohort_patients,
+                key=lambda p: (p.get('news2_score', 0), 1 if p['id'].startswith('P') else 0),
+                reverse=True,
+            )[:6]
+            ctx.update({
+                'acute_arrivals': acute_arrivals,
+            })
+
+        elif v_key in ('sports', 'astro'):
+            prov_res = fhir.get('Provenance', params={'_count': 60})
+            signed_by_pt = {}
+            if prov_res.ok:
+                for pr in prov_res.entries:
+                    if not isinstance(pr, dict):
+                        continue
+                    for tgt in (pr.get('target') or []):
+                        t_ref = (tgt.get('reference') or '').replace('Patient/', '')
+                        if t_ref:
+                            signed_by_pt[t_ref] = pr
+            preferred_ids = ['patient-case-7', 'P104', 'P105', 'P102', 'P103', 'P106', 'patient-case-4', 'patient-case-1']
+            ordered = []
+            seen = set()
+            for pid in preferred_ids:
+                if pid in patients_by_id:
+                    ordered.append(patients_by_id[pid])
+                    seen.add(pid)
+            for p in cohort_patients:
+                if p['id'] not in seen and len(ordered) < 8:
+                    ordered.append(p)
+                    seen.add(p['id'])
+
+            roster_board = []
+            for p in ordered:
+                pid = p['id']
+                prov = signed_by_pt.get(pid)
+                if not prov and hasattr(fhir, 'get_provenance'):
+                    prov = fhir.get_provenance(pid)
+                roster_board.append({
+                    **p,
+                    'cleared': prov is not None,
+                    'clearance_role': (((prov or {}).get('agent') or [{}])[0].get('role') or [{}])[0].get('text', '') if prov else '',
+                    'clearance_time': format_fhir_date((prov or {}).get('recorded')) if prov else '',
+                })
+            ctx.update({
+                'roster_board': roster_board,
+                'cleared_count': sum(1 for r in roster_board if r['cleared']),
+                'pending_clearance_count': sum(1 for r in roster_board if not r['cleared']),
+            })
+
+        return render_template('cockpit_workspace.html', **ctx)
+
+    @app.route('/fhir/CockpitWorkspace')
+    @login_required
+    def get_cockpit_workspace():
+        return _render_cockpit_workspace()
+
+    @app.route('/fhir/Cockpit/dentist/save', methods=['POST'])
+    @login_required
+    def save_dentist_chart():
+        import json as _json
+        patient_id = (request.form.get('patient_id') or 'patient-case-8').strip()
+        raw_teeth = request.form.get('teeth_json') or '{}'
+        dental_notes = (request.form.get('dental_notes') or '').strip()
+        try:
+            teeth_map = _json.loads(raw_teeth)
+            if not isinstance(teeth_map, dict):
+                teeth_map = {}
+        except Exception:
+            teeth_map = {}
+        clean_teeth = {
+            t: (teeth_map.get(t) if teeth_map.get(t) in TOOTH_STATUS_META else 'sound')
+            for t in ALL_FDI_TEETH
+        }
+        bpe_map = {
+            sex_key: (request.form.get(f'bpe_{sex_key}') or '0').strip()
+            for sex_key, _lbl in BPE_SEXTANTS
+        }
+        obs_obj = build_dental_chart_observation(
+            patient_id=patient_id,
+            teeth_map=clean_teeth,
+            bpe_map=bpe_map,
+            author_username=current_user.username,
+            notes=dental_notes,
+        )
+        persist_fhir_resource(fhir, app.config, obs_obj, is_update=True)
+        if dental_notes:
+            note_obj = build_clinical_note(
+                patient_id=patient_id,
+                note_type_code='28570-0',
+                note_text=f"FDI Odontogram & BPE Update (BPE {bpe_map['ur']}/{bpe_map['ua']}/{bpe_map['ul']} | {bpe_map['lr']}/{bpe_map['la']}/{bpe_map['ll']}): {dental_notes}",
+                author_username=current_user.username,
+                vertical_brand='SlainteDent',
+            )
+            persist_fhir_resource(fhir, app.config, note_obj, is_update=False)
+        audit('cockpit.dental_chart_saved', outcome='success', resource_type='Observation',
+              resource_id=pseudonymize(patient_id), detail={'bpe': bpe_map})
+        return _render_cockpit_workspace(
+            patient_id_override=patient_id,
+            flash_message=('success', f'Saved 32-tooth FDI Odontogram & 6-sextant BPE chart for {patient_id} to FHIR R4.'),
+        )
+
+    @app.route('/fhir/Cockpit/pharmacy/dispense', methods=['POST'])
+    @login_required
+    def pharmacy_dispense_action():
+        from clinical_workflows import now_iso
+        med_id = (request.form.get('med_id') or '').strip()
+        patient_id = (request.form.get('patient_id') or '').strip()
+        new_status = (request.form.get('new_status') or 'completed').strip().lower()
+        pharm_note = (request.form.get('pharm_note') or '').strip()
+        if not med_id or new_status not in ('completed', 'on-hold', 'stopped', 'active'):
+            return _render_cockpit_workspace(flash_message=('danger', 'Invalid prescription dispense parameters.'))
+
+        existing = fhir.get(f'MedicationRequest/{med_id}')
+        if existing.ok and isinstance(existing.data, dict):
+            med_obj = dict(existing.data)
+        else:
+            med_obj = {'resourceType': 'MedicationRequest', 'id': med_id, 'subject': {'reference': f'Patient/{patient_id}'}}
+        med_obj['status'] = new_status
+        action_label = {
+            'completed': 'Dispensed & PSI Verified',
+            'on-hold': 'Placed On-Hold (Prescriber Query)',
+            'stopped': 'Cancelled / Stopped',
+            'active': 'Returned to Active Queue',
+        }[new_status]
+        notes_arr = list(med_obj.get('note') or [])
+        notes_arr.append({
+            'text': f"{action_label} by {current_user.username}" + (f": {pharm_note}" if pharm_note else ""),
+            'time': now_iso(),
+        })
+        med_obj['note'] = notes_arr
+        persist_fhir_resource(fhir, app.config, med_obj, is_update=True)
+        audit('cockpit.pharmacy_dispense', outcome='success', resource_type='MedicationRequest',
+              resource_id=pseudonymize(patient_id or med_id), detail={'med_id': med_id, 'status': new_status})
+        return _render_cockpit_workspace(
+            flash_message=('success', f'Prescription {med_id}: {action_label}.'),
+        )
+
+    @app.route('/fhir/Cockpit/gp/soap', methods=['POST'])
+    @login_required
+    def gp_file_soap_note():
+        patient_id = (request.form.get('patient_id') or 'patient-case-6').strip()
+        subj = (request.form.get('soap_s') or '').strip()
+        obj = (request.form.get('soap_o') or '').strip()
+        assess = (request.form.get('soap_a') or '').strip()
+        plan = (request.form.get('soap_p') or '').strip()
+        sbp = (request.form.get('gp_sbp') or '').strip()
+        dbp = (request.form.get('gp_dbp') or '').strip()
+        hr = (request.form.get('gp_hr') or '').strip()
+
+        if not any([subj, obj, assess, plan]):
+            return _render_cockpit_workspace(
+                patient_id_override=patient_id,
+                flash_message=('danger', 'Complete at least one SOAP consultation section before filing.'),
+            )
+
+        composed = (
+            f"SUBJECTIVE: {subj or 'Reviewed in clinic.'}\n"
+            f"OBJECTIVE: {obj or 'Stable examination.'}"
+            + (f" Clinic BP {sbp}/{dbp} mmHg, HR {hr} bpm." if sbp and dbp else "")
+            + f"\nASSESSMENT: {assess or 'Chronic disease review'}\n"
+            f"PLAN: {plan or 'Continue current management & safety-netting.'}"
+        )
+        doc_obj = build_clinical_note(
+            patient_id=patient_id,
+            note_type_code='11506-3',
+            note_text=composed,
+            author_username=current_user.username,
+            vertical_brand='SlainteGP',
+        )
+        persist_fhir_resource(fhir, app.config, doc_obj, is_update=False)
+
+        if any([sbp, dbp, hr]):
+            for v_obs in build_vital_observations(patient_id, {'systolic_bp': sbp, 'diastolic_bp': dbp, 'heart_rate': hr}):
+                persist_fhir_resource(fhir, app.config, v_obs, is_update=False)
+
+        audit('cockpit.gp_soap_filed', outcome='success', resource_type='DocumentReference',
+              resource_id=pseudonymize(patient_id))
+        return _render_cockpit_workspace(
+            patient_id_override=patient_id,
+            flash_message=('success', f'SOAP consultation & CDM review filed for {patient_id}.'),
+        )
+
+    @app.route('/fhir/Cockpit/gp/renew', methods=['POST'])
+    @login_required
+    def gp_renew_repeat_rx():
+        from clinical_workflows import now_iso
+        patient_id = (request.form.get('patient_id') or 'patient-case-6').strip()
+        med_id = (request.form.get('med_id') or '').strip()
+        existing = fhir.get(f'MedicationRequest/{med_id}') if med_id else None
+        if existing and existing.ok and isinstance(existing.data, dict):
+            med_obj = dict(existing.data)
+            med_obj['status'] = 'active'
+            med_obj['authoredOn'] = now_iso()
+            notes_arr = list(med_obj.get('note') or [])
+            notes_arr.append({'text': f'28-day repeat prescription renewed by GP {current_user.username}', 'time': now_iso()})
+            med_obj['note'] = notes_arr
+            persist_fhir_resource(fhir, app.config, med_obj, is_update=True)
+            drug_label = first_coding_display(med_obj.get('medicationCodeableConcept', {}), fallback=med_id)
+            audit('cockpit.gp_repeat_renewed', outcome='success', resource_type='MedicationRequest',
+                  resource_id=pseudonymize(patient_id), detail={'med_id': med_id})
+            return _render_cockpit_workspace(
+                patient_id_override=patient_id,
+                flash_message=('success', f'Renewed 28-day repeat prescription: {drug_label}.'),
+            )
+        return _render_cockpit_workspace(
+            patient_id_override=patient_id,
+            flash_message=('danger', 'Could not locate repeat prescription to renew.'),
+        )
+
+    @app.route('/fhir/Cockpit/ems/epcr', methods=['POST'])
+    @login_required
+    def ems_transmit_epcr():
+        import json as _json
+        import time as _time
+        from clinical_intake import (
+            MTS_METADATA, build_fhir_bundle, calculate_mts_category,
+            parse_allergies, parse_medications, resolve_snomed,
+        )
+        full_name = (request.form.get('full_name') or '').strip() or 'Unidentified Pre-Hospital Casualty'
+        dob = (request.form.get('dob') or '1975-04-12').strip()
+        gender = (request.form.get('gender') or 'unknown').strip().lower()
+        gms_number = (request.form.get('gms_number') or '').strip()
+        complaint = (request.form.get('complaint') or '').strip() or 'Acute pre-hospital emergency ambulance transfer'
+
+        def _fval(k):
+            v = (request.form.get(k) or '').strip()
+            try:
+                return float(v) if v else None
+            except ValueError:
+                return None
+
+        vitals = {
+            'systolic_bp': _fval('systolic_bp'),
+            'diastolic_bp': _fval('diastolic_bp'),
+            'heart_rate': _fval('heart_rate'),
+            'spo2': _fval('spo2'),
+            'respiratory_rate': _fval('respiratory_rate'),
+            'temperature': _fval('temperature'),
+            'pain': _fval('pain'),
+            'complaint': complaint,
+        }
+        mts_cat = calculate_mts_category(vitals)
+        mts_info = MTS_METADATA.get(mts_cat, MTS_METADATA[2])
+        news2_score, news2_tier, _ = calculate_news2_score(vitals)
+        snomed_code, _ = resolve_snomed(complaint)
+
+        pt_id = f"P{int(_time.time() * 1000) % 9000 + 1000}"
+        if not gms_number:
+            gms_number = f"EMS-{pt_id}-IE"
+
+        meds_data = parse_medications(request.form.get('medications'))
+        algs_data = parse_allergies(request.form.get('allergies'))
+
+        bundle = build_fhir_bundle(
+            pt_id=pt_id,
+            name=full_name,
+            gms_number=gms_number,
+            gender=gender,
+            birthdate=dob,
+            complaint=complaint,
+            vitals=vitals,
+            mts_category=mts_cat,
+            medications=meds_data,
+            allergies=algs_data,
+        )
+        if hasattr(fhir, 'save_bundle'):
+            fhir.save_bundle(bundle, f"bundle_{pt_id}.json")
+        else:
+            fhir.post('Bundle', json_data=bundle)
+            if not app.config.get('TESTING'):
+                store_dir = app.config.get('FHIR_STORE_PATH', '/workspace/data/fhir_store')
+                if not os.path.isdir(store_dir):
+                    store_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'fhir_store'))
+                if os.path.isdir(store_dir):
+                    with open(os.path.join(store_dir, f"bundle_{pt_id}.json"), 'w', encoding='utf-8') as bf:
+                        _json.dump(bundle, bf, indent=2)
+
+        audit('cockpit.ems_epcr_transmitted', outcome='success', resource_type='Bundle',
+              resource_id=pseudonymize(pt_id), detail={'mts_cat': mts_cat, 'news2': news2_score})
+
+        epcr_summary = {
+            'patient_id': pt_id,
+            'full_name': full_name,
+            'gms_number': gms_number,
+            'complaint': complaint,
+            'snomed_code': snomed_code,
+            'mts_cat': mts_cat,
+            'mts_name': mts_info['name'],
+            'mts_target': mts_info['target_time_minutes'],
+            'news2_score': news2_score,
+            'news2_tier': news2_tier,
+        }
+        return _render_cockpit_workspace(
+            epcr_result=epcr_summary,
+            flash_message=('success', f'ePCR Pre-Alert transmitted to Receiving ED: {full_name} ({pt_id}) — MTS Cat {mts_cat} / NEWS2 {news2_score}.'),
+        )
+
+    @app.route('/fhir/Cockpit/clearance/<patient_id>', methods=['POST'])
+    @login_required
+    def sign_cockpit_clearance(patient_id):
+        from flask import session
+        active_vert = get_active_vertical(session, db)
+        v_key = active_vert['key'] if active_vert else 'sports'
+        default_role = 'Flight Surgeon — EVA Medical Clearance' if v_key == 'astro' else 'Sports Medicine Physician — SCAT6 Return-to-Play'
+        clearance_role = (request.form.get('clearance_role') or default_role).strip()
+        reg_id = (request.form.get('practitioner_id') or f'IMC-{current_user.username.upper()}-01').strip()
+        clearance_note = (request.form.get('clearance_note') or 'Cleared following deterministic bio-telemetry & neurological review.').strip()
+
+        prov_obj = build_provenance_signoff(
+            patient_id=patient_id,
+            practitioner_id=reg_id,
+            practitioner_role=clearance_role,
+            signature_text=current_user.username,
+            author_username=current_user.username,
+        )
+        if hasattr(fhir, 'sign_off_patient'):
+            fhir.sign_off_patient(
+                patient_id=patient_id,
+                practitioner_id=reg_id,
+                practitioner_role=clearance_role,
+                signature_text=current_user.username,
+                practitioner_name=current_user.username,
+            )
+        persist_fhir_resource(fhir, app.config, prov_obj, is_update=True)
+
+        doc_obj = build_clinical_note(
+            patient_id=patient_id,
+            note_type_code='34109-9',
+            note_text=f"{clearance_role} ({reg_id}): {clearance_note}",
+            author_username=current_user.username,
+            vertical_brand=active_vert.get('brand', 'SlainteSport') if active_vert else 'SlainteSport',
+        )
+        persist_fhir_resource(fhir, app.config, doc_obj, is_update=False)
+
+        audit('cockpit.medical_clearance_signed', outcome='success', resource_type='Provenance',
+              resource_id=pseudonymize(patient_id), detail={'role': clearance_role, 'reg_id': reg_id})
+        return _render_cockpit_workspace(
+            flash_message=('success', f'Signed cryptographic FHIR Provenance ({clearance_role}) for {patient_id}.'),
         )
 
     # -- settings ----------------------------------------------------------
@@ -2426,10 +3230,12 @@ def register_routes(app):
             allergies=algs_data
         )
 
-        # 1. Save to FHIR store immediately
+        # 1. Save to FHIR store immediately (both remote SlainteFHIR and local bundle store)
         if hasattr(app.fhir, 'save_bundle'):
             app.fhir.save_bundle(bundle, f"bundle_{pt_id}.json")
         else:
+            if not app.config.get('TESTING'):
+                fhir.post('Bundle', json_data=bundle)
             store_dir = app.config.get('FHIR_STORE_PATH', '/workspace/data/fhir_store')
             os.makedirs(store_dir, exist_ok=True)
             with open(os.path.join(store_dir, f"bundle_{pt_id}.json"), "w", encoding="utf-8") as f:
@@ -2595,6 +3401,15 @@ def register_routes(app):
                 signature_text=signature_confirm,
                 practitioner_name=current_user.username
             )
+        else:
+            prov_obj = build_provenance_signoff(
+                patient_id=patient_id,
+                practitioner_id=practitioner_id,
+                practitioner_role=practitioner_role,
+                signature_text=signature_confirm,
+                author_username=current_user.username,
+            )
+            persist_fhir_resource(fhir, app.config, prov_obj, is_update=True)
 
         audit('clinical.sign_off', outcome='success', resource_type='Patient', resource_id=pseudonymize(patient_id),
               detail={'practitioner_id': practitioner_id, 'role': practitioner_role})
@@ -2696,10 +3511,12 @@ def register_routes(app):
                 mts_category=mts_cat
             )
 
-            # Save to FHIR store
+            # Save to FHIR store (both remote SlainteFHIR and local bundle store)
             if hasattr(app.fhir, 'save_bundle'):
                 app.fhir.save_bundle(bundle, f"bundle_{pt_id}.json")
             else:
+                if not app.config.get('TESTING'):
+                    fhir.post('Bundle', json_data=bundle)
                 store_dir = app.config.get('FHIR_STORE_PATH', '/workspace/data/fhir_store')
                 os.makedirs(store_dir, exist_ok=True)
                 import json

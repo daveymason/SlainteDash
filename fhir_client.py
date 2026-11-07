@@ -108,6 +108,32 @@ class FhirClient:
         except ValueError:
             return FhirResult(True, status_code=response.status_code)
 
+    def put(self, path, data=None, json_data=None):
+        """PUT to a FHIR path. Never raises -- failures come back as FhirResult(ok=False)."""
+        url = f'{self.base_url}/{path.lstrip("/")}'
+        path_log = urlsplit(url).path or '/'
+        payload = json_data if json_data is not None else data
+        try:
+            response = self._session.put(url, json=payload, timeout=self.timeout)
+        except requests.exceptions.Timeout:
+            logger.warning('FHIR PUT timed out', extra={'fhir_path': path_log})
+            return FhirResult(False, error='The record server did not respond in time.')
+        except requests.exceptions.RequestException as exc:
+            logger.warning('FHIR PUT failed: %s', exc, extra={'fhir_path': path_log})
+            return FhirResult(False, error='Could not reach the record server.')
+        except Exception:
+            logger.exception('Unexpected error during FHIR PUT', extra={'fhir_path': path_log})
+            return FhirResult(False, error='Could not reach the record server.')
+
+        if not response.ok:
+            return FhirResult(False, status_code=response.status_code, error=f'Server returned {response.status_code}')
+
+        try:
+            payload_res = response.json()
+            return FhirResult(True, data=payload_res, status_code=response.status_code)
+        except ValueError:
+            return FhirResult(True, status_code=response.status_code)
+
 
     def _request(self, url, params=None):
         # Log the URL path only -- slicing len(base_url) garbles upgraded

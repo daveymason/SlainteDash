@@ -1,49 +1,146 @@
+{% if flash_message %}
+<div class="alert alert-{{ flash_message[0] }} py-2 px-3 small m-3 mb-0">
+    <i class="fas fa-check-circle me-1"></i> {{ flash_message[1] }}
+</div>
+{% endif %}
+
+{% if rx_guard_block and patient_id %}
+<div class="alert alert-danger m-3 border-danger">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <strong class="small"><i class="fas fa-biohazard me-1"></i>Agent 08 (`SlainteRx-Guard`) Pre-Flight Block</strong>
+        <span class="status-pill status-fail">CONTRAINDICATION</span>
+    </div>
+    <ul class="small mb-2 ps-3">
+        {% for alert in rx_guard_block.alerts %}
+        <li><strong>[{{ alert.severity }}] {{ alert.allergen }} &harr; {{ alert.medication }}:</strong> {{ alert.message }}</li>
+        {% endfor %}
+    </ul>
+    <form hx-post="/fhir/Medications/{{ patient_id }}/add"
+          hx-target="#medications"
+          hx-swap="innerHTML"
+          class="bg-white p-2 rounded border border-danger-subtle">
+        <input type="hidden" name="drug_name" value="{{ rx_guard_block.drug_name }}">
+        <input type="hidden" name="dosage" value="{{ rx_guard_block.dosage }}">
+        <input type="hidden" name="snomed_code" value="{{ rx_guard_block.snomed_code }}">
+        <label class="form-label small fw-bold text-danger mb-1">Documented Clinical Override Justification (Logged to Audit Ledger):</label>
+        <div class="input-group input-group-sm">
+            <input type="text" name="override_reason" class="form-control"
+                   placeholder="e.g. Desensitization protocol / inpatient ICU monitoring" required>
+            <button type="submit" class="btn btn-danger fw-semibold">Confirm Override &amp; Prescribe</button>
+            <button type="button" class="btn btn-outline-secondary"
+                    hx-get="/fhir/Medications/{{ patient_id }}"
+                    hx-target="#medications">Cancel</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if patient_id %}
+<div class="collapse border-bottom bg-light p-3" id="addMedCollapse-{{ patient_id }}">
+    <form hx-post="/fhir/Medications/{{ patient_id }}/add"
+          hx-target="#medications"
+          hx-swap="innerHTML">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label small fw-bold mb-1">Medication (SNOMED-CT Formulary or Free Text)</label>
+                <input type="text" name="drug_name" list="medFormularyList-{{ patient_id }}"
+                       class="form-control form-control-sm"
+                       placeholder="e.g. Amoxicillin 500mg Oral Capsule" required>
+                <datalist id="medFormularyList-{{ patient_id }}">
+                    {% for code, disp, dose in (medications_catalog or []) %}
+                    <option value="{{ disp }}">{{ code }} &mdash; {{ dose }}</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-bold mb-1">Dosage &amp; Route</label>
+                <input type="text" name="dosage" class="form-control form-control-sm"
+                       placeholder="e.g. 500mg orally TDS for 5 days">
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="fas fa-check me-1"></i>Order
+                </button>
+            </div>
+        </div>
+        <div class="form-text mt-1" style="font-size: 0.72rem;">
+            <i class="fas fa-shield-alt text-success me-1"></i>Screened automatically against patient <code>AllergyIntolerance</code> records via Agent 08 (`SlainteRx-Guard`).
+        </div>
+    </form>
+</div>
+{% endif %}
+
 {% if error %}
-<div class="alert alert-danger mb-3">
+<div class="alert alert-danger m-3 mb-0">
     <i class="fas fa-exclamation-triangle me-2"></i>
     <strong>Medications could not be loaded.</strong> {{ error }}
     <div class="small mt-1">This is not the same as having no medications on file.</div>
 </div>
 {% elif medications %}
-<div class="card mb-3">
-    <div class="card-header bg-light">
-        <i class="fas fa-pills text-primary me-2"></i>Medications
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Date Prescribed</th>
-                        <th>Medication</th>
-                        <th>Instructions</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for med in medications %}
-                    <tr>
-                        <td>{{ med.date }}</td>
-                        <td><span class="fw-bold">{{ med.name }}</span></td>
-                        <td>{{ med.dosage }}</td>
-                        <td>
-                            <span class="badge rounded-pill
-                                {% if med.status == 'active' %}bg-success
-                                {% elif med.status == 'stopped' %}bg-danger
-                                {% elif med.status == 'completed' %}bg-info
-                                {% else %}bg-secondary{% endif %}">
-                                {{ med.status|capitalize }}
-                            </span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+<div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Date</th>
+                <th>Medication</th>
+                <th>Dosage</th>
+                <th>Status</th>
+                {% if patient_id %}<th class="text-end">Action</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for med in medications %}
+            <tr>
+                <td class="small text-muted">{{ med.date }}</td>
+                <td>
+                    <div class="fw-semibold">{{ med.name }}</div>
+                    {% if med.override_note %}
+                    <div class="text-danger" style="font-size: 0.72rem;"><i class="fas fa-exclamation-circle me-1"></i>{{ med.override_note }}</div>
+                    {% endif %}
+                </td>
+                <td class="small">{{ med.dosage }}</td>
+                <td>
+                    <span class="status-pill
+                        {% if med.status == 'active' %}status-pass
+                        {% elif med.status in ('stopped', 'on-hold') %}status-fail
+                        {% else %}status-neutral{% endif %}">
+                        {{ med.status|capitalize }}
+                    </span>
+                </td>
+                {% if patient_id %}
+                <td class="text-end">
+                    {% if med.id and med.status == 'active' %}
+                    <form hx-post="/fhir/Medications/{{ patient_id }}/status"
+                          hx-target="#medications"
+                          hx-swap="innerHTML"
+                          class="d-inline">
+                        <input type="hidden" name="med_id" value="{{ med.id }}">
+                        <input type="hidden" name="new_status" value="stopped">
+                        <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size: 0.72rem;" title="Stop Medication">
+                            Stop
+                        </button>
+                    </form>
+                    {% elif med.id %}
+                    <form hx-post="/fhir/Medications/{{ patient_id }}/status"
+                          hx-target="#medications"
+                          hx-swap="innerHTML"
+                          class="d-inline">
+                        <input type="hidden" name="med_id" value="{{ med.id }}">
+                        <input type="hidden" name="new_status" value="active">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.72rem;">
+                            Resume
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% else %}
-<div class="alert alert-info mb-3">
+<div class="alert alert-info m-3 mb-0">
     <i class="fas fa-info-circle me-2"></i> No medication records found for this patient.
 </div>
 {% endif %}

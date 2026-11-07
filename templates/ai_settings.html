@@ -3,9 +3,12 @@
 
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-3">
-    <h2 class="text-primary mb-0"><i class="fas fa-robot me-2"></i>AI Settings &amp; Model Selector</h2>
+    <div>
+        <h2 class="h4 fw-bold text-dark mb-0"><i class="fas fa-microchip text-primary me-2"></i>AI Engine &amp; Sovereign Model Routing</h2>
+        <p class="text-muted small mb-0">Select local sovereign Ollama models or external API models for clinical summarisation and governance agents.</p>
+    </div>
     <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
-        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+        <i class="fas fa-arrow-left me-1"></i> Back to Workstation
     </a>
 </div>
 
@@ -19,14 +22,14 @@
 </div>
 {% endif %}
 
-<div class="row g-4" style="max-width: 960px;">
+<div class="row g-3" style="max-width: 960px;">
     <!-- Column 1: Active AI Model Selector -->
     <div class="col-md-7">
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-dark text-white py-3">
-                <i class="fas fa-microchip text-info me-2"></i><strong>Select Active AI Model (Phase 8)</strong>
+        <div class="card mb-4">
+            <div class="card-header py-2">
+                <i class="fas fa-microchip text-primary me-2"></i><strong>Active AI Model Selection</strong>
             </div>
-            <div class="card-body p-4">
+            <div class="card-body p-3">
                 <p class="text-muted small mb-3">
                     Choose which AI engine powers bedside clinical briefings and the <code>Slainte-Auditor</code> red-team synthesis. Cloud models read their API key directly from <code>.env</code> (<code>OPENAI_API_KEY</code>); local Ollama models run 100% on-premise with no external key required.
                 </p>

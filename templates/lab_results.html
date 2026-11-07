@@ -1,49 +1,42 @@
 {% if error %}
-<div class="alert alert-danger mb-3">
+<div class="alert alert-danger m-3 mb-0">
     <i class="fas fa-exclamation-triangle me-2"></i>
     <strong>Lab results could not be loaded.</strong> {{ error }}
     <div class="small mt-1">This is not the same as having no results on file.</div>
 </div>
 {% elif lab_results %}
-<div class="card mb-3">
-    <div class="card-header bg-light">
-        <i class="fas fa-vial text-primary me-2"></i>Lab Results
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Date</th>
-                        <th>Test</th>
-                        <th>Value</th>
-                        <th>Unit</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for result in lab_results %}
-                    <tr>
-                        <td>{{ result.date }}</td>
-                        <td><span class="fw-bold">{{ result.code }}</span></td>
-                        <td>{{ result.value }}</td>
-                        <td>{{ result.unit }}</td>
-                        <td>
-                            {% if result.status == 'final' %}
-                            <span class="badge bg-success">Final</span>
-                            {% else %}
-                            <span class="badge bg-warning text-dark">{{ result.status|capitalize }}</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+<div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Date</th>
+                <th>Test</th>
+                <th>Value</th>
+                <th>Unit</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in lab_results %}
+            <tr>
+                <td class="small text-muted">{{ result.date }}</td>
+                <td><span class="fw-semibold">{{ result.code }}</span></td>
+                <td>{{ result.value }}</td>
+                <td class="small text-muted">{{ result.unit }}</td>
+                <td>
+                    {% if result.status == 'final' %}
+                    <span class="status-pill status-pass">Final</span>
+                    {% else %}
+                    <span class="status-pill status-warn">{{ result.status|capitalize }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% else %}
-<div class="alert alert-info mb-3">
+<div class="alert alert-info m-3 mb-0">
     <i class="fas fa-info-circle me-2"></i> No lab results found for this patient.
 </div>
 {% endif %}

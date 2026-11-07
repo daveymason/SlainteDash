@@ -2,50 +2,62 @@
 {% block title %}Audit Log &mdash; FHIR Patient Dashboard{% endblock %}
 
 {% block content %}
-<h2 class="text-primary mb-4"><i class="fas fa-clipboard-check"></i> Audit Log</h2>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h2 class="h4 fw-bold text-dark mb-1"><i class="fas fa-clipboard-check text-primary me-2"></i>Immutable Clinical &amp; Security Audit Ledger</h2>
+        <p class="text-muted small mb-0">
+            Most recent 200 append-only entries. Patient and account identifiers are HMAC-pseudonymized (`LOG_HASH_SALT`). Enforced by SQLite `BEFORE UPDATE/DELETE` triggers.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/agents/immutable_audit" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-shield-alt me-1"></i> Agent 05: Audit Verifier
+        </a>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i> Back to Workstation
+        </a>
+    </div>
+</div>
 
-<p class="text-muted">
-    Most recent 200 entries. Patient and account identifiers are stored as
-    salted digests, so one subject can be followed across entries without the
-    log itself holding an identifier. The table is append-only &mdash; entries
-    cannot be edited or removed.
-</p>
-
-<div class="table-responsive">
-    <table class="table table-sm table-striped">
-        <thead class="table-dark">
-            <tr>
-                <th>When</th>
-                <th>Actor</th>
-                <th>Action</th>
-                <th>Subject</th>
-                <th>Outcome</th>
-                <th>Source</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for entry in entries %}
-            <tr>
-                <td class="small font-monospace">{{ entry.occurred_at[:19]|replace('T', ' ') }}</td>
-                <td class="small font-monospace">
-                    {% if entry.actor %}{{ entry.actor[:10] }}&hellip;{% else %}&mdash;{% endif %}
-                </td>
-                <td class="small">{{ entry.action }}</td>
-                <td class="small font-monospace">{{ entry.resource_id or '—' }}</td>
-                <td>
-                    <span class="badge rounded-pill
-                        {% if entry.outcome == 'success' %}bg-success
-                        {% elif entry.outcome == 'denied' %}bg-warning text-dark
-                        {% else %}bg-danger{% endif %}">
-                        {{ entry.outcome }}
-                    </span>
-                </td>
-                <td class="small text-muted">{{ entry.remote_addr or '—' }}</td>
-            </tr>
-            {% else %}
-            <tr><td colspan="6" class="text-center text-muted py-3">No audit entries yet.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card mb-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Timestamp (UTC)</th>
+                        <th>Actor Digest</th>
+                        <th>Action</th>
+                        <th>Subject Digest</th>
+                        <th>Outcome</th>
+                        <th>Remote IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                    <tr>
+                        <td class="small font-monospace">{{ entry.occurred_at[:19]|replace('T', ' ') }}</td>
+                        <td class="small font-monospace">
+                            {% if entry.actor %}{{ entry.actor[:10] }}&hellip;{% else %}&mdash;{% endif %}
+                        </td>
+                        <td class="small fw-semibold">{{ entry.action }}</td>
+                        <td class="small font-monospace">{{ entry.resource_id or '—' }}</td>
+                        <td>
+                            <span class="status-pill
+                                {% if entry.outcome == 'success' %}status-pass
+                                {% elif entry.outcome == 'denied' %}status-warn
+                                {% else %}status-fail{% endif %}">
+                                {{ entry.outcome }}
+                            </span>
+                        </td>
+                        <td class="small text-muted">{{ entry.remote_addr or '—' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-center text-muted py-3">No audit entries yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}

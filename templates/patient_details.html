@@ -1,382 +1,266 @@
-<h2 class="text-primary mb-4"><i class="fas fa-user"></i> Patient Details</h2>
-<div class="card mt-3">
-    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-        <span><i class="fas fa-id-card me-2"></i>ID: {{ patient['id'] }}</span>
-        <span class="badge rounded-pill" style="background-color: var(--tropical-secondary);">
-            {{ (patient['gender'] or 'Unknown')|capitalize }}
-        </span>
+<!-- Minimalist Medical Chart Banner -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-secondary"
+                hx-get="/fhir/Patients"
+                hx-push-url="/?view=patients"
+                hx-target="#content"
+                hx-swap="innerHTML">
+            <i class="fas fa-arrow-left me-1"></i> Patient Roster
+        </button>
+        <span class="text-muted small font-monospace">FHIR R4 Chart &bull; Patient/{{ patient['id'] }}</span>
     </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-8">
-                <h5 class="card-title mb-3 fw-bold">{{ patient['display_name'] }}</h5>
-                <div class="mb-3 p-3 rounded" style="background-color: var(--tropical-light);">
-                    <div class="row mb-2">
-                        <div class="col-md-4 fw-bold">
-                            <i class="fas fa-birthday-cake text-primary me-2"></i>Birth Date:
-                        </div>
-                        <div class="col-md-8">
-                            {{ patient['birthDate'] or 'Not recorded' }}
-                            {% if patient['age'] is not none %}({{ patient['age'] }} years){% endif %}
-                        </div>
+    <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-sm btn-outline-primary fw-semibold"
+                hx-post="/ai/summarise/{{ patient['id'] }}"
+                hx-target="#ai-bedside-briefing-{{ patient['id'] }}"
+                hx-swap="innerHTML">
+            <i class="fas fa-notes-medical me-1"></i> Agent 07: Handover Brief
+        </button>
+        <button class="btn btn-sm btn-outline-danger fw-semibold"
+                hx-post="/ai/crosscheck/{{ patient['id'] }}"
+                hx-target="#ai-rxguard-{{ patient['id'] }}"
+                hx-swap="innerHTML">
+            <i class="fas fa-shield-virus me-1"></i> Agent 08: Rx-Guard Check
+        </button>
+        <button type="button" class="btn btn-sm btn-success fw-semibold" data-bs-toggle="modal" data-bs-target="#signOffModal">
+            <i class="fas fa-signature me-1"></i> Electronic Sign-Off
+        </button>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-3 px-3">
+        <div class="row g-3 align-items-center">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="clinical-monogram flex-shrink-0">
+                        {{ patient['initials'] }}
                     </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4 fw-bold">
-                            <i class="fas fa-fingerprint text-primary me-2"></i>Identifier:
-                        </div>
-                        <div class="col-md-8">{{ patient['simple_identifier'] }}</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4 fw-bold">
-                            <i class="fas fa-map-marker-alt text-primary me-2"></i>Address:
-                        </div>
-                        <div class="col-md-8">{{ patient['simple_address'] }}</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4 fw-bold">
-                            <i class="fas fa-phone text-primary me-2"></i>Contact:
-                        </div>
-                        <div class="col-md-8">{{ patient['contact'] }}</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-4 fw-bold">
-                            <i class="fas fa-hospital text-primary me-2"></i>Organization:
-                        </div>
-                        <div class="col-md-8">
-                            {{ patient.get('managingOrganization', {}).get('display', 'Not recorded') }}
-                        </div>
-                    </div>
-                    {% if patient['marital_status'] %}
-                    <div class="row mb-2">
-                        <div class="col-md-4 fw-bold">
-                            <i class="fas fa-heart text-primary me-2"></i>Marital Status:
-                        </div>
-                        <div class="col-md-8">{{ patient['marital_status'] }}</div>
-                    </div>
-                    {% endif %}
-                    {% if patient['languages'] %}
-                    <div class="row mb-2">
-                        <div class="col-md-4 fw-bold">
-                            <i class="fas fa-language text-primary me-2"></i>Languages:
-                        </div>
-                        <div class="col-md-8">
-                            {% for language in patient['languages'] %}
-                                <span class="badge rounded-pill {% if language.preferred %}bg-success{% else %}bg-secondary{% endif %} me-1">
-                                    {{ language.name }}{% if language.preferred %} (Preferred){% endif %}
-                                </span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% if patient.get('deceasedBoolean') or patient.get('deceasedDateTime') %}
-                    <div class="row mb-2">
-                        <div class="col-md-4 fw-bold">
-                            <i class="fas fa-info-circle text-danger me-2"></i>Deceased:
-                        </div>
-                        <div class="col-md-8">
-                            {% if patient.get('deceasedDateTime') %}
-                                Yes, on {{ patient['deceasedDateTime']|replace('T', ' at ')|replace('Z', '') }}
-                            {% else %}
-                                Yes
+                    <div>
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <h2 class="h4 fw-bold text-dark mb-0">{{ patient['display_name'] }}</h2>
+                            <span class="status-pill status-neutral">{{ (patient['gender'] or 'Unknown')|capitalize }}</span>
+                            {% if patient.get('deceasedBoolean') or patient.get('deceasedDateTime') %}
+                            <span class="status-pill status-fail">Deceased</span>
                             {% endif %}
                         </div>
+                        <div class="d-flex flex-wrap gap-3 small text-secondary">
+                            <span><strong>DOB:</strong> {{ patient['birthDate'] or 'Not recorded' }}{% if patient['age'] is not none %} ({{ patient['age'] }}y){% endif %}</span>
+                            <span><strong>GMS / MRN:</strong> <code class="text-dark">{{ patient['simple_identifier'] }}</code></span>
+                            <span><strong>Contact:</strong> {{ patient['contact'] }}</span>
+                            <span><strong>Address:</strong> {{ patient['simple_address'] }}</span>
+                        </div>
+                        {% if patient.get('managingOrganization', {}).get('display') or patient['marital_status'] or patient['languages'] %}
+                        <div class="d-flex flex-wrap gap-3 small text-muted mt-1">
+                            {% if patient.get('managingOrganization', {}).get('display') %}
+                            <span><strong>Facility:</strong> {{ patient['managingOrganization']['display'] }}</span>
+                            {% endif %}
+                            {% if patient['marital_status'] %}
+                            <span><strong>Marital:</strong> {{ patient['marital_status'] }}</span>
+                            {% endif %}
+                            {% if patient['languages'] %}
+                            <span><strong>Language:</strong>
+                                {% for language in patient['languages'] %}
+                                    {{ language.name }}{% if language.preferred %} (Pref){% endif %}{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                     </div>
-                    {% endif %}
                 </div>
             </div>
-            <div class="col-md-4 text-center">
-                <div class="avatar-circle mb-3 mx-auto d-flex align-items-center justify-content-center">
-                    <span class="initials">{{ patient['initials'] }}</span>
-                </div>
-                <div class="d-grid gap-2">
-                    <button class="btn btn-primary"
-                            hx-get="/fhir/Patients"
-                            hx-target="#content"
-                            hx-swap="innerHTML transition:true">
-                        <i class="fas fa-arrow-left"></i> Back to Patients
-                    </button>
-                    <button class="btn btn-outline-info fw-semibold"
-                            hx-post="/ai/summarise/{{ patient['id'] }}"
-                            hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
-                            hx-target="#ai-bedside-briefing-{{ patient['id'] }}"
-                            hx-swap="innerHTML">
-                        <i class="fas fa-notes-medical me-1"></i> Agent 07: Patient Summariser
-                    </button>
-                    <button class="btn btn-outline-danger fw-semibold"
-                            hx-post="/ai/crosscheck/{{ patient['id'] }}"
-                            hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
-                            hx-target="#ai-rxguard-{{ patient['id'] }}"
-                            hx-swap="innerHTML">
-                        <i class="fas fa-pills me-1"></i> Agent 08: Rx-Guard Allergy Check
-                    </button>
-                    <a href="/?view=agents" class="btn btn-sm btn-link text-muted text-decoration-none">
-                        <i class="fas fa-cog me-1"></i> Configure Embedded Agents
-                    </a>
+            <div class="col-lg-4">
+                <div id="sign-off-status-container">
+                    {% if provenance %}
+                    <div class="p-2 rounded border border-success bg-success-subtle small">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-success"><i class="fas fa-check-double me-1"></i>Signed &amp; Attested</span>
+                            <span class="badge bg-success">FHIR Provenance</span>
+                        </div>
+                        <div class="text-dark mt-1">
+                            <code>{{ provenance.agent[0].who.identifier.value if provenance.agent and provenance.agent[0].who and provenance.agent[0].who.identifier else 'Clinician' }}</code>
+                            &bull; {{ provenance.agent[0].role[0].text if provenance.agent and provenance.agent[0].role else 'Attending Clinician' }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="p-2 rounded border bg-light small d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold text-dark"><i class="fas fa-clock text-warning me-1"></i>Pending Attestation</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">Requires IMC/GMC clinician signature</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-success py-1 px-2" data-bs-toggle="modal" data-bs-target="#signOffModal">
+                            Sign
+                        </button>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
-        <div id="ai-bedside-briefing-{{ patient['id'] }}" class="mt-3"></div>
+        <div id="ai-bedside-briefing-{{ patient['id'] }}" class="mt-2"></div>
         <div id="ai-rxguard-{{ patient['id'] }}" class="mt-2"></div>
     </div>
 </div>
 
-<!-- Phase 6.1 & 6.2: Clinical Intelligence, NEWS2 Trajectory & Clinician Sign-Off -->
-<div class="row mt-4">
-    <!-- 24h NEWS2 Vital Deterioration Trajectory Card -->
-    <div class="col-lg-8 mb-3 mb-lg-0">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                <span class="fw-bold"><i class="fas fa-heartbeat text-danger me-2"></i>24-Hour Vital Deterioration Trajectory (NEWS2)</span>
-                {% if trajectory %}
-                <span class="badge {% if trajectory.current_score >= 7 %}bg-danger{% elif trajectory.current_score >= 5 %}bg-warning text-dark{% elif trajectory.current_score >= 1 %}bg-info text-dark{% else %}bg-success{% endif %}">
-                    NEWS2: {{ trajectory.current_score }}/20 ({{ trajectory.current_tier }})
-                </span>
-                {% endif %}
-            </div>
-            <div class="card-body p-3">
-                {% if trajectory %}
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <div class="small text-muted">
-                        <i class="fas fa-chart-line me-1"></i> Physiological trajectory over previous 24 hours:
-                    </div>
-                    <div class="small fw-semibold">
-                        Current Risk: <span style="color: {{ trajectory.color }};">{{ trajectory.current_tier }}</span>
-                    </div>
-                </div>
-                <!-- Inline SVG Sparkline -->
-                <div class="bg-light p-3 rounded border mb-3">
-                    <svg viewBox="0 0 515 85" style="width: 100%; height: 95px;" preserveAspectRatio="xMidYMid meet">
-                        <defs>
-                            <linearGradient id="trajGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stop-color="{{ trajectory.color }}" stop-opacity="0.35"/>
-                                <stop offset="100%" stop-color="{{ trajectory.color }}" stop-opacity="0.02"/>
-                            </linearGradient>
-                        </defs>
-                        <!-- High Risk Threshold line (7) -->
-                        <line x1="30" y1="{{ trajectory.threshold_7_y }}" x2="470" y2="{{ trajectory.threshold_7_y }}" stroke="#dc3545" stroke-width="1" stroke-dasharray="4,4" opacity="0.6" />
-                        <text x="475" y="{{ trajectory.threshold_7_y + 3 }}" font-size="8" fill="#dc3545" font-weight="600">≥7 High</text>
-
-                        <!-- Medium Risk Threshold line (5) -->
-                        <line x1="30" y1="{{ trajectory.threshold_5_y }}" x2="470" y2="{{ trajectory.threshold_5_y }}" stroke="#fd7e14" stroke-width="1" stroke-dasharray="3,3" opacity="0.5" />
-                        <text x="475" y="{{ trajectory.threshold_5_y + 3 }}" font-size="8" fill="#fd7e14" font-weight="600">≥5 Med</text>
-
-                        <!-- Baseline (0) -->
-                        <line x1="30" y1="62" x2="470" y2="62" stroke="#ced4da" stroke-width="1" />
-
-                        <!-- Trajectory Area Gradient -->
-                        {% if trajectory.svg_polygon %}
-                        <polygon points="{{ trajectory.svg_polygon }}" fill="url(#trajGradient)" />
-                        {% endif %}
-
-                        <!-- Trajectory Polyline -->
-                        <polyline fill="none" stroke="{{ trajectory.color }}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="{{ trajectory.svg_polyline }}" />
-                        
-                        <!-- Trajectory points & scores -->
-                        {% for pt in trajectory.trajectory %}
-                        <circle cx="{{ pt.cx }}" cy="{{ pt.cy }}" r="4.5" fill="{{ trajectory.color }}" stroke="#fff" stroke-width="2">
-                            <title>{{ pt.hour }}: NEWS2 {{ pt.score }} ({{ pt.tier }})</title>
-                        </circle>
-                        <text x="{{ pt.cx }}" y="{{ pt.cy - 7 }}" font-size="10" font-weight="bold" text-anchor="middle" fill="{{ trajectory.color }}">{{ pt.score }}</text>
-                        <text x="{{ pt.cx }}" y="76" font-size="10" font-weight="600" text-anchor="middle" fill="#6c757d">{{ pt.hour }}</text>
-                        {% endfor %}
-                    </svg>
-                </div>
-                
-                <!-- NEWS2 Parameter Breakdown Grid -->
-                <div class="row g-2 text-center small">
-                    {% for param, score in trajectory.breakdown.items() %}
-                    <div class="col">
-                        <div class="p-1 rounded border {% if score >= 3 %}bg-danger-subtle text-danger border-danger{% elif score >= 1 %}bg-warning-subtle text-dark border-warning{% else %}bg-light text-secondary{% endif %}">
-                            <div class="fw-bold" style="font-size: 11px;">{{ param }}</div>
-                            <div class="fw-bold fs-6">{{ score }}</div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-muted small mb-0">No physiological vitals recorded to plot 24-hour NEWS2 deterioration trajectory.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    
-    <!-- Clinician Electronic Sign-off Status & Action Card -->
-    <div class="col-lg-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-header bg-dark text-white d-flex align-items-center">
-                <i class="fas fa-file-signature text-success me-2"></i> Clinical Sign-Off &amp; Provenance
-            </div>
-            <div class="card-body p-3 d-flex flex-column justify-content-between">
-                <div id="sign-off-status-container">
-                    {% if provenance %}
-                    <div class="alert alert-success py-2 px-3 small border border-success mb-2">
-                        <div class="fw-bold mb-1"><i class="fas fa-check-double text-success me-1"></i>Assessment Verified &amp; Signed</div>
-                        <div>Practitioner: <code>{{ provenance.agent[0].who.identifier.value if provenance.agent and provenance.agent[0].who and provenance.agent[0].who.identifier else 'Clinician' }}</code></div>
-                        <div>Role: <strong>{{ provenance.agent[0].role[0].text if provenance.agent and provenance.agent[0].role else 'Triage Clinician' }}</strong></div>
-                        <div class="text-muted" style="font-size: 11px;">Recorded: {{ provenance.recorded }}</div>
-                    </div>
-                    {% else %}
-                    <div class="p-3 bg-light rounded border text-center mb-3">
-                        <i class="fas fa-user-md fa-2x text-secondary mb-2"></i>
-                        <h6 class="fw-bold mb-1">Awaiting Clinical Sign-off</h6>
-                        <p class="text-muted small mb-0">Triage assessment must be reviewed and signed by an attending physician or ANP prior to admission or transfer.</p>
-                    </div>
-                    {% endif %}
-                </div>
-                
-                <button type="button" class="btn btn-outline-success w-100 mt-2" data-bs-toggle="modal" data-bs-target="#signOffModal">
-                    <i class="fas fa-signature me-1"></i> Validate &amp; Electronically Sign
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 {% include "sign_off_modal.html" %}
 
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card border-primary">
-            <div class="card-header bg-primary text-white">
-                <i class="fas fa-notes-medical me-2"></i> Conditions / Problem List
+<!-- Row 1: 24-Hour NEWS2 Deterioration Trajectory + Allergies & Intolerances -->
+<div class="row g-3 mb-3">
+    <div class="col-lg-7" id="news2-card-wrapper"
+         hx-get="/fhir/News2Card/{{ patient['id'] }}"
+         hx-trigger="vitalsUpdated from:body"
+         hx-swap="innerHTML">
+        {% include "news2_card.html" %}
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100 mb-0">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span><i class="fas fa-allergies text-danger me-2"></i>Allergies &amp; Intolerances</span>
+                <div class="d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                            data-bs-toggle="collapse" data-bs-target="#addAllergyCollapse-{{ patient['id'] }}">
+                        <i class="fas fa-plus me-1"></i>Record Allergy
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                            hx-get="/fhir/Allergies/{{ patient['id'] }}"
+                            hx-target="#allergies"
+                            title="Refresh Allergies">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
             </div>
             <div class="card-body p-0">
-                <div id="conditions-loader" class="htmx-indicator">
-                    <div class="d-flex justify-content-center py-3">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading conditions...</span>
-                        </div>
-                    </div>
-                </div>
-                <div id="conditions" class="fade-me-in"
-                     hx-get="/fhir/Conditions/{{ patient['id'] }}"
-                     hx-trigger="load"
-                     hx-indicator="#conditions-loader"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row mt-3">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <i class="fas fa-vial me-2"></i> Lab Results
-            </div>
-            <div class="card-body p-3">
-                <button class="btn btn-outline-primary mb-2 w-100"
-                        hx-get="/fhir/LabResults/{{ patient['id'] }}"
-                        hx-target="#labResults"
-                        hx-indicator="#lab-results-loader">
-                    <i class="fas fa-vial me-2"></i> View Lab Results
-                </button>
-                <div id="lab-results-loader" class="htmx-indicator">
-                    <div class="d-flex justify-content-center py-2">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading lab results...</span>
-                        </div>
-                    </div>
-                </div>
-                <div id="labResults" class="fade-me-in"
-                     hx-get="/fhir/LabResults/{{ patient['id'] }}"
-                     hx-trigger="load"
-                     hx-indicator="#lab-results-loader"></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <i class="fas fa-chart-line me-2"></i> Vital Signs
-            </div>
-            <div class="card-body p-3">
-                <button class="btn btn-outline-primary mb-2 w-100"
-                        hx-get="/fhir/VitalSigns/{{ patient['id'] }}"
-                        hx-target="#vitalSigns"
-                        hx-indicator="#vital-signs-loader">
-                    <i class="fas fa-heartbeat me-2"></i> View Vital Signs
-                </button>
-                <div id="vital-signs-loader" class="htmx-indicator">
-                    <div class="d-flex justify-content-center py-2">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading vital signs...</span>
-                        </div>
-                    </div>
-                </div>
-                <div id="vitalSigns" class="fade-me-in"
-                     hx-get="/fhir/VitalSigns/{{ patient['id'] }}"
-                     hx-trigger="load"
-                     hx-indicator="#vital-signs-loader"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row mt-3">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <i class="fas fa-pills me-2"></i> Medications
-            </div>
-            <div class="card-body p-3">
-                <button class="btn btn-outline-primary mb-2 w-100"
-                        hx-get="/fhir/Medications/{{ patient['id'] }}"
-                        hx-target="#medications"
-                        hx-indicator="#medications-loader">
-                    <i class="fas fa-prescription-bottle-alt me-2"></i> View Medications
-                </button>
-                <div id="medications-loader" class="htmx-indicator">
-                    <div class="d-flex justify-content-center py-2">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading medications...</span>
-                        </div>
-                    </div>
-                </div>
-                <div id="medications" class="fade-me-in"
-                     hx-get="/fhir/Medications/{{ patient['id'] }}"
-                     hx-trigger="load"
-                     hx-indicator="#medications-loader"></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <i class="fas fa-allergies me-2"></i> Allergies
-            </div>
-            <div class="card-body p-3">
-                <button class="btn btn-outline-primary mb-2 w-100"
-                        hx-get="/fhir/Allergies/{{ patient['id'] }}"
-                        hx-target="#allergies"
-                        hx-indicator="#allergies-loader">
-                    <i class="fas fa-exclamation-triangle me-2"></i> View Allergies
-                </button>
-                <div id="allergies-loader" class="htmx-indicator">
-                    <div class="d-flex justify-content-center py-2">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading allergies...</span>
-                        </div>
-                    </div>
-                </div>
                 <div id="allergies" class="fade-me-in"
                      hx-get="/fhir/Allergies/{{ patient['id'] }}"
-                     hx-trigger="load"
-                     hx-indicator="#allergies-loader"></div>
+                     hx-trigger="load"></div>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-    .avatar-circle {
-        width: 150px;
-        height: 150px;
-        background-color: var(--tropical-primary);
-        border-radius: 50%;
-        color: white;
-    }
+<!-- Row 2: Active Medications (with Agent 08 Rx-Guard Pre-Flight) + Problem List / Conditions -->
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="card h-100 mb-0">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span><i class="fas fa-pills text-primary me-2"></i>Medications &amp; ePrescribing</span>
+                <div class="d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-primary py-0 px-2"
+                            data-bs-toggle="collapse" data-bs-target="#addMedCollapse-{{ patient['id'] }}">
+                        <i class="fas fa-plus me-1"></i>Prescribe
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                            hx-get="/fhir/Medications/{{ patient['id'] }}"
+                            hx-target="#medications"
+                            title="Refresh Medications">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="medications" class="fade-me-in"
+                     hx-get="/fhir/Medications/{{ patient['id'] }}"
+                     hx-trigger="load"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100 mb-0">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span><i class="fas fa-notes-medical text-primary me-2"></i>Conditions / Problem List</span>
+                <div class="d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2"
+                            data-bs-toggle="collapse" data-bs-target="#addConditionCollapse-{{ patient['id'] }}">
+                        <i class="fas fa-plus me-1"></i>Add Diagnosis
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                            hx-get="/fhir/Conditions/{{ patient['id'] }}"
+                            hx-target="#conditions"
+                            title="Refresh Conditions">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="conditions" class="fade-me-in"
+                     hx-get="/fhir/Conditions/{{ patient['id'] }}"
+                     hx-trigger="load"></div>
+            </div>
+        </div>
+    </div>
+</div>
 
-    .initials {
-        font-size: 60px;
-        font-weight: bold;
-    }
-</style>
+<!-- Row 3: Vital Signs & Physiological Trends + Laboratory Results -->
+<div class="row g-3 mb-3">
+    <div class="col-lg-7">
+        <div class="card h-100 mb-0">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span><i class="fas fa-chart-line text-primary me-2"></i>Vital Signs &amp; Observations</span>
+                <div class="d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-primary py-0 px-2"
+                            data-bs-toggle="collapse" data-bs-target="#addVitalsCollapse-{{ patient['id'] }}">
+                        <i class="fas fa-plus me-1"></i>Record Vitals
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                            hx-get="/fhir/VitalSigns/{{ patient['id'] }}"
+                            hx-target="#vitalSigns"
+                            title="Refresh Vital Signs">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-3">
+                <div id="vitalSigns" class="fade-me-in"
+                     hx-get="/fhir/VitalSigns/{{ patient['id'] }}"
+                     hx-trigger="load"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100 mb-0">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span><i class="fas fa-vial text-primary me-2"></i>Laboratory Results</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                        hx-get="/fhir/LabResults/{{ patient['id'] }}"
+                        hx-target="#labResults"
+                        title="Refresh Lab Results">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div id="labResults" class="fade-me-in"
+                     hx-get="/fhir/LabResults/{{ patient['id'] }}"
+                     hx-trigger="load"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Row 4: Clinical Consultation & Handover Notes (FHIR DocumentReference) -->
+<div class="row g-3 mb-2">
+    <div class="col-12">
+        <div class="card mb-0">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span><i class="fas fa-file-medical-alt text-primary me-2"></i>Clinical Consultation &amp; Handover Notes (FHIR R4 DocumentReference)</span>
+                <div class="d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2"
+                            data-bs-toggle="collapse" data-bs-target="#addNoteCollapse-{{ patient['id'] }}">
+                        <i class="fas fa-plus me-1"></i>File Note
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                            hx-get="/fhir/Notes/{{ patient['id'] }}"
+                            hx-target="#clinicalNotes"
+                            title="Refresh Clinical Notes">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="clinicalNotes" class="fade-me-in"
+                     hx-get="/fhir/Notes/{{ patient['id'] }}"
+                     hx-trigger="load"></div>
+            </div>
+        </div>
+    </div>
+</div>
