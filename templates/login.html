@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In &mdash; SlainteTech Clinical Cockpit</title>
+    <title>Sign In &mdash; SlainteTech Clinical Platform</title>
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
     <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet">
 </head>
-<body class="d-flex justify-content-center align-items-center min-vh-100 py-4">
-    <div class="card p-4 shadow-sm" style="min-width: 360px; max-width: 460px;">
+<body class="d-flex justify-content-center align-items-center min-vh-100 py-4 px-3">
+    <div class="card p-3 p-sm-4 shadow-sm w-100" style="max-width: 460px;">
         <div class="card-body">
             <div class="text-center mb-2">
                 <img src="{{ url_for('static', filename='logo.png') }}" alt="" style="height: 48px;">
             </div>
-            <h3 class="card-title text-center mb-1">Sign In</h3>
-            <p class="text-center text-muted small mb-3">SlainteTech AI Security Labs &bull; Multi-Vertical FHIR R4 Cockpit</p>
+            <h1 class="h3 card-title text-center mb-1">Sign In</h1>
+            <p class="text-center text-muted small mb-3">SlainteTech AI Security Labs &bull; Multi-Vertical FHIR R4 Platform</p>
 
             {% if notice %}
             <div class="alert alert-success py-2 small" role="status">{{ notice }}</div>
@@ -37,7 +37,7 @@
                            autocomplete="current-password" required>
                 </div>
                 <div class="mb-3">
-                    <label for="vertical_key" class="form-label fw-semibold small">Sign in as... (Specialty Cockpit)</label>
+                    <label for="vertical_key" class="form-label fw-semibold small">Sign in as... (Clinical Vertical)</label>
                     <select class="form-select" id="vertical_key" name="vertical_key">
                         {% if all_verticals %}
                             {% for vert in all_verticals %}
@@ -47,7 +47,8 @@
                             {% endfor %}
                         {% else %}
                             <option value="ed">SlainteED &mdash; Emergency Department</option>
-                            <option value="gp">SlainteGP &mdash; General Practice</option>
+                            <option value="gp">SlainteGP &mdash; General Practice &amp; Community Nursing</option>
+                            <option value="psychiatry">SlaintePsych &mdash; Psychiatry &amp; Mental Health</option>
                             <option value="dentist">SlainteDent &mdash; Dental Surgery</option>
                             <option value="pharmacy">SlaintePharm &mdash; Clinical Pharmacy</option>
                             <option value="ems">SlainteEMS &mdash; Pre-Hospital Ambulance</option>
@@ -56,7 +57,7 @@
                         {% endif %}
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary w-100 fw-semibold">Sign In &amp; Launch Cockpit</button>
+                <button type="submit" class="btn btn-primary w-100 fw-semibold">Sign In &amp; Launch Vertical</button>
             </form>
 
             <div class="mt-2 pt-2 border-top">

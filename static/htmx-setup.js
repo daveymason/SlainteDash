@@ -1,4 +1,4 @@
-// Shared HTMX wiring & global clinical display preferences.
+// Shared HTMX wiring, responsive tablet/mobile clinical drawer & global display preferences.
 
 (function () {
     'use strict';
@@ -15,13 +15,96 @@
         }
     });
 
+    function setMobileDrawerOpen(isOpen) {
+        var sidebar = document.querySelector('nav.sidebar');
+        var backdrop = document.getElementById('sidebarBackdrop');
+        var mainContent = document.querySelector('.main-content');
+        var menuBtn = document.getElementById('mobileMenuBtn');
+        var dockBtn = document.getElementById('mobileDockMoreBtn');
+        if (!sidebar) {
+            return;
+        }
+        sidebar.classList.toggle('drawer-open', Boolean(isOpen));
+        if (backdrop) {
+            backdrop.classList.toggle('active', Boolean(isOpen));
+        }
+        if (menuBtn) {
+            menuBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+        if (dockBtn) {
+            dockBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+        if (mainContent && window.innerWidth < 992) {
+            mainContent.inert = Boolean(isOpen);
+        } else if (mainContent) {
+            mainContent.inert = false;
+        }
+    }
+    window.setMobileDrawerOpen = setMobileDrawerOpen;
+
+    function wireMobileDrawer() {
+        var menuBtn = document.getElementById('mobileMenuBtn');
+        var dockBtn = document.getElementById('mobileDockMoreBtn');
+        var closeBtn = document.getElementById('mobileDrawerCloseBtn');
+        var backdrop = document.getElementById('sidebarBackdrop');
+        var sidebar = document.querySelector('nav.sidebar');
+
+        if (menuBtn && !menuBtn.dataset.wired) {
+            menuBtn.dataset.wired = '1';
+            menuBtn.addEventListener('click', function () {
+                var openNow = sidebar && sidebar.classList.contains('drawer-open');
+                setMobileDrawerOpen(!openNow);
+            });
+        }
+        if (dockBtn && !dockBtn.dataset.wired) {
+            dockBtn.dataset.wired = '1';
+            dockBtn.addEventListener('click', function () {
+                var openNow = sidebar && sidebar.classList.contains('drawer-open');
+                setMobileDrawerOpen(!openNow);
+            });
+        }
+        if (closeBtn && !closeBtn.dataset.wired) {
+            closeBtn.dataset.wired = '1';
+            closeBtn.addEventListener('click', function () {
+                setMobileDrawerOpen(false);
+            });
+        }
+        if (backdrop && !backdrop.dataset.wired) {
+            backdrop.dataset.wired = '1';
+            backdrop.addEventListener('click', function () {
+                setMobileDrawerOpen(false);
+            });
+        }
+        if (sidebar && !sidebar.dataset.wired) {
+            sidebar.dataset.wired = '1';
+            sidebar.addEventListener('click', function (ev) {
+                var link = ev.target && ev.target.closest ? ev.target.closest('.nav-link') : null;
+                if (link && window.innerWidth < 992) {
+                    setMobileDrawerOpen(false);
+                }
+            });
+        }
+    }
+
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') {
+            setMobileDrawerOpen(false);
+        }
+    });
+
+    window.addEventListener('resize', function () {
+        if (window.innerWidth >= 992) {
+            setMobileDrawerOpen(false);
+        }
+    });
+
     function syncActiveNav() {
         var params = new URLSearchParams(window.location.search);
         var currentView = params.get('view') || (window.location.pathname.indexOf('/agents') === 0 ? 'agents' : 'patients');
         if (currentView.indexOf('agent_') === 0) {
             currentView = 'agents';
         }
-        document.querySelectorAll('.sidebar .nav-link').forEach(function (link) {
+        document.querySelectorAll('.sidebar .nav-link, .mobile-bottom-dock a.dock-link').forEach(function (link) {
             var href = link.getAttribute('href') || '';
             var view = link.getAttribute('data-view') || '';
             var isMatch = (href.indexOf('view=' + currentView) !== -1) || (view === currentView);
@@ -70,6 +153,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         applyDisplayPreferences();
+        wireMobileDrawer();
         syncActiveNav();
         restoreMtsCollapsibleState();
     });
@@ -128,6 +212,7 @@
 
     document.body.addEventListener('htmx:afterSwap', function () {
         applyDisplayPreferences();
+        wireMobileDrawer();
         syncActiveNav();
         restoreMtsCollapsibleState();
     });

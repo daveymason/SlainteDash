@@ -179,7 +179,7 @@ AGENTS_CATALOG = [
             '(2) ISMP High-Alert Drug-Drug Interactions, and (3) Patient lab eGFR renal dosing gates.'
         ),
         'mcp_tools': ['3-Tier Pharmacology Engine', 'ISMP High-Alert DDI Matrix', 'LOINC eGFR Renal Gate'],
-        'embedded_in': ['Dedicated Rx-Guard Page (/agents/medication_safety)', 'Patient Details Page', 'Pharmacy Cockpit'],
+        'embedded_in': ['Dedicated Rx-Guard Page (/agents/medication_safety)', 'Patient Details Page', 'Pharmacy Vertical'],
         'guardrail_label': 'Pharmacological Interception Mode',
         'guardrail_options': ['Hard Block on Anaphylaxis / Cross-Reactivity', 'Clinician Override with Provenance Sign-Off'],
         'default_guardrail': 'Hard Block on Anaphylaxis / Cross-Reactivity',
@@ -219,7 +219,7 @@ AGENTS_CATALOG = [
             'SNOMED-CT Condition candidates, and 3-Tier SlainteRx-Guard pre-screened MedicationRequests.'
         ),
         'mcp_tools': ['Web Speech / Whisper ASR', 'SOAP Clinical Extractor', '3-Tier Rx-Guard Pre-Screen'],
-        'embedded_in': ['Dedicated Voice Scribe Page (/agents/ambient_scribe)', 'Patient Details Page', 'GP Cockpit'],
+        'embedded_in': ['Dedicated Voice Scribe Page (/agents/ambient_scribe)', 'Patient Details Page', 'GP Vertical'],
         'guardrail_label': 'Ambient Order Commit Policy',
         'guardrail_options': ['Clinician Co-Sign + Mandatory 3-Tier Rx-Guard Pre-Check', 'SOAP Note Draft Only (No Orders)'],
         'default_guardrail': 'Clinician Co-Sign + Mandatory 3-Tier Rx-Guard Pre-Check',

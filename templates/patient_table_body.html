@@ -27,6 +27,8 @@
             <th>
                 {% if active_vertical and active_vertical.key == 'gp' %}
                     CDM Diagnosis &amp; Rx
+                {% elif active_vertical and active_vertical.key == 'psychiatry' %}
+                    Psychiatric Diagnosis &amp; Psychotropic Gate
                 {% elif active_vertical and active_vertical.key == 'dentist' %}
                     Pre-Op Clearance &amp; Meds
                 {% elif active_vertical and active_vertical.key == 'pharmacy' %}

@@ -29,6 +29,14 @@
         {% elif active_vertical and active_vertical.key == 'gp' %}
             <div class="fw-semibold">{{ patient.primary_condition or 'General Consultation' }}</div>
             <div class="text-muted">{{ patient.medications|length if patient.medications is defined else 0 }} Active Rx &bull; {{ patient.vitals_summary or 'Vitals on file' }}</div>
+        {% elif active_vertical and active_vertical.key == 'psychiatry' %}
+            <div class="fw-semibold">{{ patient.primary_condition or 'CMHT Psychiatric Review' }}</div>
+            <div class="text-muted">{{ patient.medications|join(', ') if patient.medications else 'No active psychotropics' }}</div>
+            {% if patient.rx_alerts %}
+            <span class="status-pill status-fail mt-1">{{ patient.rx_alerts|length }} Rx-Guard Alert</span>
+            {% else %}
+            <span class="status-pill status-pass mt-1">3-Tier Rx-Guard Clear</span>
+            {% endif %}
         {% elif active_vertical and active_vertical.key in ('sports', 'astro') %}
             <div class="font-monospace">{{ patient.vitals_summary or 'HR 72 · SpO2 99% · BP 120/78' }}</div>
             <span class="status-pill {% if (patient.news2_score or 0) >= 5 %}status-warn{% else %}status-pass{% endif %} mt-1">

@@ -12,9 +12,9 @@
         <div class="d-flex align-items-center gap-2">
             <label class="small text-muted fw-semibold mb-0">Dental Patient:</label>
             <select class="form-select form-select-sm" style="width: auto; min-width: 220px;"
-                    hx-get="/fhir/CockpitWorkspace?vertical=dentist"
+                    hx-get="/fhir/VerticalWorkspace?vertical=dentist"
                     name="patient_id"
-                    hx-target="#cockpit-specialty-workspace"
+                    hx-target="#vertical-specialty-workspace"
                     hx-swap="innerHTML">
                 {% for pt in cohort_patients %}
                 <option value="{{ pt.id }}" {% if pt.id == selected_pid %}selected{% endif %}>
@@ -70,8 +70,8 @@
             </div>
         </div>
 
-        <form hx-post="/fhir/Cockpit/dentist/save"
-              hx-target="#cockpit-specialty-workspace"
+        <form hx-post="/fhir/Vertical/dentist/save"
+              hx-target="#vertical-specialty-workspace"
               hx-swap="innerHTML">
             <input type="hidden" name="patient_id" value="{{ selected_pid }}">
             <input type="hidden" name="teeth_json" id="fdiTeethJsonInput" value="{{ teeth_json }}">
@@ -293,8 +293,8 @@
                         <td class="text-end">
                             {% if item.status == 'active' %}
                             <div class="d-inline-flex gap-1">
-                                <form hx-post="/fhir/Cockpit/pharmacy/dispense"
-                                      hx-target="#cockpit-specialty-workspace"
+                                <form hx-post="/fhir/Vertical/pharmacy/dispense"
+                                      hx-target="#vertical-specialty-workspace"
                                       hx-swap="innerHTML">
                                     <input type="hidden" name="med_id" value="{{ item.id }}">
                                     <input type="hidden" name="patient_id" value="{{ item.patient_id }}">
@@ -303,8 +303,8 @@
                                         {% if item.rx_alerts %}Override &amp; Dispense{% else %}Dispense Verified{% endif %}
                                     </button>
                                 </form>
-                                <form hx-post="/fhir/Cockpit/pharmacy/dispense"
-                                      hx-target="#cockpit-specialty-workspace"
+                                <form hx-post="/fhir/Vertical/pharmacy/dispense"
+                                      hx-target="#vertical-specialty-workspace"
                                       hx-swap="innerHTML">
                                     <input type="hidden" name="med_id" value="{{ item.id }}">
                                     <input type="hidden" name="patient_id" value="{{ item.patient_id }}">
@@ -316,8 +316,8 @@
                                 </form>
                             </div>
                             {% else %}
-                            <form hx-post="/fhir/Cockpit/pharmacy/dispense"
-                                  hx-target="#cockpit-specialty-workspace"
+                            <form hx-post="/fhir/Vertical/pharmacy/dispense"
+                                  hx-target="#vertical-specialty-workspace"
                                   hx-swap="innerHTML"
                                   class="d-inline">
                                 <input type="hidden" name="med_id" value="{{ item.id }}">
@@ -347,9 +347,9 @@
         <div class="d-flex align-items-center gap-2">
             <label class="small text-muted fw-semibold mb-0">Consultation Patient:</label>
             <select class="form-select form-select-sm" style="width: auto; min-width: 220px;"
-                    hx-get="/fhir/CockpitWorkspace?vertical=gp"
+                    hx-get="/fhir/VerticalWorkspace?vertical=gp"
                     name="patient_id"
-                    hx-target="#cockpit-specialty-workspace"
+                    hx-target="#vertical-specialty-workspace"
                     hx-swap="innerHTML">
                 {% for pt in cohort_patients %}
                 <option value="{{ pt.id }}" {% if pt.id == selected_pid %}selected{% endif %}>
@@ -385,8 +385,8 @@
         <div class="row g-3">
             <!-- Structured SOAP Consultation Composer -->
             <div class="col-lg-7">
-                <form hx-post="/fhir/Cockpit/gp/soap"
-                      hx-target="#cockpit-specialty-workspace"
+                <form hx-post="/fhir/Vertical/gp/soap"
+                      hx-target="#vertical-specialty-workspace"
                       hx-swap="innerHTML"
                       class="p-3 rounded border bg-white h-100">
                     <input type="hidden" name="patient_id" value="{{ selected_pid }}">
@@ -447,8 +447,8 @@
                                 <div class="fw-semibold">{{ med.name }}</div>
                                 <div class="text-muted" style="font-size: 0.73rem;">{{ med.dosage }}</div>
                             </div>
-                            <form hx-post="/fhir/Cockpit/gp/renew"
-                                  hx-target="#cockpit-specialty-workspace"
+                            <form hx-post="/fhir/Vertical/gp/renew"
+                                  hx-target="#vertical-specialty-workspace"
                                   hx-swap="innerHTML">
                                 <input type="hidden" name="patient_id" value="{{ selected_pid }}">
                                 <input type="hidden" name="med_id" value="{{ med.id }}">
@@ -466,6 +466,119 @@
                     {% if gp_notes %}
                     <div class="fw-bold small text-uppercase text-muted mb-1">Recent Filed Notes</div>
                     {% for n in gp_notes[:2] %}
+                    <div class="p-2 rounded bg-light border mb-1 small">
+                        <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
+                            <span>{{ n.title }}</span><span>{{ n.date_display }}</span>
+                        </div>
+                        <div class="text-dark mt-1" style="white-space: pre-line; font-size: 0.76rem;">{{ n.body }}</div>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% elif v_key == 'psychiatry' %}
+<!-- SlaintePsych — Psychiatry MSE, PHQ-9/GAD-7 Risk Stratification & 3-Tier Psychotropic Safety Gate -->
+<div class="card mb-4">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center py-2 gap-2">
+        <span><i class="fas fa-brain text-primary me-2" aria-hidden="true"></i><strong>Psychiatry Mental State Examination (MSE), PHQ-9 / GAD-7 &amp; Psychotropic Safety Console</strong></span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="small text-muted fw-semibold">Service User:</span>
+            <select class="form-select form-select-sm" style="min-width: 220px;"
+                    aria-label="Select service user for psychiatric review"
+                    hx-get="/fhir/VerticalWorkspace?vertical=psychiatry"
+                    name="patient_id"
+                    hx-target="#vertical-specialty-workspace"
+                    hx-swap="innerHTML">
+                {% for p in cohort_patients[:14] %}
+                <option value="{{ p.id }}" {% if p.id == selected_pid %}selected{% endif %}>
+                    {{ p.name }} ({{ p.id }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <form hx-post="/fhir/Vertical/psychiatry/assess"
+                      hx-target="#vertical-specialty-workspace"
+                      hx-swap="innerHTML">
+                    <input type="hidden" name="patient_id" value="{{ selected_pid }}">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6 col-sm-4">
+                            <label class="form-label small fw-bold mb-1">PHQ-9 Total (0&ndash;27)</label>
+                            <input type="number" min="0" max="27" name="phq9_score" class="form-control form-control-sm"
+                                   value="{{ phq9_latest if phq9_latest is not none else '' }}" placeholder="LOINC 44261-6">
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <label class="form-label small fw-bold mb-1">GAD-7 Total (0&ndash;21)</label>
+                            <input type="number" min="0" max="21" name="gad7_score" class="form-control form-control-sm"
+                                   value="{{ gad7_latest if gad7_latest is not none else '' }}" placeholder="LOINC 70274-6">
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label small fw-bold mb-1">Clinical Risk Tier</label>
+                            <select name="risk_tier" class="form-select form-select-sm">
+                                <option value="Low Acute Risk — Community CMHT Follow-Up">Low Risk — CMHT Outpatient</option>
+                                <option value="Moderate Risk — Crisis Home Treatment Team">Moderate — Home Treatment</option>
+                                <option value="High Risk — Urgent Liaison / Inpatient Review">High — Urgent Liaison Review</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold mb-1">Mental State Examination (Appearance, Speech, Mood, Thought, Perception, Insight &amp; Safety Plan)</label>
+                            <textarea name="mse_notes" rows="3" class="form-control form-control-sm"
+                                      placeholder="Document appearance/behaviour, mood/affect, thought form/content, perceptual disturbances, capacity, and crisis safety-netting..."></textarea>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                hx-get="/fhir/Patient/{{ selected_pid }}"
+                                hx-target="#content">
+                            Open Full Psychiatric Chart &rarr;
+                        </button>
+                        <button type="submit" class="btn btn-sm btn-primary fw-semibold">
+                            <i class="fas fa-file-medical me-1" aria-hidden="true"></i>File MSE &amp; LOINC Scales to FHIR R4
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-lg-5">
+                <div class="border rounded p-3 bg-white h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold small text-uppercase text-muted">3-Tier Psychotropic &amp; Renal Gate</span>
+                        {% if psych_rx_eval and psych_rx_eval.alerts %}
+                        <span class="status-pill status-fail">{{ psych_rx_eval.alerts|length }} Safety Alert(s)</span>
+                        {% else %}
+                        <span class="status-pill status-pass">Rx-Guard Clear</span>
+                        {% endif %}
+                    </div>
+                    <div class="small text-muted mb-2">
+                        <strong>Diagnoses:</strong> {{ psych_conditions|join(', ') if psych_conditions else 'Awaiting psychiatric formulation' }}
+                        {% if psych_rx_eval and psych_rx_eval.egfr is not none %}
+                        &bull; <strong>Renal eGFR:</strong> <code>{{ psych_rx_eval.egfr }} mL/min</code>
+                        {% endif %}
+                    </div>
+                    {% if psych_rx_eval and psych_rx_eval.alerts %}
+                    <div class="alert alert-danger py-2 px-2 small mb-2">
+                        {% for al in psych_rx_eval.alerts[:2] %}
+                        <div><strong>{{ al.alert_type }}:</strong> {{ al.message }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="fw-bold small text-uppercase text-muted mb-1">Active Regimen ({{ psych_meds|length }})</div>
+                    <div class="small mb-2">
+                        {% for m in psych_meds[:4] %}
+                        <div class="py-1 border-bottom">{{ m.name }} <span class="text-muted">({{ m.dosage }})</span></div>
+                        {% else %}
+                        <div class="text-muted">No active psychotropic prescriptions recorded.</div>
+                        {% endfor %}
+                    </div>
+                    {% if psych_notes %}
+                    <div class="fw-bold small text-uppercase text-muted mb-1">Recent MSE / Psychiatric Notes</div>
+                    {% for n in psych_notes[:2] %}
                     <div class="p-2 rounded bg-light border mb-1 small">
                         <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
                             <span>{{ n.title }}</span><span>{{ n.date_display }}</span>
@@ -505,8 +618,8 @@
         </div>
         {% endif %}
 
-        <form hx-post="/fhir/Cockpit/ems/epcr"
-              hx-target="#cockpit-specialty-workspace"
+        <form hx-post="/fhir/Vertical/ems/epcr"
+              hx-target="#vertical-specialty-workspace"
               hx-swap="innerHTML">
             <div class="row g-2 mb-2">
                 <div class="col-md-3">
@@ -627,8 +740,8 @@
                             {% if row.cleared %}
                             <span class="small text-muted">{{ row.clearance_time }}</span>
                             {% else %}
-                            <form hx-post="/fhir/Cockpit/clearance/{{ row.id }}"
-                                  hx-target="#cockpit-specialty-workspace"
+                            <form hx-post="/fhir/Vertical/clearance/{{ row.id }}"
+                                  hx-target="#vertical-specialty-workspace"
                                   hx-swap="innerHTML"
                                   class="d-inline">
                                 <button type="submit" class="btn btn-sm btn-success py-0 px-2" style="font-size: 0.74rem;">

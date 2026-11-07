@@ -1,4 +1,4 @@
-<!-- Cockpit-Adaptive Clinical Patient Roster -->
+<!-- Vertical-Adaptive Clinical Patient Roster -->
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <div>
         <div class="d-flex align-items-center gap-2 mb-1">
@@ -10,6 +10,8 @@
         <h2 class="h4 fw-bold text-dark mb-0">
             {% if active_vertical and active_vertical.key == 'gp' %}
                 Primary Care &amp; Chronic Disease Management (CDM) Roster
+            {% elif active_vertical and active_vertical.key == 'psychiatry' %}
+                Psychiatry, CMHT &amp; Psychotropic Safety Roster
             {% elif active_vertical and active_vertical.key == 'dentist' %}
                 Dental Surgery &amp; Pre-Operative Medical Clearance Roster
             {% elif active_vertical and active_vertical.key == 'pharmacy' %}
@@ -26,7 +28,7 @@
         </h2>
     </div>
     <div class="d-flex gap-2">
-        {% if active_vertical and active_vertical.key in ('pharmacy', 'dentist') %}
+        {% if active_vertical and active_vertical.key in ('pharmacy', 'dentist', 'psychiatry') %}
         <a href="/?view=agent_medication_safety"
            hx-get="/fhir/Agent/medication_safety"
            hx-push-url="/?view=agent_medication_safety"

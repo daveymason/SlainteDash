@@ -1,28 +1,38 @@
 <header class="app-header">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <!-- Left: Understated Clinical Cockpit Title (no duplicate logo or loud badges) -->
+        <!-- Left: Mobile Drawer Button + Understated Clinical Vertical Title -->
         <div class="d-flex align-items-center gap-2">
+            {% if current_user.is_authenticated %}
+            <button type="button"
+                    class="btn btn-sm btn-outline-light d-lg-none mobile-menu-trigger"
+                    id="mobileMenuBtn"
+                    aria-label="Open clinical navigation menu"
+                    aria-expanded="false"
+                    style="border-color: #475569;">
+                <i class="fas fa-bars" aria-hidden="true"></i>
+            </button>
+            {% endif %}
             {% if active_vertical %}
-            <span class="cockpit-breadcrumb">
+            <span class="vertical-breadcrumb">
                 {{ active_vertical.brand }}
-                <span class="cockpit-breadcrumb-sub ms-1">&mdash; {{ active_vertical.title }}</span>
+                <span class="vertical-breadcrumb-sub ms-1 d-none d-sm-inline">&mdash; {{ active_vertical.title }}</span>
             </span>
             {% else %}
-            <span class="cockpit-breadcrumb">Slainte Clinical Workstation</span>
+            <span class="vertical-breadcrumb">Slainte Clinical Workstation</span>
             {% endif %}
         </div>
 
-        <!-- Right: Cockpit Switcher, Agents Quick-Jump Menu, User & Settings -->
-        <div class="d-flex align-items-center gap-2">
+        <!-- Right: Vertical Switcher, Agents Quick-Jump Menu, User & Settings -->
+        <div class="d-flex flex-wrap align-items-center gap-2">
             {% if current_user.is_authenticated %}
             {% if all_verticals %}
             <form method="post" action="{{ url_for('switch_vertical') }}" class="m-0 d-flex align-items-center">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-dark text-secondary border-secondary" style="font-size: 0.76rem;">
+                    <span class="input-group-text bg-dark text-secondary border-secondary d-none d-md-inline-flex" style="font-size: 0.76rem;">
                         Sign in as
                     </span>
-                    <select name="vertical_key" aria-label="Switch Clinical Vertical Cockpit" class="form-select form-select-sm bg-dark text-light border-secondary fw-semibold" onchange="this.form.submit()" style="max-width: 220px; font-size: 0.8rem;">
+                    <select name="vertical_key" aria-label="Switch Clinical Vertical" class="form-select form-select-sm bg-dark text-light border-secondary fw-semibold" onchange="this.form.submit()" style="max-width: 220px; font-size: 0.8rem;">
                         {% for vert in all_verticals %}
                         <option value="{{ vert.key }}" {% if active_vertical and active_vertical.key == vert.key %}selected{% endif %}>
                             {{ vert.brand }} ({{ vert.role_label }})
@@ -33,15 +43,15 @@
             </form>
             {% endif %}
 
-            <!-- Direct Navigation Dropdown for All 9 Agent Dashboards -->
+            <!-- Direct Navigation Dropdown for All 11 Agent Dashboards -->
             <div class="dropdown">
                 <button class="btn btn-sm btn-outline-light dropdown-toggle d-flex align-items-center gap-1" type="button" id="agentsNavDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="border-color: #475569;">
-                    <i class="fas fa-shield-alt"></i> Agents
+                    <i class="fas fa-shield-alt" aria-hidden="true"></i> <span class="d-none d-sm-inline">Agents</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="agentsNavDropdown" style="min-width: 280px; font-size: 0.83rem;">
                     <li>
                         <a class="dropdown-item fw-bold py-2" href="/?view=agents">
-                            <i class="fas fa-th-large me-2 text-primary"></i>All Agents Directory
+                            <i class="fas fa-th-large me-2 text-primary" aria-hidden="true"></i>All Agents Directory
                         </a>
                     </li>
                     <li><hr class="dropdown-divider my-1"></li>
@@ -62,29 +72,29 @@
                     <li><a class="dropdown-item py-1" href="/?view=agent_acuity_triage"><span class="text-muted font-monospace me-1">09</span> Dx-Triage &amp; NEWS2 Acuity</a></li>
                     <li><a class="dropdown-item py-1" href="/?view=agent_ambient_scribe"><span class="text-muted font-monospace me-1">10</span> Ambient Voice Scribe Agent</a></li>
                     <li><hr class="dropdown-divider my-1"></li>
-                    <li><a class="dropdown-item py-1 fw-semibold text-primary" href="/agents/compliance-certificate"><i class="fas fa-certificate me-1"></i> NIS2 / EU AI Act Certificate</a></li>
+                    <li><a class="dropdown-item py-1 fw-semibold text-primary" href="/agents/compliance-certificate"><i class="fas fa-certificate me-1" aria-hidden="true"></i> NIS2 / EU AI Act Certificate</a></li>
                 </ul>
             </div>
 
             {% if current_user.is_admin %}
             <div class="dropdown">
                 <button class="btn btn-sm btn-outline-light dropdown-toggle d-flex align-items-center gap-1" type="button" id="settingsDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="border-color: #475569;">
-                    <i class="fas fa-sliders-h"></i> Settings
+                    <i class="fas fa-sliders-h" aria-hidden="true"></i> <span class="d-none d-md-inline">Settings</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="settingsDropdown" style="font-size: 0.83rem;">
                     <li><h6 class="dropdown-header text-uppercase" style="font-size: 0.68rem;">System Configuration</h6></li>
-                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_data') }}"><i class="fas fa-database me-2 text-muted"></i>Data &amp; FHIR Backend</a></li>
-                    <li><a class="dropdown-item py-1" href="{{ url_for('ai_settings') }}"><i class="fas fa-microchip me-2 text-muted"></i>AI &amp; Model Provider</a></li>
-                    <li><a class="dropdown-item py-1" href="{{ url_for('enterprise.settings_smart') }}"><i class="fas fa-network-wired me-2 text-muted"></i>SMART-on-FHIR &amp; Hospital SSO</a></li>
-                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_security') }}"><i class="fas fa-lock me-2 text-muted"></i>Security &amp; Audit Ledger</a></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_data') }}"><i class="fas fa-database me-2 text-muted" aria-hidden="true"></i>Data &amp; FHIR Backend</a></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('ai_settings') }}"><i class="fas fa-microchip me-2 text-muted" aria-hidden="true"></i>AI &amp; Model Provider</a></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('enterprise.settings_smart') }}"><i class="fas fa-network-wired me-2 text-muted" aria-hidden="true"></i>SMART-on-FHIR &amp; Hospital SSO</a></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_security') }}"><i class="fas fa-lock me-2 text-muted" aria-hidden="true"></i>Security &amp; Audit Ledger</a></li>
                     <li><hr class="dropdown-divider my-1"></li>
-                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_app') }}"><i class="fas fa-desktop me-2 text-muted"></i>Display Preferences</a></li>
-                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_user') }}"><i class="fas fa-user-cog me-2 text-muted"></i>User Profile</a></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_app') }}"><i class="fas fa-desktop me-2 text-muted" aria-hidden="true"></i>Display Preferences</a></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('settings_user') }}"><i class="fas fa-user-cog me-2 text-muted" aria-hidden="true"></i>User Profile</a></li>
                 </ul>
             </div>
             {% endif %}
 
-            <span class="text-light small d-none d-lg-inline px-1" id="currentUserDisplay" style="color: #CBD5E1 !important;">
+            <span class="text-light small d-none d-xl-inline px-1" id="currentUserDisplay" style="color: #CBD5E1 !important;">
                 {{ current_user.username }}
             </span>
 

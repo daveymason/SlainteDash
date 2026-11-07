@@ -24,14 +24,14 @@
 
 {% if active_vertical %}
 <!-- Interactive Specialty Clinical Workstation (Bucket B) -->
-<div id="cockpit-specialty-workspace"
-     hx-get="/fhir/CockpitWorkspace"
+<div id="vertical-specialty-workspace"
+     hx-get="/fhir/VerticalWorkspace"
      hx-trigger="load"
      hx-swap="innerHTML">
     <div class="card mb-4">
         <div class="card-body py-3 text-center text-muted small">
             <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
-            Loading {{ active_vertical.brand }} clinical workstation...
+            Loading {{ active_vertical.brand }} clinical vertical workspace...
         </div>
     </div>
 </div>
@@ -61,7 +61,7 @@
         </div>
         <div class="row g-3 align-items-center">
             <div class="col-lg-7 small">
-                <strong class="text-dark">Cockpit Operational Protocols:</strong>
+                <strong class="text-dark">Vertical Operational Protocols:</strong>
                 <ul class="mb-0 mt-1 ps-3 text-secondary">
                     {% for hl in active_vertical.specialty_highlights %}
                     <li>{{ hl }}</li>
@@ -70,7 +70,7 @@
             </div>
             <div class="col-lg-5">
                 <div class="p-2 rounded bg-light border small">
-                    <div class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.68rem;">Quick Launch Cockpit Agents</div>
+                    <div class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.68rem;">Quick Launch Vertical Agents</div>
                     <div class="d-flex flex-wrap gap-1">
                         {% for ag_id in active_vertical.active_agents %}
                         <a href="/?view=agent_{{ ag_id }}"

@@ -186,7 +186,8 @@ thead.table-clinical {
     overflow-x: hidden;
 }
 
-.sidebar:hover {
+.sidebar:hover,
+.sidebar:focus-within {
     width: var(--sidebar-expanded-width);
     box-shadow: 4px 0 16px rgba(15, 23, 42, 0.18);
 }
@@ -242,7 +243,8 @@ thead.table-clinical {
     transition: opacity 0.15s ease;
 }
 
-.sidebar:hover .nav-link span {
+.sidebar:hover .nav-link span,
+.sidebar:focus-within .nav-link span {
     opacity: 1;
 }
 
@@ -284,6 +286,7 @@ thead.table-clinical {
     z-index: 1010;
 }
 
+.app-header .vertical-breadcrumb,
 .app-header .cockpit-breadcrumb {
     font-size: 0.92rem;
     color: #F8FAFC;
@@ -291,6 +294,7 @@ thead.table-clinical {
     letter-spacing: -0.01em;
 }
 
+.app-header .vertical-breadcrumb-sub,
 .app-header .cockpit-breadcrumb-sub {
     color: #94A3B8;
     font-weight: 500;
@@ -485,51 +489,174 @@ span.spinner-border.htmx-indicator.htmx-request {
     transform: rotate(180deg);
 }
 
-/* Responsive Sidebar */
-@media (max-width: 768px) {
+/* Responsive Tablet & Mobile Field Navigation (Community Nursing & Ambulance EMS) */
+.sidebar-backdrop {
+    display: none;
+}
+
+.mobile-bottom-dock {
+    display: none;
+}
+
+@media (max-width: 991.98px) {
     .sidebar {
-        width: 100%;
-        height: 56px;
-        bottom: 0;
-        top: auto;
-        border-right: none;
-        border-top: 1px solid #0F172A;
+        width: min(280px, 84dvw);
+        height: 100svh;
+        top: 0;
+        bottom: auto;
+        left: 0;
+        z-index: 1055;
+        transform: translateX(-100%);
+        transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+        border-right: 1px solid #0F172A;
+        box-shadow: none;
+        overflow-y: auto;
     }
 
-    .sidebar:hover {
-        width: 100%;
+    @media (prefers-reduced-motion: reduce) {
+        .sidebar {
+            transition: none;
+        }
     }
 
-    .sidebar-logo {
-        display: none;
+    .sidebar.drawer-open {
+        transform: translateX(0);
+        box-shadow: 8px 0 28px rgba(15, 23, 42, 0.45);
     }
 
-    .sidebar .nav {
-        flex-direction: row !important;
-        justify-content: space-around;
+    .sidebar:hover,
+    .sidebar:focus-within {
+        width: min(280px, 84dvw);
     }
 
     .sidebar .nav-link {
-        padding: 8px 10px;
-        flex-direction: column;
-        gap: 3px;
+        padding: 14px 18px;
+        min-block-size: 46px;
     }
 
     .sidebar .nav-link span {
-        font-size: 0.68rem;
         opacity: 1;
+        font-size: 0.92rem;
     }
 
-    .main-content {
-        margin-left: 0;
-        margin-bottom: 64px;
-        padding: 1rem;
+    .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        z-index: 1050;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+    }
+
+    .sidebar-backdrop.active {
+        opacity: 1;
+        pointer-events: auto;
     }
 
     .app-header {
         margin-left: 0;
         width: 100%;
-        padding: 0.5rem 1rem;
+        padding: 0.5rem 0.9rem;
+    }
+
+    .main-content {
+        margin-left: 0;
+        padding: 1rem 0.9rem calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    .mobile-bottom-dock {
+        display: flex;
+        align-items: stretch;
+        justify-content: space-around;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1035;
+        min-height: 60px;
+        padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px));
+        background-color: var(--tropical-dark);
+        border-top: 1px solid #334155;
+        box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.2);
+    }
+
+    .mobile-bottom-dock .dock-link {
+        flex: 1 1 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        min-block-size: 48px;
+        color: #CBD5E1;
+        text-decoration: none;
+        font-size: 0.7rem;
+        font-weight: 700;
+        border-radius: 6px;
+        padding: 4px 2px;
+    }
+
+    .mobile-bottom-dock .dock-link * {
+        pointer-events: none;
+    }
+
+    .mobile-bottom-dock .dock-link.active,
+    .mobile-bottom-dock .dock-link:hover {
+        color: #FFFFFF;
+        background-color: rgba(56, 189, 248, 0.14);
+    }
+
+    .mobile-bottom-dock .dock-link.active i,
+    .mobile-bottom-dock .dock-link.active svg {
+        color: #38BDF8;
+    }
+
+    .agent-subnav {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+
+    .agent-subnav-link {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .odontogram-quadrant {
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: 4px;
+    }
+
+    .fdi-tooth-btn {
+        min-width: 42px;
+        flex: 0 0 auto;
+    }
+
+    input.form-control,
+    select.form-select,
+    textarea.form-control {
+        font-size: 1rem;
+    }
+}
+
+@media (pointer: coarse) {
+    .btn,
+    .form-control,
+    .form-select,
+    .agent-subnav-link,
+    .mobile-menu-trigger {
+        min-block-size: 44px;
+    }
+
+    .btn-sm {
+        min-block-size: 40px;
+        padding: 0.4rem 0.75rem;
     }
 }
 

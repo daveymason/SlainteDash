@@ -1,34 +1,38 @@
-{# Shared clinical sidebar rail.
-   - Live Triage is shown only for acute Emergency Department ('ed') and Ambulance/EMS ('ems') cockpits.
+{# Shared clinical sidebar rail + responsive tablet/mobile navigation drawer + field bottom dock.
+   - Live Triage is shown only for acute Emergency Department ('ed') and Ambulance/EMS ('ems') verticals.
    - Standalone Pipeline Status tab removed (folded into Agent 06: SlainteEngine-Ingest). #}
-{% set is_acute_cockpit = (not active_vertical) or (active_vertical.key in ('ed', 'ems')) %}
-{% if is_acute_cockpit %}
+{% set is_acute_vertical = (not active_vertical) or (active_vertical.key in ('ed', 'ems')) %}
+{% if is_acute_vertical %}
 {% set nav_views = [
     ('triage', '/fhir/Triage', 'fas fa-notes-medical', 'Live Triage'),
     ('patients', '/fhir/Patients', 'fas fa-user-injured', 'Patients'),
     ('agents', '/fhir/Auditor', 'fas fa-shield-alt', 'Agents'),
-    ('insights', '/fhir/Dashboard', 'fas fa-chart-line', 'Cockpit Overview'),
+    ('insights', '/fhir/Dashboard', 'fas fa-chart-line', 'Vertical Overview'),
     ('stats', '/fhir/Demographics', 'fas fa-chart-pie', 'Demographics'),
 ] %}
 {% else %}
 {% set nav_views = [
     ('patients', '/fhir/Patients', 'fas fa-user-injured', 'Patients'),
     ('agents', '/fhir/Auditor', 'fas fa-shield-alt', 'Agents'),
-    ('insights', '/fhir/Dashboard', 'fas fa-chart-line', 'Cockpit Overview'),
+    ('insights', '/fhir/Dashboard', 'fas fa-chart-line', 'Vertical Overview'),
     ('stats', '/fhir/Demographics', 'fas fa-chart-pie', 'Demographics'),
 ] %}
 {% endif %}
+<div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
 <nav class="sidebar">
     <div class="position-sticky">
-        <div class="sidebar-logo">
+        <div class="sidebar-logo d-flex align-items-center justify-content-between">
             <img src="{{ url_for('static', filename='logo.png') }}" alt="Slainte" class="img-fluid">
+            <button type="button" class="btn btn-sm btn-outline-light d-lg-none py-1 px-2" id="mobileDrawerCloseBtn" aria-label="Close navigation drawer">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
         </div>
         <ul class="nav flex-column mt-1">
             {% for key, fragment_url, icon, label in nav_views %}
             <li class="nav-item">
                 <a class="nav-link" href="/?view={{ key }}" data-view="{{ key }}"
                    {% if spa_shell %}hx-get="{{ fragment_url }}" hx-push-url="/?view={{ key }}" hx-target="#content" hx-swap="innerHTML"{% endif %}>
-                    <i class="{{ icon }} fa-fw"></i>
+                    <i class="{{ icon }} fa-fw" aria-hidden="true"></i>
                     <span>{{ label }}</span>
                 </a>
             </li>
@@ -37,18 +41,48 @@
             <li class="nav-item">
                 <a class="nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}"
                    href="{{ url_for('admin_users') }}">
-                    <i class="fas fa-users-cog fa-fw"></i>
+                    <i class="fas fa-users-cog fa-fw" aria-hidden="true"></i>
                     <span>Users</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link {% if request.endpoint == 'admin_audit' %}active{% endif %}"
                    href="{{ url_for('admin_audit') }}">
-                    <i class="fas fa-clipboard-list fa-fw"></i>
+                    <i class="fas fa-clipboard-list fa-fw" aria-hidden="true"></i>
                     <span>Audit Log</span>
                 </a>
             </li>
             {% endif %}
         </ul>
     </div>
+</nav>
+
+<!-- Touch-first quick dock for Care-at-Home Nurses, Community Health & Ambulance Tablets (<992px) -->
+<nav class="mobile-bottom-dock d-lg-none" aria-label="Mobile Field Quick Navigation">
+    {% if is_acute_vertical %}
+    <a class="dock-link" href="/?view=triage" data-view="triage"
+       {% if spa_shell %}hx-get="/fhir/Triage" hx-push-url="/?view=triage" hx-target="#content" hx-swap="innerHTML"{% endif %}>
+        <i class="fas fa-notes-medical" aria-hidden="true"></i>
+        <span>Triage</span>
+    </a>
+    {% endif %}
+    <a class="dock-link" href="/?view=patients" data-view="patients"
+       {% if spa_shell %}hx-get="/fhir/Patients" hx-push-url="/?view=patients" hx-target="#content" hx-swap="innerHTML"{% endif %}>
+        <i class="fas fa-user-injured" aria-hidden="true"></i>
+        <span>Patients</span>
+    </a>
+    <a class="dock-link" href="/?view=insights" data-view="insights"
+       {% if spa_shell %}hx-get="/fhir/Dashboard" hx-push-url="/?view=insights" hx-target="#content" hx-swap="innerHTML"{% endif %}>
+        <i class="fas fa-chart-line" aria-hidden="true"></i>
+        <span>Vertical</span>
+    </a>
+    <a class="dock-link" href="/?view=agents" data-view="agents"
+       {% if spa_shell %}hx-get="/fhir/Auditor" hx-push-url="/?view=agents" hx-target="#content" hx-swap="innerHTML"{% endif %}>
+        <i class="fas fa-shield-alt" aria-hidden="true"></i>
+        <span>Agents</span>
+    </a>
+    <button type="button" class="dock-link border-0 bg-transparent" id="mobileDockMoreBtn" aria-label="Open full clinical menu" aria-expanded="false">
+        <i class="fas fa-bars" aria-hidden="true"></i>
+        <span>Menu</span>
+    </button>
 </nav>
