@@ -632,23 +632,23 @@ the LLM strictly as a conversational orchestrator while delegating all clinical 
 
 ---
 
-## 13. Phase 13 — Production Hardening, PostgreSQL RLS & Live Pilot Launch (Active Next Phase)
+## 13. Phase 13 — Production Hardening, Cloud SQL PostgreSQL RLS & Pilot Launch (Active Next Phase)
 
 **Status: Active Next Priority.**
 
-**Objectives & What is Left to Do:**
-1. **Multi-Tenant PostgreSQL 16 RLS Migration:**
+**Objectives & Roadmap Breakdown:**
+1. **External FHIR Sandbox Live Integration Testing (Done & Verified Live):**
+   - Connected dynamic FHIR proxy (`/settings/data`) to external staging sandboxes (HAPI FHIR R4 public demo, synthetic clinical cohorts).
+   - Verified bidirectional write-back, provenance signing, and remote validation under simulated network latency.
+2. **Multi-Tenant PostgreSQL 16 RLS Migration & Google Cloud Platform Architecture:**
+   - Provision Cloud SQL for PostgreSQL 16 (Private IP VPC, automated point-in-time recovery, SSL/TLS, `uuid-ossp`, `pgcrypto`).
    - Cut over from local SQLite WAL to PostgreSQL 16 multi-tenant schema using `deploy/postgres_rls_schema.sql`.
    - Enforce Row-Level Security (`FORCE ROW LEVEL SECURITY`) across hospital trust boundaries, clinical roles, and patients.
    - Benchmark high-concurrency ingestion and query throughput under multi-worker gunicorn.
-2. **Production Domain & Public Ingress TLS:**
-   - Configure public domain DNS (`A`/`AAAA` records) and allow Caddy to automatically provision trusted Let's Encrypt / ZeroSSL TLS certificates.
-   - Route public marketing traffic at `slainte.health` to `/site` and clinical dashboard traffic to `/`.
-3. **External FHIR Sandbox Live Integration Testing:**
-   - Connect dynamic FHIR proxy (`/settings/data`) to external staging sandboxes (HAPI FHIR R4, Epic on FHIR open sandbox, HSE National Shared Record testbed).
-   - Verify bidirectional write-back, provenance signing, and remote validation under intermittent latency.
-4. **Desktop Repository Archival Notices:**
-   - Place `ARCHIVED.md` disclaimer notices on redundant standalone repos (`Patient-Dashboard-htmx-python-fhir`, `OCR2FHIR`, `SlainteFHIR`, `slainte-auditor`, `SlaintePages`) designating `slainte-engine` as the canonical unified monorepo.
+   - Evaluate Google Cloud architecture: Cloud Run for container fleet (`slainte-dashboard`, `slainte-fhir`, `slainte-mcp`, `slainte-openhands`, `caddy`) and Vertex AI (Gemini 1.5/2.0) with signed BAA.
+3. **Production Domain & Public Ingress TLS:**
+   - Purchase custom production domain (Operator action).
+   - Point DNS `A`/`AAAA` records to Caddy ingress host for automated Let's Encrypt / ZeroSSL TLS certificates.
 
 **Why:** Showcases **SlainteTech AI Security Labs**, the **9-Agent Autonomous Fleet (`/agents/*`)**, the **Deterministic FastMCP Guardrails (`/platform/mcp-guardrails`)**, and all **7 Specialty Vertical Cockpits (`/verticals/*`)** in a Next.js App Router + Netlify + Docker web platform with built-in SEO and GEO (`public/llms.txt` + JSON-LD).
 

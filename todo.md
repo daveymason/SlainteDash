@@ -114,10 +114,17 @@
   - [x] Integrated `slainte-ingress` service in `docker-compose.yml` with ports `80` and `443`.
   - [x] Added automated validation test suite `tests/test_ingress_caddy.py` (342/342 passing tests across repo).
 
-### Step 4: Phase 13 — Production Ingress TLS, PostgreSQL RLS & Pilot Launch 🚀
-- [ ] Execute `deploy/postgres_rls_schema.sql` multi-tenant cutover on managed PostgreSQL 16.
-- [ ] Connect `SlaintePages` static export to Netlify Edge CDN with custom domain and security headers.
-- [ ] Execute synthetic patient intake and clinical sign-off against external HSE / NHS FHIR sandboxes.
+### Step 4: Phase 13 — Production Hardening, Cloud SQL PostgreSQL RLS & Pilot Launch 🚀
+- [x] **External FHIR Sandbox Live Integration Testing**: Connected dynamic FHIR client (`/settings/data`) to external testbeds (HAPI FHIR R4 public demo, synthetic cohort intake, bidirectional write-back, and provenance signing). Verified live.
+- [ ] **Multi-Tenant PostgreSQL 16 RLS Migration & Google Cloud Platform Architecture**:
+  - [ ] Provision Cloud SQL for PostgreSQL 16 (Private IP VPC, automated backups, SSL/TLS, `uuid-ossp`, `pgcrypto`).
+  - [ ] Execute `deploy/postgres_rls_schema.sql` cutover (`FORCE ROW LEVEL SECURITY` across hospital trusts, clinical RBAC roles, and patients).
+  - [ ] Run high-concurrency benchmarks under multi-worker gunicorn.
+  - [ ] Evaluate Cloud Run / GKE deployment for container fleet (`slainte-dashboard`, `slainte-fhir`, `slainte-mcp`, `slainte-openhands`, `caddy`).
+  - [ ] Connect Vertex AI (Gemini 1.5/2.0) with enterprise BAA for sovereign clinical agent inference.
+- [ ] **Production Domain & Public Ingress TLS**:
+  - [ ] Purchase custom domain (Operator action).
+  - [ ] Point DNS A/AAAA records to Caddy ingress host for automated Let's Encrypt / ZeroSSL TLS certificates.
 
 ### Future Standalone Project (Deferred Post-Funding)
 - [ ] **Phase 10 (Standalone Mobile/Laptop Patient App)**: Dedicated patient-facing mobile & web client sharing the `SlainteFHIR` backend.
