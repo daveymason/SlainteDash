@@ -191,6 +191,11 @@ def create_app(config_object=None):
     app.teardown_appcontext(db.close_connection)
     db.init_db(app)
 
+    from enterprise_bp import enterprise_bp, smart_introspect, smart_token
+    csrf.exempt(smart_token)
+    csrf.exempt(smart_introspect)
+    app.register_blueprint(enterprise_bp)
+
     register_routes(app)
     register_cli(app)
 
@@ -261,6 +266,7 @@ def _load_local_bundle_summary(pt_id):
     candidates = [
         os.environ.get('FHIR_STORE_PATH', ''),
         '/workspace/data/fhir_store',
+        os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'fhir_store')),
         os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'slainte-engine', 'data', 'fhir_store')),
     ]
     for store_dir in candidates:
@@ -524,6 +530,15 @@ def register_routes(app):
             audit('login.denied', outcome='failure', resource_type='User',
                   resource_id=pseudonymize(username), detail=detail)
             if locked_until:
+                from enterprise_engine import dispatch_siem_event
+                dispatch_siem_event(
+                    db_module=db,
+                    app_config=app.config,
+                    event_type='SECURITY_ACCOUNT_LOCKOUT',
+                    severity='HIGH',
+                    actor=username,
+                    detail={'failed_attempts': attempts, 'locked_until': locked_until},
+                )
                 return render_template('login.html',
                                        error='Account has been temporarily locked due to 5 consecutive failed login attempts. Please try again in 15 minutes.'), 403
             return render_template('login.html',
@@ -790,6 +805,7 @@ def register_routes(app):
             if prov_res.ok and prov_res.entries:
                 provenance = prov_res.entries[0]
 
+        from enterprise_engine import AMBIENT_SCRIBE_PRESETS
         audit('patient.view', resource_type='Patient', resource_id=pseudonymize(patient_id))
         return render_template(
             'patient_details.html',
@@ -800,6 +816,9 @@ def register_routes(app):
             medications_catalog=CLINICAL_MEDICATIONS_CATALOG,
             allergens_catalog=CLINICAL_ALLERGENS_CATALOG,
             note_types_catalog=NOTE_TYPES_CATALOG,
+            active_break_glass=db.get_active_break_glass_grant(current_user.username, patient_id),
+            scribe_presets=AMBIENT_SCRIBE_PRESETS,
+            smart_context=session.get('smart_context'),
         )
 
     @app.route('/fhir/News2Card/<patient_id>')
@@ -874,6 +893,13 @@ def register_routes(app):
     @app.route('/fhir/Conditions/<patient_id>/add', methods=['POST'])
     @login_required
     def add_condition(patient_id):
+        if not current_user.can_author_diagnosis(patient_id):
+            audit('clinical.rbac_condition_denied', outcome='denied', resource_type='Condition',
+                  resource_id=pseudonymize(patient_id), detail={'clinical_role': current_user.clinical_role})
+            return _render_conditions_fragment(
+                patient_id,
+                flash_message=('danger', f'Clinical RBAC ({current_user.clinical_role_label}): Only Prescribers or active Break-the-Glass grants may originate diagnoses.'),
+            ), 403
         cond_text = (request.form.get('condition_text') or '').strip()
         snomed_code = (request.form.get('snomed_code') or '').strip()
         clinical_status = (request.form.get('clinical_status') or 'active').strip().lower()
@@ -1160,6 +1186,15 @@ def register_routes(app):
     @app.route('/fhir/Medications/<patient_id>/add', methods=['POST'])
     @login_required
     def add_medication(patient_id):
+        from enterprise_engine import dispatch_siem_event, evaluate_clinical_pharmacology_3tier
+        if not current_user.can_prescribe(patient_id):
+            audit('clinical.rbac_prescribe_denied', outcome='denied', resource_type='MedicationRequest',
+                  resource_id=pseudonymize(patient_id), detail={'clinical_role': current_user.clinical_role})
+            return _render_medications_fragment(
+                patient_id,
+                flash_message=('danger', f'Clinical RBAC ({current_user.clinical_role_label}): Prescribing requires Prescriber privileges or an active Break-the-Glass emergency override.'),
+            ), 403
+
         drug_name = (request.form.get('drug_name') or '').strip()
         dosage = (request.form.get('dosage') or '').strip()
         snomed_code = (request.form.get('snomed_code') or '').strip()
@@ -1167,11 +1202,16 @@ def register_routes(app):
         if not drug_name:
             return _render_medications_fragment(patient_id, flash_message=('danger', 'Select or enter a medication to prescribe.'))
 
-        # Agent 08 (SlainteRx-Guard) Live Pre-Flight Contraindication Interception
-        alg_res = fhir.get('AllergyIntolerance', params={'patient': patient_id, '_count': 30})
+        # Agent 08 (SlainteRx-Guard) 3-Tier Pre-Flight Pharmacology Interception
+        # Tier 1: Allergy Cross-Reactivity | Tier 2: High-Alert DDI | Tier 3: Lab eGFR Renal Gate
+        sub_check = fhir.get_many({
+            'allergy': ('AllergyIntolerance', {'patient': patient_id, '_count': 30}),
+            'med': ('MedicationRequest', {'patient': patient_id, '_count': 30}),
+            'obs': ('Observation', {'patient': patient_id, '_count': 50}),
+        })
         patient_allergies = []
-        if alg_res.ok:
-            for a in alg_res.entries:
+        if sub_check['allergy'].ok:
+            for a in sub_check['allergy'].entries:
                 if isinstance(a, dict):
                     patient_allergies.append(first_coding_display(a.get('code', {}), fallback=''))
         patient_allergies = [a for a in patient_allergies if a]
@@ -1179,11 +1219,26 @@ def register_routes(app):
             local_sum = _load_local_bundle_summary(patient_id)
             patient_allergies = list(local_sum.get('allergies') or [])
 
-        alerts = check_drug_allergy_contraindications(patient_allergies, [drug_name])
+        existing_active_meds = []
+        if sub_check['med'].ok:
+            for m in sub_check['med'].entries:
+                if isinstance(m, dict) and str(m.get('status', 'active')).lower() in ('active', ''):
+                    disp = first_coding_display(m.get('medicationCodeableConcept', {}), fallback='')
+                    if disp:
+                        existing_active_meds.append(disp)
+
+        lab_obs = sub_check['obs'].entries if sub_check['obs'].ok else []
+        rx_eval = evaluate_clinical_pharmacology_3tier(
+            allergies=patient_allergies,
+            active_medications=existing_active_meds,
+            lab_observations=lab_obs,
+            candidate_drug=drug_name,
+        )
+        alerts = rx_eval['alerts']
         if alerts and not override_reason:
             audit('clinical.rx_guard_blocked', outcome='denied', resource_type='MedicationRequest',
                   resource_id=pseudonymize(patient_id),
-                  detail={'drug': drug_name, 'alerts': [a['allergen'] for a in alerts]})
+                  detail={'drug': drug_name, 'alerts': [a['allergen'] for a in alerts], 'tiers': rx_eval['tier_counts']})
             return _render_medications_fragment(
                 patient_id,
                 rx_guard_block={
@@ -1205,10 +1260,19 @@ def register_routes(app):
         save_res = persist_fhir_resource(fhir, app.config, med_res, is_update=False)
         if not save_res.ok:
             return _render_medications_fragment(patient_id, flash_message=('danger', save_res.error or 'Could not prescribe medication.'))
+        if override_reason:
+            dispatch_siem_event(
+                db_module=db,
+                app_config=app.config,
+                event_type='CLINICAL_RX_GUARD_OVERRIDE',
+                severity='HIGH',
+                actor=current_user.username,
+                detail={'patient_pseudonym': pseudonymize(patient_id), 'drug': drug_name, 'override_reason': override_reason},
+            )
         audit('patient.medication_prescribed', outcome='success', resource_type='MedicationRequest',
               resource_id=pseudonymize(patient_id),
               detail={'drug': drug_name, 'override': bool(override_reason)})
-        msg = f'Prescribed {drug_name} (Rx-Guard override logged).' if override_reason else f'Prescribed {drug_name} (Rx-Guard verified clear).'
+        msg = f'Prescribed {drug_name} (Rx-Guard override logged).' if override_reason else f'Prescribed {drug_name} (3-Tier Rx-Guard verified clear).'
         return _render_medications_fragment(patient_id, flash_message=('success', msg))
 
     @app.route('/fhir/Medications/<patient_id>/status', methods=['POST'])
@@ -1738,6 +1802,12 @@ def register_routes(app):
     @login_required
     def pharmacy_dispense_action():
         from clinical_workflows import now_iso
+        if not current_user.can_dispense():
+            audit('cockpit.pharmacy_rbac_denied', outcome='denied', resource_type='MedicationRequest',
+                  detail={'clinical_role': current_user.clinical_role})
+            return _render_cockpit_workspace(
+                flash_message=('danger', f'Clinical RBAC ({current_user.clinical_role_label}): Only Supervising Pharmacists or Admins may verify & dispense prescriptions.'),
+            ), 403
         med_id = (request.form.get('med_id') or '').strip()
         patient_id = (request.form.get('patient_id') or '').strip()
         new_status = (request.form.get('new_status') or 'completed').strip().lower()
@@ -2236,12 +2306,15 @@ def register_routes(app):
         import hashlib
         from markupsafe import escape
 
+        from enterprise_engine import evaluate_clinical_pharmacology_3tier
         sub_results = fhir.get_many({
             'allergy': ('AllergyIntolerance', {'patient': patient_id, '_count': 30}),
             'med': ('MedicationRequest', {'patient': patient_id, '_count': 30}),
+            'obs': ('Observation', {'patient': patient_id, '_count': 50}),
         })
         allergy_entries = sub_results['allergy'].entries if sub_results['allergy'].ok else []
         med_entries = sub_results['med'].entries if sub_results['med'].ok else []
+        obs_entries = sub_results['obs'].entries if sub_results['obs'].ok else []
         local_summary = _load_local_bundle_summary(patient_id)
 
         algs_list = []
@@ -2259,6 +2332,8 @@ def register_routes(app):
         for m in med_entries:
             if not isinstance(m, dict):
                 continue
+            if str(m.get('status', 'active')).lower() in ('stopped', 'cancelled'):
+                continue
             txt = None
             if isinstance(m.get('medicationReference'), dict):
                 txt = m['medicationReference'].get('display')
@@ -2270,10 +2345,12 @@ def register_routes(app):
             for txt in local_summary['medications']:
                 meds_list.append({'name': txt, 'display': txt})
 
-        alerts = check_drug_allergy_contraindications(algs_list, meds_list)
+        rx_eval = evaluate_clinical_pharmacology_3tier(algs_list, meds_list, lab_observations=obs_entries)
+        alerts = rx_eval['alerts']
+        egfr_note = f", eGFR={rx_eval['egfr']:g} mL/min" if rx_eval.get('egfr') is not None else ""
         summary_msg = (
-            f"Rx-Guard inspected {len(algs_list)} allergy record(s) against {len(meds_list)} active prescription(s): "
-            f"{len(alerts)} contraindication(s) detected."
+            f"3-Tier Rx-Guard inspected {len(algs_list)} allergy record(s), {len(meds_list)} active prescription(s){egfr_note}: "
+            f"{len(alerts)} contraindication/DDI/renal alert(s) detected."
         )
         try:
             db.write_ai_exchange(
@@ -2537,7 +2614,12 @@ def register_routes(app):
     @login_required
     @auth.require_role(db.ROLE_ADMIN)
     def admin_users():
-        return render_template('admin_users.html', users=db.list_users())
+        return render_template(
+            'admin_users.html',
+            users=db.list_users(),
+            clinical_roles=db.CLINICAL_ROLES,
+            clinical_role_labels=db.CLINICAL_ROLE_LABELS,
+        )
 
     @app.route('/admin/users/<username>/status', methods=['POST'])
     @login_required
@@ -2552,7 +2634,12 @@ def register_routes(app):
         db.set_user_status(username, status)
         audit('admin.user_status_changed', resource_type='User',
               resource_id=pseudonymize(username), detail={'status': status})
-        return render_template('admin_user_rows.html', users=db.list_users())
+        return render_template(
+            'admin_user_rows.html',
+            users=db.list_users(),
+            clinical_roles=db.CLINICAL_ROLES,
+            clinical_role_labels=db.CLINICAL_ROLE_LABELS,
+        )
 
     @app.route('/admin/users/<username>/role', methods=['POST'])
     @login_required
@@ -2567,7 +2654,12 @@ def register_routes(app):
         db.set_user_role(username, role)
         audit('admin.user_role_changed', resource_type='User',
               resource_id=pseudonymize(username), detail={'role': role})
-        return render_template('admin_user_rows.html', users=db.list_users())
+        return render_template(
+            'admin_user_rows.html',
+            users=db.list_users(),
+            clinical_roles=db.CLINICAL_ROLES,
+            clinical_role_labels=db.CLINICAL_ROLE_LABELS,
+        )
 
     @app.route('/admin/audit')
     @login_required
@@ -2841,6 +2933,11 @@ def register_routes(app):
                         continue
             patient_options = process_patient_results(local_pts)
 
+        from enterprise_engine import (
+            AMBIENT_SCRIBE_PRESETS, HL7V2_SAMPLE_STREAMS,
+            evaluate_clinical_pharmacology_3tier, process_ambient_consultation,
+            scan_patient_coding_gaps,
+        )
         ctx = {
             **base_ctx,
             'agent': agent,
@@ -2852,11 +2949,17 @@ def register_routes(app):
             'deid_preview': None,
             'tamper_proof': None,
             'ingest_data': _get_pipeline_telemetry(),
+            'hl7v2_samples': HL7V2_SAMPLE_STREAMS,
+            'scribe_presets': AMBIENT_SCRIBE_PRESETS,
             'scribe_result': None,
+            'ambient_draft': None,
             'rx_result': None,
             'rx_cohort': patient_options[:25],
             'triage_sim': None,
             'triage_cohort': sorted(patient_options, key=lambda x: x.get('news2_score', 0), reverse=True)[:25],
+            'coding_patient_report': None,
+            'coding_cohort': [],
+            'coding_total_uplift': 0,
         }
 
         if agent_id == 'bola_redteam' and force_run:
@@ -3020,20 +3123,32 @@ def register_routes(app):
                 if pt_match:
                     allergies = list(pt_match.get('allergies') or [])
                     meds = list(pt_match.get('medications') or [])
-                    if candidate_drug:
-                        meds.append(candidate_drug)
-                    alerts = check_drug_allergy_contraindications(allergies, meds)
+                    pt_obs = []
+                    if not app.testing:
+                        obs_r = fhir.get('Observation', params={'patient': target_pid, '_count': 40})
+                        if obs_r.ok:
+                            pt_obs = obs_r.entries
+                    rx_eval = evaluate_clinical_pharmacology_3tier(
+                        allergies=allergies,
+                        active_medications=meds,
+                        lab_observations=pt_obs,
+                        candidate_drug=candidate_drug or None,
+                    )
+                    alerts = rx_eval['alerts']
+                    checked_meds = list(meds) + ([candidate_drug] if candidate_drug else [])
                     ctx['rx_result'] = {
                         'patient_id': target_pid,
                         'patient_name': pt_match['name'],
                         'candidate_drug': candidate_drug,
                         'allergies': allergies,
-                        'medications': meds,
+                        'medications': checked_meds,
+                        'egfr': rx_eval.get('egfr'),
+                        'tier_counts': rx_eval.get('tier_counts'),
                         'alerts': alerts,
                     }
                     if force_run:
                         ctx['action_banner'] = (
-                            f"Rx-Guard evaluated {len(meds)} medication(s) against {len(allergies)} allergy record(s) for {pt_match['name']}: {len(alerts)} contraindication(s) found."
+                            f"3-Tier Rx-Guard evaluated {len(checked_meds)} medication(s) (Allergy + DDI + Renal eGFR) for {pt_match['name']}: {len(alerts)} alert(s) found."
                         )
 
         elif agent_id == 'acuity_triage':
@@ -3062,6 +3177,84 @@ def register_routes(app):
             }
             if force_run:
                 ctx['action_banner'] = f"Computed MTS Category {mts_cat} ({mts_meta['name']}) and RCP NEWS2 Score {n_score}/20 ({n_tier})."
+
+        elif agent_id == 'ambient_scribe':
+            target_pid = (form_data.get('patient_id') or (patient_options[0]['id'] if patient_options else 'P101')).strip()
+            preset_key = (form_data.get('preset_key') or 'gp_chest_ckd').strip()
+            transcript = (form_data.get('transcript_text') or '').strip()
+            if not transcript:
+                for pr in AMBIENT_SCRIBE_PRESETS:
+                    if pr['key'] == preset_key:
+                        transcript = pr['transcript']
+                        break
+            pt_match = next((p for p in patient_options if p['id'] == target_pid), None)
+            pt_name = pt_match['name'] if pt_match else target_pid
+            allergies = list(pt_match.get('allergies') or []) if pt_match else []
+            meds = list(pt_match.get('medications') or []) if pt_match else []
+            pt_obs = []
+            if not app.testing:
+                obs_r = fhir.get('Observation', params={'patient': target_pid, '_count': 40})
+                if obs_r.ok:
+                    pt_obs = obs_r.entries
+            ctx['ambient_draft'] = process_ambient_consultation(
+                transcript_text=transcript,
+                patient_id=target_pid,
+                patient_name=pt_name,
+                allergies=allergies,
+                active_medications=meds,
+                lab_observations=pt_obs,
+            )
+            if force_run:
+                ctx['action_banner'] = (
+                    f"Agent 10 (SlainteScribe-Voice) structured SOAP note, {len(ctx['ambient_draft']['candidate_conditions'])} Condition(s), "
+                    f"and {len(ctx['ambient_draft']['draft_medications'])} Rx-Guard pre-screened order(s) for {pt_name}."
+                )
+
+        elif agent_id == 'clinical_coding':
+            target_pid = (form_data.get('patient_id') or (patient_options[0]['id'] if patient_options else '')).strip()
+            cohort_reports = []
+            total_uplift = 0
+            scan_list = patient_options[:18] if patient_options else []
+            for pt in scan_list:
+                pid = pt['id']
+                cond_entries = []
+                obs_entries = []
+                if not app.testing:
+                    many_c = fhir.get_many({
+                        'c': ('Condition', {'patient': pid, '_count': 30}),
+                        'o': ('Observation', {'patient': pid, '_count': 40}),
+                    })
+                    cond_entries = many_c['c'].entries if many_c['c'].ok else []
+                    obs_entries = many_c['o'].entries if many_c['o'].ok else []
+                elif store_dir and os.path.isdir(store_dir):
+                    bpath = os.path.join(store_dir, f'bundle_{pid}.json')
+                    if os.path.isfile(bpath):
+                        try:
+                            with open(bpath, 'r', encoding='utf-8') as bf:
+                                bdata = json.load(bf)
+                            for entry in bdata.get('entry') or []:
+                                r = entry.get('resource') or {}
+                                if r.get('resourceType') == 'Condition':
+                                    cond_entries.append(r)
+                                elif r.get('resourceType') == 'Observation':
+                                    obs_entries.append(r)
+                        except Exception:
+                            pass
+                rep = scan_patient_coding_gaps(pid, pt['name'], cond_entries, obs_entries)
+                cohort_reports.append(rep)
+                total_uplift += rep['total_uplift_eur']
+                if pid == target_pid:
+                    ctx['coding_patient_report'] = rep
+
+            cohort_reports.sort(key=lambda r: r['total_uplift_eur'], reverse=True)
+            ctx['coding_cohort'] = cohort_reports
+            ctx['coding_total_uplift'] = total_uplift
+            if ctx['coding_patient_report'] is None and cohort_reports:
+                ctx['coding_patient_report'] = cohort_reports[0]
+            if force_run:
+                ctx['action_banner'] = (
+                    f"Agent 11 (SlainteRev-Coding) audited {len(cohort_reports)} patient chart(s) — identified €{total_uplift:,} in uncoded HIPE DRG complexity uplift."
+                )
 
         return ctx
 

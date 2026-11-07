@@ -27,6 +27,31 @@ ROLE_CLINICIAN = 'clinician'
 ROLE_VIEWER = 'viewer'
 ROLES = (ROLE_ADMIN, ROLE_CLINICIAN, ROLE_VIEWER)
 
+# Phase 11.5: Granular Clinical Separation-of-Duties Specialty Roles
+CLINICAL_ROLE_GENERAL = 'general_clinician'
+CLINICAL_ROLE_PRESCRIBER = 'prescriber'
+CLINICAL_ROLE_PHARMACIST = 'pharmacist'
+CLINICAL_ROLE_TRIAGE_NURSE = 'triage_nurse'
+CLINICAL_ROLE_AUDITOR = 'auditor'
+CLINICAL_ROLE_ADMIN = 'admin'
+CLINICAL_ROLES = (
+    CLINICAL_ROLE_GENERAL,
+    CLINICAL_ROLE_PRESCRIBER,
+    CLINICAL_ROLE_PHARMACIST,
+    CLINICAL_ROLE_TRIAGE_NURSE,
+    CLINICAL_ROLE_AUDITOR,
+    CLINICAL_ROLE_ADMIN,
+)
+
+CLINICAL_ROLE_LABELS = {
+    CLINICAL_ROLE_GENERAL: 'General Clinician (Full Chart)',
+    CLINICAL_ROLE_PRESCRIBER: 'Physician / Prescriber (IMC)',
+    CLINICAL_ROLE_PHARMACIST: 'Supervising Pharmacist (PSI)',
+    CLINICAL_ROLE_TRIAGE_NURSE: 'ED / EMS Triage Nurse (NMBI)',
+    CLINICAL_ROLE_AUDITOR: 'Compliance / HIQA Auditor (Read-Only)',
+    CLINICAL_ROLE_ADMIN: 'Medical Director / Platform Admin',
+}
+
 STATUS_PENDING = 'pending'
 STATUS_ACTIVE = 'active'
 STATUS_DISABLED = 'disabled'
@@ -37,6 +62,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash          TEXT NOT NULL,
     display_name           TEXT,
     role                   TEXT NOT NULL DEFAULT 'viewer',
+    clinical_role          TEXT NOT NULL DEFAULT 'general_clinician',
+    registration_id        TEXT DEFAULT '',
     status                 TEXT NOT NULL DEFAULT 'pending',
     created_at             TEXT NOT NULL,
     last_login_at          TEXT,
@@ -115,6 +142,34 @@ CREATE TABLE IF NOT EXISTS system_settings (
     value      TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS break_glass_grants (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    occurred_at     TEXT NOT NULL,
+    expires_at      TEXT NOT NULL,
+    actor           TEXT NOT NULL,
+    clinical_role   TEXT NOT NULL,
+    patient_id      TEXT NOT NULL,
+    emergency_type  TEXT NOT NULL,
+    justification   TEXT NOT NULL,
+    remote_addr     TEXT,
+    siem_dispatched INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_break_glass_actor   ON break_glass_grants(actor, patient_id);
+CREATE INDEX IF NOT EXISTS idx_break_glass_patient ON break_glass_grants(patient_id);
+
+CREATE TRIGGER IF NOT EXISTS break_glass_no_update
+BEFORE UPDATE ON break_glass_grants
+BEGIN
+    SELECT RAISE(ABORT, 'break_glass_grants is append-only');
+END;
+
+CREATE TRIGGER IF NOT EXISTS break_glass_no_delete
+BEFORE DELETE ON break_glass_grants
+BEGIN
+    SELECT RAISE(ABORT, 'break_glass_grants is append-only');
+END;
 """
 
 
@@ -176,7 +231,7 @@ def init_db(app):
         connection.executescript(SCHEMA)
         connection.commit()
 
-        # Migrate existing users table if lockout columns are missing
+        # Migrate existing users table if lockout / clinical RBAC columns are missing
         user_cols = {
             row['name']
             for row in connection.execute("PRAGMA table_info(users)").fetchall()
@@ -185,6 +240,10 @@ def init_db(app):
             connection.execute('ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0')
         if 'locked_until' not in user_cols:
             connection.execute('ALTER TABLE users ADD COLUMN locked_until TEXT')
+        if 'clinical_role' not in user_cols:
+            connection.execute("ALTER TABLE users ADD COLUMN clinical_role TEXT NOT NULL DEFAULT 'general_clinician'")
+        if 'registration_id' not in user_cols:
+            connection.execute("ALTER TABLE users ADD COLUMN registration_id TEXT DEFAULT ''")
         connection.commit()
 
         # Ensure system_settings table exists
@@ -356,6 +415,23 @@ def set_user_role(username, role):
     connection.commit()
 
 
+def set_user_clinical_role(username, clinical_role, registration_id=None):
+    if clinical_role not in CLINICAL_ROLES:
+        raise ValueError(f'Unknown clinical_role: {clinical_role}')
+    connection = get_connection()
+    if registration_id is not None:
+        connection.execute(
+            'UPDATE users SET clinical_role = ?, registration_id = ? WHERE username = ?',
+            (clinical_role, registration_id.strip()[:64], username.strip().lower()),
+        )
+    else:
+        connection.execute(
+            'UPDATE users SET clinical_role = ? WHERE username = ?',
+            (clinical_role, username.strip().lower()),
+        )
+    connection.commit()
+
+
 def list_users():
     rows = get_connection().execute(
         'SELECT * FROM users ORDER BY created_at DESC'
@@ -510,6 +586,89 @@ def read_audit(limit=100, actor=None, resource_id=None):
 
     rows = get_connection().execute(query, params).fetchall()
     return [dict(row) for row in rows]
+
+
+read_audit_log = read_audit
+
+
+# --------------------------------------------------------------------------
+# Break-the-Glass Emergency Access Grants (GDPR Art. 9(2)(c) Vital Interests)
+# --------------------------------------------------------------------------
+
+def write_break_glass_grant(actor, clinical_role, patient_id, emergency_type,
+                            justification, remote_addr=None, duration_minutes=60,
+                            siem_dispatched=False):
+    """Append an immutable 60-minute emergency access grant to break_glass_grants."""
+    now_dt = datetime.now(timezone.utc)
+    exp_dt = now_dt + timedelta(minutes=duration_minutes)
+    connection = get_connection()
+    cursor = connection.execute(
+        'INSERT INTO break_glass_grants'
+        ' (occurred_at, expires_at, actor, clinical_role, patient_id,'
+        '  emergency_type, justification, remote_addr, siem_dispatched)'
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (
+            now_dt.isoformat(),
+            exp_dt.isoformat(),
+            (actor or 'unknown').strip().lower(),
+            (clinical_role or CLINICAL_ROLE_GENERAL).strip(),
+            (patient_id or '').strip(),
+            (emergency_type or 'Clinical Emergency').strip()[:120],
+            (justification or '').strip()[:500],
+            remote_addr,
+            1 if siem_dispatched else 0,
+        ),
+    )
+    connection.commit()
+    return {
+        'id': cursor.lastrowid,
+        'occurred_at': now_dt.isoformat(),
+        'expires_at': exp_dt.isoformat(),
+        'actor': actor,
+        'patient_id': patient_id,
+        'emergency_type': emergency_type,
+        'justification': justification,
+    }
+
+
+def get_active_break_glass_grant(actor, patient_id):
+    """Return the active (non-expired) Break-the-Glass grant for actor + patient_id, if any."""
+    if not actor or not patient_id:
+        return None
+    try:
+        from flask import has_app_context
+        if not has_app_context():
+            return None
+        now_str = _utcnow()
+        row = get_connection().execute(
+            'SELECT * FROM break_glass_grants'
+            ' WHERE actor = ? AND patient_id = ? AND expires_at > ?'
+            ' ORDER BY id DESC LIMIT 1',
+            (actor.strip().lower(), patient_id.strip(), now_str),
+        ).fetchone()
+        return dict(row) if row else None
+    except Exception:
+        return None
+
+
+def read_break_glass_grants(limit=50, patient_id=None):
+    try:
+        from flask import has_app_context
+        if not has_app_context():
+            return []
+        if patient_id:
+            rows = get_connection().execute(
+                'SELECT * FROM break_glass_grants WHERE patient_id = ? ORDER BY id DESC LIMIT ?',
+                (patient_id.strip(), limit),
+            ).fetchall()
+        else:
+            rows = get_connection().execute(
+                'SELECT * FROM break_glass_grants ORDER BY id DESC LIMIT ?',
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
 
 
 # --------------------------------------------------------------------------

@@ -21,7 +21,7 @@ VERTICALS_CATALOG = {
         'accent_hex': '#ef4444',
         'default_view': 'triage',
         'tagline': 'Manchester Triage System (MTS Cat 1–5), 24h RCP NEWS2 Deterioration Tracking & Rapid Bedside Intake.',
-        'active_agents': ['acuity_triage', 'multimodal_ingest', 'patient_summariser', 'medication_safety', 'bola_redteam', 'immutable_audit'],
+        'active_agents': ['acuity_triage', 'multimodal_ingest', 'patient_summariser', 'ambient_scribe', 'medication_safety', 'clinical_coding', 'bola_redteam', 'immutable_audit'],
         'kpis': [
             {'label': 'Triage Protocol', 'value': 'MTS Cat 1–5', 'sub': '0m Immediate to 240m Non-Urgent', 'icon': 'fas fa-procedures'},
             {'label': 'Deterioration Gate', 'value': 'RCP NEWS2', 'sub': '24h Continuous Vital Sparklines', 'icon': 'fas fa-heartbeat'},
@@ -44,7 +44,7 @@ VERTICALS_CATALOG = {
         'accent_hex': '#0ea5e9',
         'default_view': 'patients',
         'tagline': 'SOAP Clinical Consultations, Irish HSE Chronic Disease Management (CDM) & Safe Repeat Prescribing.',
-        'active_agents': ['patient_summariser', 'medication_safety', 'multimodal_ingest', 'gdpr_privacy', 'fhir_conformance'],
+        'active_agents': ['ambient_scribe', 'patient_summariser', 'medication_safety', 'clinical_coding', 'multimodal_ingest', 'gdpr_privacy', 'fhir_conformance'],
         'kpis': [
             {'label': 'Identifier Standard', 'value': 'Irish GMS OID', 'sub': 'urn:oid:1.3.6.1.4.1.54392.5.2690.42.80', 'icon': 'fas fa-id-card'},
             {'label': 'CDM Pathways', 'value': 'T2DM / COPD / HTN', 'sub': 'Longitudinal Vital & Lab Trends', 'icon': 'fas fa-notes-medical'},
@@ -163,11 +163,12 @@ VERTICALS_CATALOG = {
             'bola_redteam', 'fhir_conformance', 'cve_vulnerability',
             'gdpr_privacy', 'immutable_audit', 'multimodal_ingest',
             'patient_summariser', 'medication_safety', 'acuity_triage',
+            'ambient_scribe', 'clinical_coding',
         ],
         'kpis': [
             {'label': 'Earth Uplink Needed', 'value': '0 Bytes (Air-Gap)', 'sub': 'Local 3B Ollama Sovereign Inference', 'icon': 'fas fa-satellite'},
             {'label': 'Crew Bio-Loop', 'value': 'EVA / Radiation / SpO2', 'sub': 'Autonomous NEWS2 Hypoxia Drift Gate', 'icon': 'fas fa-lungs'},
-            {'label': 'Active Agent Fleet', 'value': 'All 9 Agents Live', 'sub': 'On-Board Autonomous Medical Officer', 'icon': 'fas fa-robot'},
+            {'label': 'Active Agent Fleet', 'value': 'All 11 Agents Live', 'sub': 'On-Board Autonomous Medical Officer', 'icon': 'fas fa-robot'},
         ],
         'specialty_panel_title': 'Orbital & Deep-Space Autonomous Medical Telemetry Bay',
         'specialty_highlights': [

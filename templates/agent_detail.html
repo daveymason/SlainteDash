@@ -6,7 +6,7 @@
            hx-push-url="/?view=agents"
            hx-target="#content"
            class="agent-subnav-link">
-            <i class="fas fa-arrow-left"></i> All Agents (9)
+            <i class="fas fa-arrow-left"></i> All Agents ({{ all_agents|length }})
         </a>
         {% for a in all_agents %}
         <a href="/?view=agent_{{ a.id }}"
@@ -14,7 +14,7 @@
            hx-push-url="/?view=agent_{{ a.id }}"
            hx-target="#content"
            class="agent-subnav-link {% if a.id == agent.id %}active{% endif %}">
-            <span class="font-monospace">{{ a.number }}</span> {{ a.code.replace('SlainteShield-', '').replace('SlainteGov-', '').replace('SlainteEngine-', '').replace('SlainteScribe-', '').replace('SlainteRx-', 'Rx-').replace('SlainteDx-', 'Dx-') }}
+            <span class="font-monospace">{{ a.number }}</span> {{ a.code.replace('SlainteShield-', '').replace('SlainteGov-', '').replace('SlainteEngine-', '').replace('SlainteScribe-', '').replace('SlainteRx-', 'Rx-').replace('SlainteDx-', 'Dx-').replace('SlainteRev-', 'Rev-') }}
         </a>
         {% endfor %}
     </nav>
@@ -555,8 +555,8 @@
         <div class="col-md-3">
             <div class="clinical-kpi kpi-success">
                 <div class="clinical-kpi-label">Append-Only SQLite Triggers</div>
-                <div class="clinical-kpi-value">{{ audit_scan.triggers_found|length }}/4 Active</div>
-                <div class="clinical-kpi-sub">BEFORE UPDATE &amp; BEFORE DELETE</div>
+                <div class="clinical-kpi-value">{{ audit_scan.triggers_found|length }}/6 Active</div>
+                <div class="clinical-kpi-sub">audit_log &bull; ai_exchange &bull; break_glass</div>
             </div>
         </div>
         <div class="col-md-3">
@@ -676,6 +676,38 @@
                 <div class="clinical-kpi-value">5/5 Stages OK</div>
                 <div class="clinical-kpi-sub">Schema &rarr; SNOMED/LOINC &rarr; MTS &rarr; FHIR R4</div>
             </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span><i class="fas fa-network-wired text-primary me-1"></i><strong>Native HL7v2 (`ADT^A01` / `ORU^R01` / `RDE^O11`) Pipe-Hat &rarr; HL7 FHIR R4 Bundle Translator</strong></span>
+            <span class="status-pill status-pass">Irish GMS OID + UCUM Gate</span>
+        </div>
+        <div class="card-body p-3">
+            <form hx-post="/enterprise/hl7v2/ingest"
+                  hx-target="#hl7v2-ingest-result"
+                  hx-swap="innerHTML">
+                <div class="row g-2 mb-2 align-items-end">
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold mb-1">Load Irish Hospital PAS / LIS HL7v2 Sample Stream (or Paste Raw Pipe-Hat Message Below)</label>
+                        <select name="sample_key" class="form-select form-select-sm"
+                                onchange="var o=this.options[this.selectedIndex]; if(o.dataset.msg){document.getElementById('hl7RawTextarea').value=o.dataset.msg;}">
+                            <option value="">-- Select Hospital HL7v2 Sample Stream --</option>
+                            {% for sk, sv in (hl7v2_samples or {}).items() %}
+                            <option value="{{ sk }}" data-msg="{{ sv.message }}" {% if loop.first %}selected{% endif %}>{{ sv.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-grid">
+                        <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+                            <i class="fas fa-bolt me-1"></i>Translate &amp; Ingest HL7v2 Stream
+                        </button>
+                    </div>
+                </div>
+                <textarea id="hl7RawTextarea" name="hl7_message" rows="5" class="form-control form-control-sm font-monospace" style="font-size: 0.75rem;">{{ (hl7v2_samples.get('mater_adt_a01') or {}).get('message', '') if hl7v2_samples else '' }}</textarea>
+            </form>
+            <div id="hl7v2-ingest-result" class="mt-2"></div>
         </div>
     </div>
 
@@ -875,11 +907,11 @@
             </div>
             {% for al in rx_result.alerts %}
             <div class="alert alert-danger py-2 px-3 mb-1">
-                <strong><i class="fas fa-exclamation-triangle me-1"></i>{{ al.severity }} ({{ al.alert_type }}):</strong> {{ al.message }}
+                <strong><i class="fas fa-exclamation-triangle me-1"></i>[{{ al.tier or al.severity }}] {{ al.alert_type }} ({{ al.allergen }} &harr; {{ al.medication }}):</strong> {{ al.message }}
             </div>
             {% else %}
             <div class="alert alert-success py-2 px-3 mb-0">
-                <i class="fas fa-check-circle me-1"></i><strong>SAFE TO DISPENSE:</strong> Zero deterministic cross-reactivity conflicts detected between allergies and checked medications.
+                <i class="fas fa-check-circle me-1"></i><strong>SAFE TO DISPENSE:</strong> Zero deterministic conflicts across Tier 1 (Allergy), Tier 2 (High-Alert DDI), and Tier 3 (Renal eGFR{% if rx_result.egfr is not none %}: {{ rx_result.egfr }} mL/min{% endif %}).
             </div>
             {% endfor %}
         </div>
@@ -1026,6 +1058,161 @@
                             <td>
                                 <button class="btn btn-sm btn-outline-primary py-0 px-2"
                                         hx-get="/fhir/Patient/{{ row.id }}"
+                                        hx-target="#content"
+                                        hx-swap="innerHTML">
+                                    Open Chart
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# ======================================================================
+       AGENT 10: SlainteScribe-Voice (Ambient Clinical Voice Scribe Dashboard)
+       ====================================================================== #}
+    {% elif agent.id == 'ambient_scribe' %}
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span><i class="fas fa-microphone-alt text-primary me-1"></i><strong>Ambient Consultation Dictation / Audio &rarr; SOAP + Pre-Screened FHIR R4 Orders</strong></span>
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                    onclick="if(window.toggleSlainteVoiceDictation){window.toggleSlainteVoiceDictation('agent10TranscriptArea', this);}">
+                <i class="fas fa-microphone me-1"></i>Browser Live Dictation
+            </button>
+        </div>
+        <div class="card-body">
+            <form hx-post="/fhir/Agent/ambient_scribe/run" hx-target="#content" hx-swap="innerHTML">
+                <div class="row g-2 mb-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label small fw-bold mb-1">Target Patient Chart</label>
+                        <select name="patient_id" class="form-select form-select-sm">
+                            {% for pt in patient_options %}
+                            <option value="{{ pt.id }}" {% if ambient_draft and ambient_draft.patient_id == pt.id %}selected{% endif %}>
+                                {{ pt.id }} &mdash; {{ pt.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small fw-bold mb-1">Clinical Scenario Preset</label>
+                        <select name="preset_key" class="form-select form-select-sm"
+                                onchange="var o=this.options[this.selectedIndex]; if(o.dataset.tx){document.getElementById('agent10TranscriptArea').value=o.dataset.tx;}">
+                            {% for pr in (scribe_presets or []) %}
+                            <option value="{{ pr.key }}" data-tx="{{ pr.transcript }}">{{ pr.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+                            <i class="fas fa-magic me-1"></i>Extract &amp; Screen
+                        </button>
+                    </div>
+                </div>
+                <textarea id="agent10TranscriptArea" name="transcript_text" rows="4" class="form-control form-control-sm">{{ ambient_draft.transcript if ambient_draft else '' }}</textarea>
+            </form>
+        </div>
+    </div>
+
+    {% if ambient_draft %}
+        {% set draft = ambient_draft %}
+        {% include "scribe_draft_fragment.html" %}
+    {% endif %}
+
+    {# ======================================================================
+       AGENT 11: SlainteRev-Coding (Autonomous HIPE / ICD-10-AM Coding Audit)
+       ====================================================================== #}
+    {% elif agent.id == 'clinical_coding' %}
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">Cohort HIPE DRG Uplift Identified</div>
+                <div class="clinical-kpi-value">+&euro;{{ "{:,}".format(coding_total_uplift or 0) }}</div>
+                <div class="clinical-kpi-sub">Objective LOINC lab &amp; vital evidence</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="clinical-kpi">
+                <div class="clinical-kpi-label">Charts Audited in Sweep</div>
+                <div class="clinical-kpi-value">{{ coding_cohort|length }} Patients</div>
+                <div class="clinical-kpi-sub">Dual SNOMED-CT + ICD-10-AM mapping</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="clinical-kpi">
+                <div class="clinical-kpi-label">Multi-Tenant Production Schema</div>
+                <div class="clinical-kpi-value" style="font-size: 1rem;">PostgreSQL 16 RLS Ready</div>
+                <div class="clinical-kpi-sub"><code>deploy/postgres_rls_schema.sql</code></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <span>Inspect Patient Chart for Uncoded HIPE / ICD-10-AM Comorbidities</span>
+            <form hx-post="/fhir/Agent/clinical_coding/run" hx-target="#content" hx-swap="innerHTML" class="d-flex gap-2 m-0">
+                <select name="patient_id" class="form-select form-select-sm" style="width: auto;">
+                    {% for pt in patient_options %}
+                    <option value="{{ pt.id }}" {% if coding_patient_report and coding_patient_report.patient_id == pt.id %}selected{% endif %}>
+                        {{ pt.id }} &mdash; {{ pt.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-search-dollar me-1"></i>Run Coding Sweep
+                </button>
+            </form>
+        </div>
+        <div class="card-body p-3" id="coding-audit-panel-{{ coding_patient_report.patient_id if coding_patient_report else 'cohort' }}">
+            {% if coding_patient_report %}
+                {% set coding_report = coding_patient_report %}
+                {% set flash_msg = None %}
+                {% include "coding_audit_fragment.html" %}
+                {% if not coding_patient_report.gaps %}
+                <div class="alert alert-success py-2 px-3 small mb-0">
+                    <i class="fas fa-check-circle me-1"></i><strong>All Objective Comorbidities Coded:</strong> Zero uncoded lab/vital diagnoses found on <code>{{ coding_patient_report.patient_name }}</code>.
+                </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mb-0">
+        <div class="card-header py-2">Cohort Uncoded HIPE Comorbidity &amp; DRG Complexity Watchlist</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped table-hover mb-0 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Patient</th>
+                            <th>Uncoded ICD-10-AM Findings</th>
+                            <th>Est. HIPE DRG Uplift</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rep in coding_cohort %}
+                        <tr>
+                            <td class="fw-bold small">{{ rep.patient_name }} <span class="font-monospace text-muted">({{ rep.patient_id }})</span></td>
+                            <td class="small">
+                                {% for g in rep.gaps %}
+                                <span class="badge bg-light text-dark border me-1">{{ g.icd10_code }}: {{ g.condition_display }}</span>
+                                {% else %}
+                                <span class="text-muted">Fully coded</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% if rep.total_uplift_eur > 0 %}
+                                <span class="status-pill status-warn">+&euro;{{ "{:,}".format(rep.total_uplift_eur) }}</span>
+                                {% else %}
+                                <span class="status-pill status-pass">&euro;0 (Complete)</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2"
+                                        hx-get="/fhir/Patient/{{ rep.patient_id }}"
                                         hx-target="#content"
                                         hx-swap="innerHTML">
                                     Open Chart

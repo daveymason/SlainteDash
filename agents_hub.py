@@ -1,9 +1,9 @@
-"""Autonomous 9-Agent Hub Registry, Per-Agent Settings & Dedicated Agent Dashboards.
+"""Autonomous 11-Agent Hub Registry, Per-Agent Settings & Dedicated Agent Dashboards.
 
 Unifies SlainteTech AI Security Labs' three agent squads:
 - Squad A (SlainteShield): Security, Red-Team & Vulnerability Agents (01 BOLA, 02 FHIR, 03 CVE)
-- Squad B (SlainteGov): Governance, GDPR Privacy & Immutable Audit Agents (04 GDPR, 05 Audit)
-- Squad C (SlainteClinical): Clinical Intelligence & Ingestion Agents (06 Ingest, 07 Summariser, 08 Rx-Guard, 09 Triage)
+- Squad B (SlainteGov): Governance, GDPR Privacy, Immutable Audit & HIPE Revenue Agents (04 GDPR, 05 Audit, 11 Rev-Coding)
+- Squad C (SlainteClinical): Clinical Intelligence, Voice Scribe & Ingestion Agents (06 Ingest, 07 Summariser, 08 Rx-Guard, 09 Triage, 10 Voice-Scribe)
 """
 import hashlib
 import json
@@ -135,10 +135,10 @@ AGENTS_CATALOG = [
         'icon': 'fas fa-file-import',
         'color': 'primary',
         'summary': (
-            'Watches /data/raw and the Bedside Intake Modal, converting messy CSVs, clinical PDFs, and '
-            'handwritten triage notes into GMS-deduplicated HL7 FHIR R4 bundles via OpenHands & FastMCP.'
+            'Watches /data/raw, the Intake Modal, and legacy HL7v2 (ADT^A01 / ORU^R01 / RDE^O11) feeds, converting '
+            'pipe-hat streams, CSVs, PDFs, and triage notes into GMS-deduplicated HL7 FHIR R4 bundles.'
         ),
-        'mcp_tools': ['scan_clinical_schema', 'ingest_handwritten_note', 'find_patient_id_by_gms'],
+        'mcp_tools': ['HL7v2 Pipe-Hat Translator', 'scan_clinical_schema', 'find_patient_id_by_gms'],
         'embedded_in': ['Dedicated Ingestion Pipeline Page (/agents/multimodal_ingest)', 'Intake Modal'],
         'guardrail_label': 'Ingestion Deduplication & Validation',
         'guardrail_options': ['Irish GMS OID Deduplication + FastMCP Gate', 'Strict Schema Rejection on Missing Vitals'],
@@ -175,10 +175,10 @@ AGENTS_CATALOG = [
         'icon': 'fas fa-pills',
         'color': 'primary',
         'summary': (
-            'Deterministically cross-checks active MedicationRequest prescriptions against AllergyIntolerance '
-            'records for Beta-Lactam/Penicillin, Cephalosporin, NSAID, and Sulfonamide cross-reactivity.'
+            'Deterministically screens prescriptions across 3 tiers: (1) Allergy cross-reactivity, '
+            '(2) ISMP High-Alert Drug-Drug Interactions, and (3) Patient lab eGFR renal dosing gates.'
         ),
-        'mcp_tools': ['check_drug_allergy_contraindications', 'Cross-Reactivity Matrix (FastMCP :8081)'],
+        'mcp_tools': ['3-Tier Pharmacology Engine', 'ISMP High-Alert DDI Matrix', 'LOINC eGFR Renal Gate'],
         'embedded_in': ['Dedicated Rx-Guard Page (/agents/medication_safety)', 'Patient Details Page', 'Pharmacy Cockpit'],
         'guardrail_label': 'Pharmacological Interception Mode',
         'guardrail_options': ['Hard Block on Anaphylaxis / Cross-Reactivity', 'Clinician Override with Provenance Sign-Off'],
@@ -203,6 +203,46 @@ AGENTS_CATALOG = [
         'guardrail_label': 'Deterioration Escalation Threshold',
         'guardrail_options': ['RCP NEWS2 Standard (>=5 Medium, >=7 High Risk)', 'Acute Sepsis High-Sensitivity (>=4 Alert)'],
         'default_guardrail': 'RCP NEWS2 Standard (>=5 Medium, >=7 High Risk)',
+    },
+    {
+        'id': 'ambient_scribe',
+        'slug': 'voice',
+        'number': '10',
+        'code': 'SlainteScribe-Voice',
+        'name': 'Ambient Clinical Voice Scribe & Order Drafter',
+        'squad': 'clinical',
+        'squad_name': 'SlainteClinical — Bedside Intelligence & Ingestion Copilots',
+        'icon': 'fas fa-microphone-alt',
+        'color': 'primary',
+        'summary': (
+            'Converts live consultation speech or uploaded audio into structured SOAP DocumentReference notes, '
+            'SNOMED-CT Condition candidates, and 3-Tier SlainteRx-Guard pre-screened MedicationRequests.'
+        ),
+        'mcp_tools': ['Web Speech / Whisper ASR', 'SOAP Clinical Extractor', '3-Tier Rx-Guard Pre-Screen'],
+        'embedded_in': ['Dedicated Voice Scribe Page (/agents/ambient_scribe)', 'Patient Details Page', 'GP Cockpit'],
+        'guardrail_label': 'Ambient Order Commit Policy',
+        'guardrail_options': ['Clinician Co-Sign + Mandatory 3-Tier Rx-Guard Pre-Check', 'SOAP Note Draft Only (No Orders)'],
+        'default_guardrail': 'Clinician Co-Sign + Mandatory 3-Tier Rx-Guard Pre-Check',
+    },
+    {
+        'id': 'clinical_coding',
+        'slug': 'coding',
+        'number': '11',
+        'code': 'SlainteRev-Coding',
+        'name': 'HIPE / ICD-10-AM Clinical Coding & Revenue Audit',
+        'squad': 'gov',
+        'squad_name': 'SlainteGov — Privacy, GDPR & Regulatory Governance',
+        'icon': 'fas fa-coins',
+        'color': 'primary',
+        'summary': (
+            'Audits FHIR lab & vital Observations (eGFR, HbA1c, Troponin, Lactate, SpO2, BP) against active Conditions '
+            'to surface uncoded ICD-10-AM / SNOMED comorbidities and Irish HIPE DRG complexity uplift.'
+        ),
+        'mcp_tools': ['Lab-to-ICD10 Comorbidity Auditor', 'Irish HIPE DRG Estimator', 'Dual SNOMED+ICD10 Writer'],
+        'embedded_in': ['Dedicated Rev-Coding Page (/agents/clinical_coding)', 'Patient Details Page'],
+        'guardrail_label': 'Coding Evidence Standard',
+        'guardrail_options': ['Require Objective LOINC Lab/Vital Citation ([Observation/id])', 'Advisory Audit Only'],
+        'default_guardrail': 'Require Objective LOINC Lab/Vital Citation ([Observation/id])',
     },
 ]
 
@@ -387,12 +427,26 @@ def run_gdpr_privacy_scan(app_config, db_module):
             'detail': f'{len(exchanges)} recent AI exchanges verified in append-only ledger',
         },
     ]
+    bg_grants = []
+    try:
+        bg_grants = db_module.read_break_glass_grants(limit=20)
+    except Exception:
+        bg_grants = []
+
+    checks.append({
+        'article': 'GDPR Art. 9(2)(c) — Vital Interests Break-the-Glass Emergency Audit',
+        'status': 'PASS',
+        'detail': f'{len(bg_grants)} audited 60-min emergency override grant(s) logged in append-only break_glass_grants',
+    })
+
     return {
         'agent': 'SlainteGov-GDPR (Agent 04)',
         'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
         'deid_enabled': deid_on,
         'exchanges_checked': len(exchanges),
         'recent_exchanges': exchanges[:10],
+        'break_glass_count': len(bg_grants),
+        'break_glass_grants': bg_grants[:10],
         'checks': checks,
         'all_passed': all(c['status'] in ('PASS', 'INFO') for c in checks),
     }
@@ -406,7 +460,8 @@ def run_immutable_audit_scan(db_module, fhir_store_path=None):
         conn = db_module.get_connection()
         rows = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='trigger' AND name IN "
-            "('audit_log_no_update', 'audit_log_no_delete', 'ai_exchange_no_update', 'ai_exchange_no_delete')"
+            "('audit_log_no_update', 'audit_log_no_delete', 'ai_exchange_no_update', "
+            "'ai_exchange_no_delete', 'break_glass_no_update', 'break_glass_no_delete')"
         ).fetchall()
         triggers_found = [r['name'] for r in rows]
     except Exception:
@@ -414,12 +469,17 @@ def run_immutable_audit_scan(db_module, fhir_store_path=None):
 
     audits = []
     exchanges = []
+    bg_grants = []
     try:
-        audits = db_module.read_audit_log(limit=30)
+        audits = db_module.read_audit(limit=30)
     except Exception:
         pass
     try:
         exchanges = db_module.read_ai_exchange(limit=30)
+    except Exception:
+        pass
+    try:
+        bg_grants = db_module.read_break_glass_grants(limit=20)
     except Exception:
         pass
 
@@ -455,6 +515,8 @@ def run_immutable_audit_scan(db_module, fhir_store_path=None):
         'tamper_test_result': tamper_test_result,
         'audit_count': len(audits),
         'ai_exchange_count': len(exchanges),
+        'break_glass_count': len(bg_grants),
+        'break_glass_grants': bg_grants[:10],
         'provenance_count': provenance_count,
         'provenance_records': provenance_records[:15],
         'recent_audits': audits[:15],
@@ -489,25 +551,33 @@ def verify_sqlite_immutability_live(db_module):
 
 
 def build_signed_audit_snapshot(db_module, secret_key='slainte-audit-key'):
-    """Generate a cryptographically signed JSON backup snapshot of audit_log and ai_exchange (Gap G1)."""
+    """Generate a cryptographically signed JSON backup snapshot of audit_log, ai_exchange, and break_glass_grants."""
     audits = []
     exchanges = []
+    bg_grants = []
     try:
-        audits = [dict(r) for r in db_module.read_audit_log(limit=500)]
+        audits = [dict(r) for r in db_module.read_audit(limit=500)]
     except Exception:
         pass
     try:
         exchanges = [dict(r) for r in db_module.read_ai_exchange(limit=500)]
     except Exception:
         pass
+    try:
+        bg_grants = [dict(r) for r in db_module.read_break_glass_grants(limit=200)]
+    except Exception:
+        pass
 
     payload = {
         'schema': 'slaintetech.audit.snapshot.v1',
+        'schema_revision': '1.2',
         'generated_at': datetime.now(timezone.utc).isoformat(),
         'audit_log_entries': len(audits),
         'ai_exchange_entries': len(exchanges),
+        'break_glass_entries': len(bg_grants),
         'audit_log': audits,
         'ai_exchange': exchanges,
+        'break_glass_grants': bg_grants,
     }
     canonical = json.dumps(payload, sort_keys=True, default=str).encode('utf-8')
     sig = hashlib.sha256((secret_key or 'slainte').encode('utf-8') + canonical).hexdigest()

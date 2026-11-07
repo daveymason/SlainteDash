@@ -1,13 +1,12 @@
-# 🏥 SlainteDash — Multi-Vertical Clinical Cockpit & Autonomous Agent Hub
+# 🏥 SlainteDash — Multi-Vertical Clinical Cockpit & 11-Agent Enterprise Hub
 
-A Flask + [HTMX](https://htmx.org/) clinical cockpit and **Autonomous 9-Agent Command Center (`/agents`)** built by **SlainteTech AI Security Labs** for exploring and managing HL7 FHIR R4 data across **7 specialized verticals** (`Emergency Department`, `GP`, `Dentist`, `Pharmacy`, `Ambulance EMS`, `Elite Sports Club`, and `Astronaut Health Monitoring`). Routes return HTML fragments with zero client-side framework overhead.
+A Flask + [HTMX](https://htmx.org/) clinical workstation and **Autonomous 11-Agent Command Center (`/agents`)** built by **SlainteTech AI Security Labs** for exploring, authoring, and governing HL7 FHIR R4 clinical data across **7 specialized verticals** (`Emergency Department`, `GP`, `Dentist`, `Pharmacy`, `Ambulance EMS`, `Elite Sports Club`, and `Astronaut Health Monitoring`). Routes return HTML fragments with zero client-side framework overhead.
 
 ---
 
 ## ⚠️ Before you point this at real patient data
 
-This is a demonstration app. It defaults to `hapi.fhir.org`, a **public test
-server holding public synthetic data**. Read [SECURITY.md](SECURITY.md) before
+This is a demonstration app. It defaults to `hapi.fhir.org` (or local `SlainteFHIR :8082` in appliance mode), holding **synthetic data**. Read [SECURITY.md](SECURITY.md) before
 connecting it to anything real — it lists what is in place and what is still
 missing.
 
@@ -15,11 +14,11 @@ missing.
 
 ## 🚀 Features
 
-- **9 Dedicated Autonomous Agent Dashboards (`/agents` & `/agents/<agent_id>`)** — Every agent in the 9-agent fleet has its own interactive operational page (`01 BOLA Red-Team`, `02 FHIR R4 Integrity`, `03 CVE & Supply-Chain`, `04 GDPR Art. 9 Privacy`, `05 GovAudit & Provenance`, `06 Clinical Ingestion Pipeline`, `07 Cited Patient Summariser`, `08 Rx-Guard Allergy Safety`, `09 Dx-Triage & NEWS2 Acuity`), accessible from each agent card, the Agent Sub-Nav bar, and the top-bar `Agents ▾` menu.
-- **7 Role-Adaptive Clinical Cockpits (`"Sign in as..."`)** — Switch between `SlainteED` (Emergency Dept), `SlainteGP` (General Practice), `SlainteDent` (Dental Surgery), `SlaintePharm` (Community Pharmacy), `SlainteEMS` (Ambulance/ePCR), `SlainteSport` (Elite Sports Medicine), and `SlainteAstro` (Astronaut Bio-Telemetry). Switching cockpits dynamically adapts the **Sidebar** (`Live Triage` shown only for `SlainteED` and `SlainteEMS`) and the **Patients Roster** (custom clinical columns, KPIs, and safety gates per specialty).
-- **Patient list & search** — by name, patient ID, GMS identifier, birthdate or phone, with sortable columns, paging, and cockpit-specific clinical summaries.
-- **Patient details & embedded bedside copilots** — demographics, conditions, lab results, vital signs with 24h NEWS2 sparklines, medications, allergies, plus embedded **Agent 07 (Cited Bedside Brief)** and **Agent 08 (Rx-Guard Allergy Cross-Check)**.
-- **Minimalist Clinical UI & Access Control** — High-contrast, accessible medical interface (`static/styles.css`) with progressive login lockout, SQLite WAL rate limiting, and an append-only SQLite `audit_log` & `ai_exchange` ledger.
+- **11 Dedicated Autonomous Agent Dashboards (`/agents` & `/agents/<agent_id>`)** — Every agent in the 11-agent enterprise fleet has its own interactive operational page (`01 BOLA Red-Team`, `02 FHIR R4 Integrity`, `03 CVE & Supply-Chain`, `04 GDPR Art. 9 Privacy`, `05 GovAudit & Provenance`, `06 Clinical & HL7v2 Ingestion Pipeline`, `07 Cited Patient Summariser`, `08 3-Tier Rx-Guard Pharmacology`, `09 Dx-Triage & NEWS2 Acuity`, `10 SlainteScribe-Voice Ambient Voice Scribe`, and `11 SlainteRev-Coding HIPE / ICD-10-AM Revenue Auditor`).
+- **7 Enterprise Hospital Integrations (Phase 11.5)** — **HL7 SMART-on-FHIR v2 App Launch** (`/.well-known/smart-configuration` + Epic/Cerner launch simulator at `/settings/smart`), **Enterprise OIDC PKCE SSO** (`Entra ID / Okta / Keycloak`), **Native HL7v2 (`ADT^A01` / `ORU^R01` / `RDE^O11`) Pipe-Hat Translator**, **Irish HSE PCRS GMS Claim CSV Export**, **Granular Clinical RBAC** (`prescriber`, `pharmacist`, `triage_nurse`, `auditor`, `admin`) + **60-Minute Break-the-Glass Emergency Grants**, **HMAC-SHA256 SIEM Webhooks**, and a **Printable `NIS2 / EU AI Act / GDPR Art. 9 / HIQA` Compliance Attestation Certificate** (`/agents/compliance-certificate`).
+- **7 Role-Adaptive Clinical Cockpits (`"Sign in as..."`)** — Switch between `SlainteED` (Emergency Dept), `SlainteGP` (General Practice), `SlainteDent` (Dental Surgery + 32-Tooth FDI Odontogram), `SlaintePharm` (Clinical Pharmacy + Dispensing Queue), `SlainteEMS` (Ambulance/ePCR), `SlainteSport` (Elite Sports Medicine), and `SlainteAstro` (Astronaut Bio-Telemetry). Switching cockpits dynamically adapts the **Sidebar** (`Live Triage` shown only for `SlainteED` and `SlainteEMS`), the **Specialty Workspace**, and the **Patients Roster**.
+- **Patient details, Clinical Writes & 3-Tier `SlainteRx-Guard`** — Full FHIR R4 prescribing, vital signs + 24h NEWS2 sparklines, SNOMED/ICD-10 conditions, allergies, SOAP notes, Ambient Voice Scribe order drafting, HIPE comorbidity coding scanner, and 3-Tier `SlainteRx-Guard` screening (Tier 1 Allergy + Tier 2 ISMP High-Alert DDI + Tier 3 Lab `eGFR` Renal Dosing Gate).
+- **Minimalist Clinical UI & Immutable Audit Ledger** — High-contrast, accessible medical interface (`static/styles.css`) with progressive login lockout, SQLite WAL rate limiting, and append-only SQLite `audit_log`, `ai_exchange`, & `break_glass_grants` tables protected by 6 kernel immutability triggers.
 
 ---
 

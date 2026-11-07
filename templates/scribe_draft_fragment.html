@@ -1,0 +1,106 @@
+<div class="card border-primary mb-0">
+    <div class="card-header py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>
+            <i class="fas fa-microphone-alt text-primary me-1"></i>
+            <strong>Agent 10 (`SlainteScribe-Voice`) Structured Clinical Draft</strong>
+            &mdash; {{ draft.patient_name }} (<code>{{ draft.patient_id }}</code>)
+        </span>
+        <div class="d-flex gap-1 align-items-center">
+            <span class="status-pill status-neutral">{{ draft.candidate_conditions|length }} Diagnosis Candidate(s)</span>
+            {% if draft.blocked_med_count > 0 %}
+            <span class="status-pill status-fail">{{ draft.blocked_med_count }} Rx-Guard Intercept(s)</span>
+            {% else %}
+            <span class="status-pill status-pass">{{ draft.draft_medications|length }} Rx Pre-Screened Clear</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body p-3">
+        <form hx-post="/enterprise/scribe/commit/{{ draft.patient_id }}"
+              hx-target="#scribe-commit-result-{{ draft.patient_id }}"
+              hx-swap="innerHTML">
+            <div class="mb-3">
+                <label class="form-label small fw-bold mb-1">1. Structured SOAP Consultation Note (FHIR R4 <code>DocumentReference</code> &mdash; Editable Before Sign-Off)</label>
+                <textarea name="soap_text" rows="5" class="form-control form-control-sm font-monospace" style="font-size: 0.78rem;">{{ draft.soap_text }}</textarea>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-lg-6">
+                    <div class="p-2 rounded border bg-light h-100">
+                        <div class="small fw-bold mb-2">
+                            <i class="fas fa-notes-medical text-primary me-1"></i>2. Extracted SNOMED-CT &amp; ICD-10-AM Diagnoses (<code>Condition</code>)
+                        </div>
+                        {% for c in draft.candidate_conditions %}
+                        <div class="form-check small mb-1">
+                            <input class="form-check-input" type="checkbox" name="selected_conditions"
+                                   value="{{ c.snomed_code }}|{{ c.icd10_code }}|{{ c.display }}"
+                                   id="sc-cond-{{ draft.patient_id }}-{{ loop.index }}" checked>
+                            <label class="form-check-label" for="sc-cond-{{ draft.patient_id }}-{{ loop.index }}">
+                                <strong>{{ c.display }}</strong>
+                                <span class="text-muted font-monospace" style="font-size: 0.72rem;">(SNOMED {{ c.snomed_code }} / ICD-10 {{ c.icd10_code }})</span>
+                            </label>
+                        </div>
+                        {% else %}
+                        <div class="text-muted small">No discrete new diagnoses extracted from transcript.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="p-2 rounded border bg-light h-100">
+                        <div class="small fw-bold mb-2">
+                            <i class="fas fa-pills text-primary me-1"></i>3. Draft Orders Pre-Screened by 3-Tier <code>SlainteRx-Guard</code>
+                        </div>
+                        {% for m in draft.draft_medications %}
+                        <div class="p-2 mb-2 rounded border {% if not m.safe %}border-danger bg-white{% else %}bg-white{% endif %}">
+                            <div class="form-check small">
+                                <input class="form-check-input" type="checkbox" name="selected_medications"
+                                       value="{{ m.snomed_code }}|{{ m.drug_name }}|{{ m.dosage }}"
+                                       id="sc-med-{{ draft.patient_id }}-{{ loop.index }}"
+                                       {% if m.safe %}checked{% endif %}>
+                                <label class="form-check-label fw-semibold" for="sc-med-{{ draft.patient_id }}-{{ loop.index }}">
+                                    {{ m.drug_name }}
+                                    {% if m.safe %}
+                                    <span class="status-pill status-pass ms-1">SAFE</span>
+                                    {% else %}
+                                    <span class="status-pill status-fail ms-1">BLOCKED</span>
+                                    {% endif %}
+                                </label>
+                                <div class="text-muted" style="font-size: 0.74rem;">Sig: {{ m.dosage }}</div>
+                            </div>
+                            {% if m.alerts %}
+                            <ul class="small text-danger mb-0 mt-1 ps-3" style="font-size: 0.74rem;">
+                                {% for al in m.alerts %}
+                                <li><strong>[{{ al.tier or al.severity }}] {{ al.allergen }}:</strong> {{ al.message }}</li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <div class="text-muted small">No spoken medication orders detected in transcript.</div>
+                        {% endfor %}
+
+                        {% if draft.blocked_med_count > 0 %}
+                        <div class="mt-2">
+                            <label class="form-label small fw-bold text-danger mb-1" style="font-size: 0.73rem;">
+                                Optional Prescriber Override Justification (Required only if checking a BLOCKED drug above):
+                            </label>
+                            <input type="text" name="override_reason" class="form-control form-control-sm"
+                                   placeholder="Leave blank to hold unsafe drug &amp; commit safe orders only">
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <span class="text-muted small">
+                    <i class="fas fa-shield-alt text-success me-1"></i>Human-in-the-loop co-signature required before writing to <code>SlainteFHIR</code> (EU AI Act Art. 14).
+                </span>
+                <button type="submit" class="btn btn-sm btn-success fw-semibold">
+                    <i class="fas fa-check-double me-1"></i>Approve &amp; Commit to HL7 FHIR R4
+                </button>
+            </div>
+        </form>
+        <div id="scribe-commit-result-{{ draft.patient_id }}" class="mt-2"></div>
+    </div>
+</div>

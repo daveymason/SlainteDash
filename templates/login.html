@@ -59,6 +59,12 @@
                 <button type="submit" class="btn btn-primary w-100 fw-semibold">Sign In &amp; Launch Cockpit</button>
             </form>
 
+            <div class="mt-2 pt-2 border-top">
+                <a href="{{ url_for('enterprise.oidc_login') }}" class="btn btn-outline-secondary btn-sm w-100">
+                    Hospital SSO (Entra ID / Okta / Healthlink OIDC)
+                </a>
+            </div>
+
             <p class="text-center small text-muted mt-3 mb-0">
                 No account? <a href="{{ url_for('register') }}">Create one</a> &mdash;
                 an administrator must approve it before you can sign in.

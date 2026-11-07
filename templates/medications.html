@@ -12,7 +12,7 @@
     </div>
     <ul class="small mb-2 ps-3">
         {% for alert in rx_guard_block.alerts %}
-        <li><strong>[{{ alert.severity }}] {{ alert.allergen }} &harr; {{ alert.medication }}:</strong> {{ alert.message }}</li>
+        <li><strong>[{{ alert.tier or alert.severity }}]{% if alert.alert_type %} {{ alert.alert_type }} &mdash;{% endif %} {{ alert.allergen }} &harr; {{ alert.medication }}:</strong> {{ alert.message }}</li>
         {% endfor %}
     </ul>
     <form hx-post="/fhir/Medications/{{ patient_id }}/add"

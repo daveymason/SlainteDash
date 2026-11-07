@@ -12,7 +12,7 @@ import db
 
 
 def test_nine_agents_catalog_complete():
-    assert len(AGENTS_CATALOG) == 9
+    assert len(AGENTS_CATALOG) == 11
     codes = [a['code'] for a in AGENTS_CATALOG]
     assert 'SlainteShield-BOLA' in codes
     assert 'SlainteShield-FHIR' in codes
@@ -23,6 +23,8 @@ def test_nine_agents_catalog_complete():
     assert 'SlainteScribe-Brief' in codes
     assert 'SlainteRx-Guard' in codes
     assert 'SlainteDx-Triage' in codes
+    assert 'SlainteScribe-Voice' in codes
+    assert 'SlainteRev-Coding' in codes
 
 
 def test_seven_verticals_catalog_complete():

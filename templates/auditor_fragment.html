@@ -23,6 +23,9 @@
             <button type="submit" class="btn btn-primary btn-sm">
                 <i class="fas fa-sync-alt me-1"></i>Run All Agents
             </button>
+            <a href="/agents/compliance-certificate" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-certificate me-1"></i>NIS2 / AI Act Certificate
+            </a>
             <a href="/agents/audit/snapshot" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-download me-1"></i>Audit Snapshot
             </a>
@@ -39,7 +42,7 @@
            hx-push-url="/?view=agents"
            hx-target="#content"
            class="agent-subnav-link active">
-            <i class="fas fa-th-large"></i> All Agents (9)
+            <i class="fas fa-th-large"></i> All Agents ({{ agents|length }})
         </a>
         {% for agent in agents %}
         <a href="/?view=agent_{{ agent.id }}"
@@ -47,7 +50,7 @@
            hx-push-url="/?view=agent_{{ agent.id }}"
            hx-target="#content"
            class="agent-subnav-link">
-            <span class="font-monospace text-muted">{{ agent.number }}</span> {{ agent.code.replace('SlainteShield-', '').replace('SlainteGov-', '').replace('SlainteEngine-', '').replace('SlainteScribe-', '').replace('SlainteRx-', 'Rx-').replace('SlainteDx-', 'Dx-') }}
+            <span class="font-monospace text-muted">{{ agent.number }}</span> {{ agent.code.replace('SlainteShield-', '').replace('SlainteGov-', '').replace('SlainteEngine-', '').replace('SlainteScribe-', '').replace('SlainteRx-', 'Rx-').replace('SlainteDx-', 'Dx-').replace('SlainteRev-', 'Rev-') }}
         </a>
         {% endfor %}
     </nav>
@@ -72,14 +75,14 @@
             <div class="clinical-kpi kpi-success">
                 <div class="clinical-kpi-label">03 CVE &amp; 04 GDPR Art. 9 Gates</div>
                 <div class="clinical-kpi-value">{{ cve_scan.pinned_count }}/{{ cve_scan.total_packages }} Pinned</div>
-                <div class="clinical-kpi-sub">{{ cve_scan.sri_assets_verified }} SRI sha384 assets &bull; {{ gdpr_scan.checks|length }}/5 GDPR gates active</div>
+                <div class="clinical-kpi-sub">{{ cve_scan.sri_assets_verified }} SRI sha384 assets &bull; {{ gdpr_scan.checks|length }}/{{ gdpr_scan.checks|length }} GDPR gates active</div>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="clinical-kpi kpi-success">
                 <div class="clinical-kpi-label">05 GovAudit &amp; Provenance</div>
-                <div class="clinical-kpi-value">{{ audit_scan.triggers_found|length }}/4 Triggers</div>
-                <div class="clinical-kpi-sub">{{ audit_scan.provenance_count }} SHA-256 Provenance signatures &bull; {{ audit_scan.audit_count }} audit events</div>
+                <div class="clinical-kpi-value">{{ audit_scan.triggers_found|length }}/6 Triggers</div>
+                <div class="clinical-kpi-sub">{{ audit_scan.provenance_count }} SHA-256 Provenance &bull; {{ audit_scan.audit_count }} audit events</div>
             </div>
         </div>
     </div>
@@ -154,13 +157,23 @@
                             </div>
                             {% elif agent.id == 'medication_safety' %}
                             <div class="d-flex justify-content-between">
-                                <span class="text-muted">Safety Matrix:</span>
-                                <strong>Deterministic Beta-Lactam / NSAID / Sulfa Gate</strong>
+                                <span class="text-muted">3-Tier Matrix:</span>
+                                <strong>Allergy + High-Alert DDI + Renal eGFR Gate</strong>
                             </div>
                             {% elif agent.id == 'acuity_triage' %}
                             <div class="d-flex justify-content-between">
                                 <span class="text-muted">Scoring Engine:</span>
                                 <strong>MTS Cat 1–5 &amp; 24h RCP NEWS2 Trajectory</strong>
+                            </div>
+                            {% elif agent.id == 'ambient_scribe' %}
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Voice Pipeline:</span>
+                                <strong>Speech/Whisper &rarr; SOAP + Rx-Guard Pre-Check</strong>
+                            </div>
+                            {% elif agent.id == 'clinical_coding' %}
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Revenue Audit:</span>
+                                <strong>ICD-10-AM + SNOMED HIPE DRG Comorbidities</strong>
                             </div>
                             {% endif %}
                         </div>

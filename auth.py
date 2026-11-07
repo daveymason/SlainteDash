@@ -22,13 +22,17 @@ logger = logging.getLogger(__name__)
 
 
 class User(UserMixin):
-    """A row from the users table, adapted for Flask-Login."""
+    """A row from the users table, adapted for Flask-Login & Clinical Separation of Duties."""
 
     def __init__(self, record):
         self.id = record['username']
         self.username = record['username']
         self.display_name = record.get('display_name') or record['username']
         self.role = record['role']
+        self.clinical_role = record.get('clinical_role') or (
+            db.CLINICAL_ROLE_ADMIN if record['role'] == db.ROLE_ADMIN else db.CLINICAL_ROLE_GENERAL
+        )
+        self.registration_id = record.get('registration_id') or ''
         self.status = record['status']
 
     @property
@@ -38,10 +42,41 @@ class User(UserMixin):
 
     @property
     def is_admin(self):
-        return self.role == db.ROLE_ADMIN
+        return self.role == db.ROLE_ADMIN or self.clinical_role == db.CLINICAL_ROLE_ADMIN
+
+    @property
+    def clinical_role_label(self):
+        return db.CLINICAL_ROLE_LABELS.get(self.clinical_role, self.clinical_role)
 
     def has_role(self, *roles):
         return self.role in roles
+
+    def has_break_glass(self, patient_id):
+        if not patient_id:
+            return False
+        return db.get_active_break_glass_grant(self.username, patient_id) is not None
+
+    def can_prescribe(self, patient_id=None):
+        """Prescribing requires admin, prescriber, general_clinician, or an active Break-the-Glass grant."""
+        if self.is_admin or self.clinical_role in (db.CLINICAL_ROLE_PRESCRIBER, db.CLINICAL_ROLE_GENERAL):
+            return True
+        return self.has_break_glass(patient_id)
+
+    def can_dispense(self):
+        """Pharmacy dispensing requires admin, pharmacist, or general_clinician."""
+        return self.is_admin or self.clinical_role in (db.CLINICAL_ROLE_PHARMACIST, db.CLINICAL_ROLE_GENERAL)
+
+    def can_author_diagnosis(self, patient_id=None):
+        """Originating SNOMED/ICD-10 diagnoses requires admin, prescriber, general_clinician, or Break-the-Glass."""
+        if self.is_admin or self.clinical_role in (db.CLINICAL_ROLE_PRESCRIBER, db.CLINICAL_ROLE_GENERAL):
+            return True
+        return self.has_break_glass(patient_id)
+
+    def can_record_clinical_obs(self, patient_id=None):
+        """Auditors are strictly read-only on patient charts unless Break-the-Glass is invoked."""
+        if self.clinical_role == db.CLINICAL_ROLE_AUDITOR:
+            return self.has_break_glass(patient_id)
+        return True
 
 
 def load_user(user_id):

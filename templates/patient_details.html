@@ -1,4 +1,28 @@
 <!-- Minimalist Medical Chart Banner -->
+{% if smart_context and smart_context.patient == patient['id'] %}
+<div class="alert alert-primary py-2 px-3 small mb-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div>
+        <i class="fas fa-network-wired me-1"></i>
+        <strong>Verified HL7 SMART-on-FHIR v2 EHR Context:</strong>
+        Issuer <code>{{ smart_context.iss }}</code> &bull; Practitioner <code>{{ smart_context.fhirUser }}</code> &bull; Scopes <code>{{ smart_context.scope }}</code>
+    </div>
+    <span class="status-pill status-pass">SMART v2 BOUND</span>
+</div>
+{% endif %}
+
+<div id="break-glass-banner-{{ patient['id'] }}">
+    {% if active_break_glass %}
+    <div class="alert alert-warning border-warning py-2 px-3 small mb-2 d-flex flex-wrap justify-content-between align-items-center">
+        <div>
+            <i class="fas fa-bolt text-danger me-1"></i>
+            <strong>BREAK-THE-GLASS ACTIVE (60-Min Emergency Grant #{{ active_break_glass.id }}):</strong>
+            {{ active_break_glass.emergency_type }} &mdash; {{ active_break_glass.justification }}
+        </div>
+        <span class="status-pill status-warn">EXPIRES {{ active_break_glass.expires_at[11:16] }} UTC</span>
+    </div>
+    {% endif %}
+</div>
+
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
     <div class="d-flex align-items-center gap-2">
         <button class="btn btn-sm btn-outline-secondary"
@@ -11,6 +35,10 @@
         <span class="text-muted small font-monospace">FHIR R4 Chart &bull; Patient/{{ patient['id'] }}</span>
     </div>
     <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-sm btn-outline-primary fw-semibold"
+                data-bs-toggle="collapse" data-bs-target="#voiceScribeCollapse-{{ patient['id'] }}">
+            <i class="fas fa-microphone-alt me-1"></i> Agent 10: Voice Scribe
+        </button>
         <button class="btn btn-sm btn-outline-primary fw-semibold"
                 hx-post="/ai/summarise/{{ patient['id'] }}"
                 hx-target="#ai-bedside-briefing-{{ patient['id'] }}"
@@ -21,13 +49,140 @@
                 hx-post="/ai/crosscheck/{{ patient['id'] }}"
                 hx-target="#ai-rxguard-{{ patient['id'] }}"
                 hx-swap="innerHTML">
-            <i class="fas fa-shield-virus me-1"></i> Agent 08: Rx-Guard Check
+            <i class="fas fa-shield-virus me-1"></i> Agent 08: 3-Tier Rx-Guard
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-semibold"
+                data-bs-toggle="collapse" data-bs-target="#breakGlassCollapse-{{ patient['id'] }}"
+                title="Emergency GDPR Art. 9(2)(c) Break-the-Glass Access Override">
+            <i class="fas fa-bolt text-danger me-1"></i> Break-the-Glass
         </button>
         <button type="button" class="btn btn-sm btn-success fw-semibold" data-bs-toggle="modal" data-bs-target="#signOffModal">
             <i class="fas fa-signature me-1"></i> Electronic Sign-Off
         </button>
     </div>
 </div>
+
+<!-- Collapsible Emergency Break-the-Glass Drawer -->
+<div class="collapse mb-3" id="breakGlassCollapse-{{ patient['id'] }}">
+    <div class="card border-warning">
+        <div class="card-header py-2 bg-warning-subtle d-flex justify-content-between align-items-center">
+            <span class="small fw-bold text-dark"><i class="fas fa-bolt text-danger me-1"></i>Emergency "Break-the-Glass" Clinical Access Override (GDPR Art. 9(2)(c) Vital Interests)</span>
+            <span class="status-pill status-warn">IMMEDIATE SIEM ALERT</span>
+        </div>
+        <div class="card-body py-2 px-3">
+            <form hx-post="/enterprise/break-glass/{{ patient['id'] }}"
+                  hx-target="#break-glass-banner-{{ patient['id'] }}"
+                  hx-swap="innerHTML"
+                  class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold mb-1">Clinical Emergency Category</label>
+                    <select name="emergency_type" class="form-select form-select-sm">
+                        <option value="Unconscious / Acute Resuscitation">Unconscious / Acute Resuscitation</option>
+                        <option value="Acute Sepsis / Physiological Deterioration">Acute Sepsis / Physiological Deterioration</option>
+                        <option value="Life-Threatening Drug / Allergy Verification">Life-Threatening Drug / Allergy Verification</option>
+                        <option value="Emergency Surgical / Procedural Clearance">Emergency Surgical / Procedural Clearance</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold mb-1">Mandatory Clinical Justification (Logged Immutably &amp; Sent to CISO SIEM)</label>
+                    <input type="text" name="justification" class="form-control form-control-sm"
+                           placeholder="e.g. Unconscious trauma patient in Resus Bay 2 — urgent allergy &amp; prescribing access required" required minlength="10">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button type="submit" class="btn btn-sm btn-danger fw-semibold">Invoke 60m Grant</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Collapsible Agent 10 (SlainteScribe-Voice) Ambient Voice Scribe Drawer -->
+<div class="collapse mb-3" id="voiceScribeCollapse-{{ patient['id'] }}">
+    <div class="card border-primary">
+        <div class="card-header py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span><i class="fas fa-microphone-alt text-primary me-1"></i><strong>Agent 10 (`SlainteScribe-Voice`): Ambient Clinical Consultation Scribe</strong></span>
+            <div class="d-flex gap-2 align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                        onclick="window.toggleSlainteVoiceDictation('scribeTranscript-{{ patient['id'] }}', this)">
+                    <i class="fas fa-microphone me-1"></i>Start Live Dictation
+                </button>
+                <span class="status-pill status-neutral">3-Tier Rx-Guard Pre-Check</span>
+            </div>
+        </div>
+        <div class="card-body p-3">
+            <form hx-post="/enterprise/scribe/process"
+                  hx-target="#scribe-draft-output-{{ patient['id'] }}"
+                  hx-swap="innerHTML"
+                  enctype="multipart/form-data">
+                <input type="hidden" name="patient_id" value="{{ patient['id'] }}">
+                <div class="row g-2 mb-2">
+                    <div class="col-md-7">
+                        <label class="form-label small fw-bold mb-1">Quick Consultation Scenario Preset (or Dictate / Type Below)</label>
+                        <select name="preset_key" class="form-select form-select-sm"
+                                onchange="var opt=this.options[this.selectedIndex]; if(opt.dataset.tx){document.getElementById('scribeTranscript-{{ patient['id'] }}').value=opt.dataset.tx;}">
+                            <option value="">-- Custom Live Dictation / Consultation Transcript --</option>
+                            {% for pr in (scribe_presets or []) %}
+                            <option value="{{ pr.key }}" data-tx="{{ pr.transcript }}">{{ pr.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small fw-bold mb-1">Optional Consultation Audio Upload (WAV/MP3/WebM)</label>
+                        <input type="file" name="audio_file" accept="audio/*" class="form-control form-control-sm">
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <textarea id="scribeTranscript-{{ patient['id'] }}" name="transcript_text" rows="3"
+                              class="form-control form-control-sm"
+                              placeholder="Click 'Start Live Dictation', select a clinical preset above, or type consultation findings..."></textarea>
+                </div>
+                <div class="d-flex justify-content-end">
+                    <button type="submit" class="btn btn-sm btn-primary fw-semibold">
+                        <i class="fas fa-magic me-1"></i>Extract Structured SOAP &amp; Pre-Screen Orders
+                    </button>
+                </div>
+            </form>
+            <div id="scribe-draft-output-{{ patient['id'] }}" class="mt-3"></div>
+        </div>
+    </div>
+</div>
+<script>
+window.toggleSlainteVoiceDictation = window.toggleSlainteVoiceDictation || function(targetId, btnEl) {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    var box = document.getElementById(targetId);
+    if (!SR) {
+        if (box && !box.value) {
+            box.value = "Patient presents with 4 days of productive cough and fever. BP 146/88 mmHg, HR 96 bpm, SpO2 95%, Temp 38.2 C. Assessment: Acute lower respiratory tract infection. Plan: Amoxicillin 500mg Oral Capsule TDS for 5 days and Paracetamol 1g Oral Tablet QDS PRN.";
+        }
+        return;
+    }
+    if (window._slainteRecActive && window._slainteRecInstance) {
+        window._slainteRecInstance.stop();
+        window._slainteRecActive = false;
+        btnEl.innerHTML = '<i class="fas fa-microphone me-1"></i>Start Live Dictation';
+        return;
+    }
+    var rec = new SR();
+    rec.lang = 'en-IE';
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.onresult = function(ev) {
+        var chunk = '';
+        for (var i = ev.resultIndex; i < ev.results.length; i++) {
+            if (ev.results[i].isFinal) chunk += ev.results[i][0].transcript + ' ';
+        }
+        if (box && chunk) box.value = (box.value ? box.value + ' ' : '') + chunk.trim();
+    };
+    rec.onend = function() {
+        window._slainteRecActive = false;
+        btnEl.innerHTML = '<i class="fas fa-microphone me-1"></i>Start Live Dictation';
+    };
+    window._slainteRecInstance = rec;
+    window._slainteRecActive = true;
+    btnEl.innerHTML = '<i class="fas fa-stop-circle me-1"></i>Stop Dictation (Listening...)';
+    rec.start();
+};
+</script>
 
 <div class="card mb-3">
     <div class="card-body py-3 px-3">
@@ -139,6 +294,12 @@
     </div>
 </div>
 
+<!-- Agent 11 (`SlainteRev-Coding`) Live Uncoded HIPE / ICD-10-AM Comorbidity Detector -->
+<div id="coding-audit-panel-{{ patient['id'] }}"
+     hx-get="/enterprise/coding/scan/{{ patient['id'] }}"
+     hx-trigger="load, vitalsUpdated from:body, scribeCommitted from:body"
+     hx-swap="innerHTML"></div>
+
 <!-- Row 2: Active Medications (with Agent 08 Rx-Guard Pre-Flight) + Problem List / Conditions -->
 <div class="row g-3 mb-3">
     <div class="col-lg-6">
@@ -161,7 +322,7 @@
             <div class="card-body p-0">
                 <div id="medications" class="fade-me-in"
                      hx-get="/fhir/Medications/{{ patient['id'] }}"
-                     hx-trigger="load"></div>
+                     hx-trigger="load, scribeCommitted from:body"></div>
             </div>
         </div>
     </div>
@@ -185,7 +346,7 @@
             <div class="card-body p-0">
                 <div id="conditions" class="fade-me-in"
                      hx-get="/fhir/Conditions/{{ patient['id'] }}"
-                     hx-trigger="load"></div>
+                     hx-trigger="load, scribeCommitted from:body, conditionsUpdated from:body"></div>
             </div>
         </div>
     </div>
@@ -259,7 +420,7 @@
             <div class="card-body p-0">
                 <div id="clinicalNotes" class="fade-me-in"
                      hx-get="/fhir/Notes/{{ patient['id'] }}"
-                     hx-trigger="load"></div>
+                     hx-trigger="load, scribeCommitted from:body"></div>
             </div>
         </div>
     </div>

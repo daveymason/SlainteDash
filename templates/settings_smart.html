@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}SMART-on-FHIR v2, Hospital SSO &amp; SIEM &mdash; SlainteTech{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
+    <div>
+        <h1 class="h4 fw-bold text-dark mb-1">SMART-on-FHIR v2, Hospital OIDC SSO &amp; CISO SIEM Hub</h1>
+        <p class="text-muted small mb-0">
+            Embed inside Epic Hyperdrive, Oracle Health (Cerner), or HSE Healthlink with HL7 SMART App Launch v2.0, PKCE SSO, and HMAC-signed SIEM security telemetry.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/smart/.well-known/smart-configuration" target="_blank" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-code me-1"></i><code>.well-known/smart-configuration</code>
+        </a>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left me-1"></i>Back to Workstation
+        </a>
+    </div>
+</div>
+
+{% set active_tab = 'smart' %}
+{% include "settings_nav.html" %}
+
+{% if saved_notice %}
+<div class="alert alert-success py-2 px-3 small mb-3" style="max-width: 1140px;">
+    <i class="fas fa-check-circle me-1"></i>Hospital OIDC SSO &amp; CISO SIEM configuration saved across all Gunicorn workers.
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4" style="max-width: 1140px;">
+    <!-- Left Column: Interactive 1-Click SMART-on-FHIR EHR Patient Context Launch Simulator -->
+    <div class="col-lg-6">
+        <div class="card h-100 mb-0">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-rocket text-primary me-2"></i><strong>1-Click SMART-on-FHIR v2 EHR Launch Simulator</strong></span>
+                <span class="status-pill status-pass">HL7 v2.0 PKCE</span>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Simulates an embedded launch from a hospital EHR (<code>GET /smart/launch?iss=...&amp;launch=...</code>), minting a cryptographically signed HMAC-SHA256 launch token and binding the launched patient context banner.
+                </p>
+                <form method="post" action="{{ url_for('enterprise.smart_simulate_launch') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold mb-1">Host Hospital EHR System (<code>iss</code>)</label>
+                        <select name="ehr_vendor" class="form-select form-select-sm">
+                            <option value="Epic Hyperdrive R4 (Mater Dublin)">Epic Hyperdrive R4 (Mater Hospital Dublin)</option>
+                            <option value="Oracle Health Millennium R4 (St. James's)">Oracle Health / Cerner Millennium R4 (St. James's)</option>
+                            <option value="HSE National Shared Care Record (Ireland)">HSE National Shared Care Record (Ireland)</option>
+                            <option value="MEDITECH Expanse FHIR R4">MEDITECH Expanse FHIR R4</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold mb-1">Patient Context (<code>launch/patient</code>)</label>
+                        <select name="patient_id" class="form-select form-select-sm">
+                            {% for pt in patients %}
+                            <option value="{{ pt.id }}">{{ pt.id }} &mdash; {{ pt.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold mb-1">Target Clinical Specialty Cockpit</label>
+                        <select name="vertical_key" class="form-select form-select-sm">
+                            {% for v in verticals %}
+                            <option value="{{ v.key }}">{{ v.brand }} &mdash; {{ v.title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold">
+                        <i class="fas fa-external-link-alt me-1"></i>Execute Signed SMART-on-FHIR Patient Launch
+                    </button>
+                </form>
+
+                <hr class="my-3">
+                <div class="small">
+                    <div class="fw-bold text-muted text-uppercase mb-1" style="font-size: 0.7rem;">Active Discovery Endpoints</div>
+                    <div class="font-monospace text-truncate mb-1" style="font-size: 0.75rem;">
+                        <strong>Auth:</strong> {{ smart_config.authorization_endpoint }}
+                    </div>
+                    <div class="font-monospace text-truncate mb-1" style="font-size: 0.75rem;">
+                        <strong>Token:</strong> {{ smart_config.token_endpoint }}
+                    </div>
+                    <div class="font-monospace text-truncate" style="font-size: 0.75rem;">
+                        <strong>JWKS:</strong> {{ smart_config.jwks_uri }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Hospital OIDC SSO & CISO SIEM Webhook Configuration -->
+    <div class="col-lg-6">
+        <div class="card h-100 mb-0">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-id-badge text-primary me-2"></i><strong>Enterprise OIDC SSO &amp; CISO SIEM Webhook</strong></span>
+                <span class="status-pill status-neutral">NIS2 Art. 23</span>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{{ url_for('enterprise.settings_smart_save') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold mb-1">Identity Provider Label</label>
+                        <input type="text" name="provider_name" class="form-control form-control-sm" value="{{ oidc_cfg.provider_name }}">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold mb-1">OIDC Issuer URL (Entra ID / Okta / Keycloak)</label>
+                        <input type="text" name="issuer_url" class="form-control form-control-sm font-monospace"
+                               placeholder="https://login.microsoftonline.com/<tenant-id>/v2.0"
+                               value="{{ oidc_cfg.issuer_url }}">
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold mb-1">OIDC Client ID</label>
+                            <input type="text" name="client_id" class="form-control form-control-sm font-monospace" value="{{ oidc_cfg.client_id }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold mb-1">SMART / OIDC Scopes</label>
+                            <input type="text" name="scopes" class="form-control form-control-sm font-monospace" value="{{ oidc_cfg.scopes }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold mb-1">CISO SIEM Webhook URL (Microsoft Sentinel / Splunk / PagerDuty)</label>
+                        <input type="text" name="siem_webhook_url" id="siemWebhookInput" class="form-control form-control-sm font-monospace"
+                               placeholder="https://sentinel-ingest.hospital.ie/api/webhooks/slainte"
+                               value="{{ oidc_cfg.siem_webhook_url }}">
+                        <div class="form-text" style="font-size: 0.72rem;">
+                            Every event is signed with <code>X-Slainte-Signature: sha256=&lt;HMAC&gt;</code> using your instance secret.
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                            <i class="fas fa-save me-1"></i>Save Enterprise Config
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                hx-post="/enterprise/siem/test"
+                                hx-include="#siemWebhookInput"
+                                hx-target="#siem-test-status"
+                                hx-swap="innerHTML">
+                            <i class="fas fa-satellite-dish me-1"></i>Send Test SIEM Ping
+                        </button>
+                    </div>
+                </form>
+                <div id="siem-test-status" class="mt-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent HMAC-Signed SIEM Security Events -->
+<div class="card mb-4" style="max-width: 1140px;">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-shield-alt text-primary me-2"></i><strong>Recent Signed CISO SIEM Telemetry Events</strong></span>
+        <a href="/agents/compliance-certificate" class="btn btn-sm btn-outline-primary py-0 px-2">
+            <i class="fas fa-certificate me-1"></i>Open Printable NIS2 / EU AI Act Certificate
+        </a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0 small align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Severity</th>
+                        <th>Event Type</th>
+                        <th>Actor</th>
+                        <th>HMAC-SHA256 Signature</th>
+                        <th>Delivery Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ev in siem_events %}
+                    <tr>
+                        <td class="font-monospace">{{ ev.occurred_at[:19] }}</td>
+                        <td>
+                            <span class="status-pill {% if ev.severity == 'CRITICAL' %}status-fail{% else %}status-warn{% endif %}">
+                                {{ ev.severity }}
+                            </span>
+                        </td>
+                        <td class="font-monospace fw-semibold">{{ ev.event_type }}</td>
+                        <td>{{ ev.actor }}</td>
+                        <td class="font-monospace text-muted">{{ ev.hmac_signature }}</td>
+                        <td class="font-monospace">{{ ev.delivery_status }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-3">
+                            No SIEM security alerts fired yet. Click <strong>Send Test SIEM Ping</strong> above or invoke <strong>Break-the-Glass</strong> on a patient chart.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

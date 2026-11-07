@@ -1,0 +1,72 @@
+{% if flash_msg %}
+<div class="alert alert-success py-2 px-3 small mb-2">
+    <i class="fas fa-check-circle me-1"></i>{{ flash_msg }}
+</div>
+{% endif %}
+
+{% if coding_report and coding_report.gaps %}
+<div class="card border-warning mb-3">
+    <div class="card-header py-2 d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
+        <span>
+            <i class="fas fa-coins text-primary me-1"></i>
+            <strong>Agent 11 (`SlainteRev-Coding`): Uncoded HIPE / ICD-10-AM Comorbidities Detected</strong>
+        </span>
+        <div class="d-flex gap-2 align-items-center">
+            <span class="status-pill status-warn">{{ coding_report.gaps|length }} Uncoded Gap(s)</span>
+            <span class="status-pill status-pass">Est. HIPE DRG Uplift: +&euro;{{ "{:,}".format(coding_report.total_uplift_eur) }}</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>ICD-10-AM / SNOMED</th>
+                        <th>Suggested Comorbidity</th>
+                        <th>Objective Clinical Evidence</th>
+                        <th>HIPE Complexity Uplift</th>
+                        <th class="text-end">1-Click Capture</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for gap in coding_report.gaps %}
+                    <tr>
+                        <td class="font-monospace small">
+                            <strong>{{ gap.icd10_code }}</strong>
+                            <div class="text-muted" style="font-size: 0.7rem;">SCT: {{ gap.snomed_code }}</div>
+                        </td>
+                        <td class="small fw-semibold">{{ gap.condition_display }}</td>
+                        <td class="small">
+                            <code>[{{ gap.evidence_ref }}]</code> {{ gap.evidence_summary }}
+                        </td>
+                        <td class="small">
+                            <span class="status-pill status-pass">+&euro;{{ "{:,}".format(gap.drg_uplift_eur) }}</span>
+                            <span class="text-muted ms-1" style="font-size: 0.72rem;">({{ gap.cc_tier }})</span>
+                        </td>
+                        <td class="text-end">
+                            <form hx-post="/enterprise/coding/apply/{{ coding_report.patient_id }}"
+                                  hx-target="#coding-audit-panel-{{ coding_report.patient_id }}"
+                                  hx-swap="innerHTML"
+                                  class="d-inline">
+                                <input type="hidden" name="icd10_code" value="{{ gap.icd10_code }}">
+                                <input type="hidden" name="snomed_code" value="{{ gap.snomed_code }}">
+                                <input type="hidden" name="condition_display" value="{{ gap.condition_display }}">
+                                <input type="hidden" name="evidence_ref" value="{{ gap.evidence_ref }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary py-0 px-2">
+                                    <i class="fas fa-plus me-1"></i>Code to Chart
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% elif coding_report and flash_msg %}
+<div class="alert alert-light border py-2 px-3 small mb-2 d-flex justify-content-between align-items-center">
+    <span><i class="fas fa-check-circle text-success me-1"></i><strong>Agent 11 (`SlainteRev-Coding`):</strong> All objective lab &amp; vital comorbidities are captured in <code>Condition</code> Problem List.</span>
+    <span class="status-pill status-pass">100% HIPE CODED</span>
+</div>
+{% endif %}

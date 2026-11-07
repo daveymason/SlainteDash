@@ -3,7 +3,7 @@
 The single planning document for this project. Phases are numbered in the
 order they should be built. Supersedes the previous per-phase files.
 
-Last reviewed: 2026-08-09 · 286 tests passing, pyflakes clean.
+Last reviewed: 2026-11-07 · 347 tests passing across monorepo (`329` frontend + `6` auditor + `12` FastMCP).
 
 - [1. Status](#1-status)
 - [2. Unified Architecture & Renumbering](#2-unified-architecture--renumbering)
@@ -34,6 +34,7 @@ Last reviewed: 2026-08-09 · 286 tests passing, pyflakes clean.
 | 7 | SlainteFHIR micro-EHR (8082), Slainte-Auditor red-team verifier, GMS dedup | **Done**, merged |
 | 8 | AI Model Selector (`/settings/ai`), `.env` key integration, Bedside AI Briefing | **Done**, merged |
 | 11 + 9 Lite | Sidebar "Agents" Hub (9 Agents + Settings + Embedded Copilots), GDPR/CVE/Audit Agents, & "Sign in as..." 7 Vertical Cockpits | **Done**, merged |
+| 11.5 | 11-Agent Enterprise Pack & 7 Killer Features (SMART-on-FHIR v2 + OIDC SSO, `Agent 10` Ambient Voice Scribe, HL7v2 + HSE PCRS, Granular Clinical RBAC + Break-the-Glass, SIEM + Compliance Certificate, `Agent 11` HIPE Revenue Coding + Postgres RLS, 3-Tier `SlainteRx-Guard`) | **Done**, verified live |
 | 12 | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js + Netlify + Docker) | **Active Next Priority** |
 | 10 | Standalone Mobile/Laptop Patient App (Shared `SlainteFHIR` Backend) | **Deferred (Separate Post-Funding Project)** |
 
@@ -63,6 +64,7 @@ Phases are aligned with the master `slainte-engine/roadmap.md` specification:
 | **7** | SlainteFHIR Micro-EHR (Port 8082), Slainte-Auditor Red-Team Verifier, GMS Dedup | **Completed** |
 | **8** | Unified AI Model Selector (`/settings/ai`), `.env` Key Integration, Bedside Briefing | **Completed** |
 | **9 Lite + 11** | Sidebar "Agents" Hub (9 Agents + Settings + Embedded Copilots) & "Sign in as..." 7 Vertical Cockpits | **Completed** |
+| **11.5** | 11-Agent Enterprise Pack & 7 Killer Features (`SlainteScribe-Voice`, `SlainteRev-Coding`, SMART v2, HL7v2, Clinical RBAC, SIEM, 3-Tier Rx-Guard) | **Completed** |
 | **12** | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js + Netlify + Docker) | **Active Next** |
 | **10** | Standalone Mobile/Laptop Patient App (Shared `SlainteFHIR` Backend) | **Deferred (Post-Funding)** |
 

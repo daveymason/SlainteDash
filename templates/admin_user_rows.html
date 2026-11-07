@@ -1,6 +1,6 @@
 {% for user in users %}
 <tr>
-    <td class="font-monospace small">{{ user.username }}</td>
+    <td class="font-monospace small fw-bold">{{ user.username }}</td>
     <td>
         <form class="d-inline"
               hx-post="{{ url_for('admin_set_user_role', username=user.username) }}"
@@ -13,6 +13,28 @@
                 <option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ role|capitalize }}</option>
                 {% endfor %}
             </select>
+        </form>
+    </td>
+    <td>
+        <form class="d-flex flex-wrap align-items-center gap-1 m-0"
+              hx-post="{{ url_for('enterprise.admin_set_clinical_role', username=user.username) }}"
+              hx-target="#admin-user-rows"
+              hx-swap="innerHTML">
+            {% set c_roles = clinical_roles or ['general_clinician', 'prescriber', 'pharmacist', 'triage_nurse', 'auditor', 'admin'] %}
+            {% set c_labels = clinical_role_labels or {} %}
+            <select name="clinical_role" class="form-select form-select-sm" style="width: auto; max-width: 210px; font-size: 0.76rem;"
+                    aria-label="Clinical Specialty Role for {{ user.username }}">
+                {% for cr in c_roles %}
+                <option value="{{ cr }}" {% if (user.clinical_role or 'general_clinician') == cr %}selected{% endif %}>
+                    {{ c_labels.get(cr, cr) }}
+                </option>
+                {% endfor %}
+            </select>
+            <input type="text" name="registration_id" class="form-control form-control-sm font-monospace"
+                   style="width: 105px; font-size: 0.74rem;"
+                   placeholder="IMC/PSI ID"
+                   value="{{ user.registration_id or '' }}">
+            <button type="submit" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.73rem;">Save</button>
         </form>
     </td>
     <td>
@@ -48,5 +70,5 @@
     </td>
 </tr>
 {% else %}
-<tr><td colspan="6" class="text-center text-muted py-3">No users registered yet.</td></tr>
+<tr><td colspan="7" class="text-center text-muted py-3">No users registered yet.</td></tr>
 {% endfor %}

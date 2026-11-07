@@ -50,15 +50,19 @@
                     <li><a class="dropdown-item py-1" href="/?view=agent_fhir_conformance"><span class="text-muted font-monospace me-1">02</span> FHIR R4 Integrity Agent</a></li>
                     <li><a class="dropdown-item py-1" href="/?view=agent_cve_vulnerability"><span class="text-muted font-monospace me-1">03</span> Supply-Chain &amp; CVE Agent</a></li>
                     <li><hr class="dropdown-divider my-1"></li>
-                    <li><h6 class="dropdown-header text-uppercase" style="font-size: 0.68rem;">SlainteGov — Privacy &amp; Audit</h6></li>
+                    <li><h6 class="dropdown-header text-uppercase" style="font-size: 0.68rem;">SlainteGov — Privacy, Audit &amp; HIPE</h6></li>
                     <li><a class="dropdown-item py-1" href="/?view=agent_gdpr_privacy"><span class="text-muted font-monospace me-1">04</span> GDPR Art. 9 Privacy Agent</a></li>
                     <li><a class="dropdown-item py-1" href="/?view=agent_immutable_audit"><span class="text-muted font-monospace me-1">05</span> GovAudit &amp; Provenance Agent</a></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_clinical_coding"><span class="text-muted font-monospace me-1">11</span> HIPE / ICD-10-AM Coding Agent</a></li>
                     <li><hr class="dropdown-divider my-1"></li>
-                    <li><h6 class="dropdown-header text-uppercase" style="font-size: 0.68rem;">SlainteClinical — Bedside</h6></li>
-                    <li><a class="dropdown-item py-1" href="/?view=agent_multimodal_ingest"><span class="text-muted font-monospace me-1">06</span> Clinical Ingestion Pipeline</a></li>
+                    <li><h6 class="dropdown-header text-uppercase" style="font-size: 0.68rem;">SlainteClinical — Bedside &amp; Voice</h6></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_multimodal_ingest"><span class="text-muted font-monospace me-1">06</span> Clinical &amp; HL7v2 Ingestion</a></li>
                     <li><a class="dropdown-item py-1" href="/?view=agent_patient_summariser"><span class="text-muted font-monospace me-1">07</span> Cited Patient Summariser</a></li>
-                    <li><a class="dropdown-item py-1" href="/?view=agent_medication_safety"><span class="text-muted font-monospace me-1">08</span> Rx-Guard Allergy Safety</a></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_medication_safety"><span class="text-muted font-monospace me-1">08</span> 3-Tier Rx-Guard Pharmacology</a></li>
                     <li><a class="dropdown-item py-1" href="/?view=agent_acuity_triage"><span class="text-muted font-monospace me-1">09</span> Dx-Triage &amp; NEWS2 Acuity</a></li>
+                    <li><a class="dropdown-item py-1" href="/?view=agent_ambient_scribe"><span class="text-muted font-monospace me-1">10</span> Ambient Voice Scribe Agent</a></li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li><a class="dropdown-item py-1 fw-semibold text-primary" href="/agents/compliance-certificate"><i class="fas fa-certificate me-1"></i> NIS2 / EU AI Act Certificate</a></li>
                 </ul>
             </div>
 
@@ -71,6 +75,7 @@
                     <li><h6 class="dropdown-header text-uppercase" style="font-size: 0.68rem;">System Configuration</h6></li>
                     <li><a class="dropdown-item py-1" href="{{ url_for('settings_data') }}"><i class="fas fa-database me-2 text-muted"></i>Data &amp; FHIR Backend</a></li>
                     <li><a class="dropdown-item py-1" href="{{ url_for('ai_settings') }}"><i class="fas fa-microchip me-2 text-muted"></i>AI &amp; Model Provider</a></li>
+                    <li><a class="dropdown-item py-1" href="{{ url_for('enterprise.settings_smart') }}"><i class="fas fa-network-wired me-2 text-muted"></i>SMART-on-FHIR &amp; Hospital SSO</a></li>
                     <li><a class="dropdown-item py-1" href="{{ url_for('settings_security') }}"><i class="fas fa-lock me-2 text-muted"></i>Security &amp; Audit Ledger</a></li>
                     <li><hr class="dropdown-divider my-1"></li>
                     <li><a class="dropdown-item py-1" href="{{ url_for('settings_app') }}"><i class="fas fa-desktop me-2 text-muted"></i>Display Preferences</a></li>

@@ -339,14 +339,18 @@ class TestBucketCWorkstationCleanup:
         assert 'clinical-monogram' in body
 
     def test_triage_removes_dead_pipeline_status_button(self, auth_client):
-        with open('templates/triage.html', 'r', encoding='utf-8') as f:
+        import os
+        tpl_path = os.path.join(os.path.dirname(__file__), '..', 'templates', 'triage.html')
+        with open(tpl_path, 'r', encoding='utf-8') as f:
             triage_tpl = f.read()
         assert '/pipeline/status' not in triage_tpl
         assert '#patientIntakeModal' in triage_tpl
         assert 'agent_multimodal_ingest' in triage_tpl
 
     def test_htmx_setup_wires_global_display_preferences(self):
-        with open('static/htmx-setup.js', 'r', encoding='utf-8') as f:
+        import os
+        js_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'htmx-setup.js')
+        with open(js_path, 'r', encoding='utf-8') as f:
             js = f.read()
         assert 'applyDisplayPreferences' in js
         assert 'slainte_font_size' in js
