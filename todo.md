@@ -114,6 +114,22 @@
   - [x] Integrated `slainte-ingress` service in `docker-compose.yml` with ports `80` and `443`.
   - [x] Added automated validation test suite `tests/test_ingress_caddy.py` (342/342 passing tests across repo).
 
+### Step 3.5: Unified Single-Architecture Simplification & Agent Fleet Expansion (12–16) ✅ COMPLETED
+*(Consolidated multi-tier execution fragmentation into 1 standard `BaseAgent` architecture + built 5 requested agents, pending human review)*
+
+- [x] **Unified Single Agent Architecture (`BaseAgent` + `agents/runner.py` + `agents/cli.py`)**:
+  - [x] Retired multi-tier runtime fragmentation (separate OpenHands container shell loops and bespoke auditor scripts) in favor of the canonical `BaseAgent` Python architecture.
+  - [x] Built `agents/runner.py`: Standard execution engine handling synchronous copilot invocations, background daemon loops, and batch sweeps through one typed interface (`AgentExecutionResult`).
+  - [x] Built `agents/cli.py` & `agents/__main__.py`: Unified CLI (`python -m agents [list|run|health|audit]`) allowing operators and CI/CD pipelines to run any agent directly.
+- [x] **New Agents Expansion (Agents 12–16) — Built & Ready for Human Review**:
+  - [x] **Agent 12 — Clinic Onboarding & Migration Agent (`SlainteGov-Onboard` — `/agents/clinic_onboarding`)**: Introspects raw practice dumps (CSV/HL7v2/PDF), maps unstandardized codes to LOINC/SNOMED-CT via MCP, and compiles verified Irish Core FHIR R4 Bundles.
+  - [x] **Agent 13 — Discharge & Transfer Coordinator (`SlainteCare-Transfer` — `/agents/discharge_transfer`)**: Assesses physiological stability (NEWS2 <= 2), performs discharge medication reconciliation against documented allergies, and drafts structured primary care transfer summaries.
+  - [x] **Agent 14 — Emergency Pre-Alert Agent (`SlainteEMS-Alert` — `/agents/ems_prealert`)**: Evaluates ambulance vital signs and complaints to determine Manchester Triage urgency (Cat 1–2) and dispatch real-time pre-arrival alerts with ETA to receiving Emergency Departments.
+  - [x] **Agent 15 — Chronic Disease Surveillance Agent (`SlainteCare-CDM` — `/agents/chronic_surveillance`)**: Continuously audits diabetic, hypertensive, and CKD patient cohorts to surface overdue surveillance markers (HbA1c > 12m, eGFR drop, uncontrolled SBP >= 150 mmHg) for proactive GP intervention.
+  - [x] **Agent 16 — EU NIS2 Directive & Continuous Compliance Auditor (`SlainteGov-NIS2` — `/agents/nis2_compliance`)**: Continuously audits hospital operational controls against EU Directive 2022/2555 (NIS2) Article 21, verifying SIEM dispatch readiness, supply-chain pin integrity, and cryptographic Provenance sign-offs.
+  - [x] Enriched `AGENTS_CATALOG` in `agents/registry.py` from 11 to 16 agents; added concrete class dispatch in `get_agent_instance()`.
+  - [x] Expanded test suite in `tests/test_agents_fleet.py` (344/344 passing tests across monorepo).
+
 ### Step 4: Phase 13 — Production Hardening, Cloud SQL PostgreSQL RLS & Pilot Launch 🚀
 - [x] **External FHIR Sandbox Live Integration Testing**: Connected dynamic FHIR client (`/settings/data`) to external testbeds (HAPI FHIR R4 public demo, synthetic cohort intake, bidirectional write-back, and provenance signing). Verified live.
 - [ ] **Multi-Tenant PostgreSQL 16 RLS Migration & Google Cloud Platform Architecture**:

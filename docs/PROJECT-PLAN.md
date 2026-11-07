@@ -632,6 +632,28 @@ the LLM strictly as a conversational orchestrator while delegating all clinical 
 
 ---
 
+## 12.6. Phase 12.6 — Single Unified Architecture & 16-Agent Fleet Expansion
+
+**Status: Implemented & 100% Passing (344/344 Tests). Ready for Human Review.**
+
+**Why:** Having fragmented execution runtimes (OpenHands container shell loops, separate `slainte-auditor` containers, and in-process Flask copilots) introduced unnecessary orchestration friction. Unifying all agents under a single `BaseAgent` abstraction with a typed `AgentExecutionResult` and a centralized CLI/runner eliminates bespoke container dependencies and allows any agent to run synchronously from the UI, as a background job, or programmatically via CLI.
+
+### What Was Delivered:
+
+1. **Unified Single-Architecture Engine (`agents/runner.py` & `agents/cli.py`):**
+   - Consolidated agent execution into `run_agent(agent_id, context) -> AgentExecutionResult`.
+   - Added operator CLI (`python -m agents [list|run|health|audit]`) supporting unified agent inspection and execution.
+2. **Five New Agents Added to Registry & Catalog (Pending Human Review):**
+   - **Agent 12: Clinic Onboarding & Migration Agent (`SlainteGov-Onboard`):** Introspects raw practice dumps, maps clinical variables to LOINC/SNOMED-CT via MCP, and compiles verified Irish Core FHIR R4 Bundles.
+   - **Agent 13: Discharge & Transfer Coordinator (`SlainteCare-Transfer`):** Assesses physiological stability (NEWS2 <= 2), reconciles discharge medications against allergies, and drafts transfer summaries.
+   - **Agent 14: Emergency Pre-Alert Agent (`SlainteEMS-Alert`):** Evaluates pre-hospital vitals to calculate Manchester Triage urgency and dispatch pre-arrival alerts with ETA to receiving Emergency Departments.
+   - **Agent 15: Chronic Disease Surveillance Agent (`SlainteCare-CDM`):** Continuously audits diabetic and hypertensive panels for overdue surveillance markers (HbA1c > 12m, SBP >= 150 mmHg) for proactive GP intervention.
+   - **Agent 16: EU NIS2 Directive & Continuous Compliance Auditor (`SlainteGov-NIS2`):** Continuously audits hospital operational controls against EU Directive 2022/2555 Article 21 technical safeguards.
+3. **Automated Verification:**
+   - 344/344 tests passing across the entire monorepo (`tests/test_agents_fleet.py` + `frontend/tests/`).
+
+---
+
 ## 13. Phase 13 — Production Hardening, Cloud SQL PostgreSQL RLS & Pilot Launch (Active Next Phase)
 
 **Status: Active Next Priority.**
