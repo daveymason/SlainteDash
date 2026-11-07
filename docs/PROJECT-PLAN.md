@@ -797,12 +797,13 @@ Every autonomous agent in the 16-agent fleet is cleanly integrated into the clin
   - Connected dynamic FHIR proxy (`/settings/data`) to external testbeds (HAPI FHIR R4 public demo).
   - Verified bidirectional write-back, provenance signing, and remote validation under simulated network latency.
 - [ ] **Step 2: Multi-Tenant PostgreSQL 16 RLS Migration Cutover**:
-  - Connect `deploy/postgres_rls_schema.sql` to selected free-tier PostgreSQL instance (Neon or Supabase).
+  - Connect `deploy/postgres_rls_schema.sql` to selected free-tier PostgreSQL instance (Neon, Supabase, AWS Free Tier, or IBM Cloud credits — *Decision: To be decided before cutover*).
+  - Priority pilot vertical lead: **SlainteED & SlainteEMS** (Acute Emergency Department and Ambulance Triage queue with real-time pre-alerts).
   - Execute schema migration: `tenants`, `clinical_users`, `patients`, `fhir_resources` (`JSONB` + GIN indexing), `audit_ledger`, and `rls_policies`.
   - Validate `FORCE ROW LEVEL SECURITY` ensuring tenant isolation cannot be breached even by application SQL injection.
   - Run multi-worker gunicorn concurrency benchmarks under synthetic cohort loads.
 - [ ] **Step 3: Production Custom Domain & Automated TLS Ingress**:
-  - Purchase production domain (Operator action: e.g. `slainte.health` or similar).
+  - Purchase commercial production domain (Target: `slaintetech.com` or `slainte.io`).
   - Point DNS `A`/`AAAA` records to Caddy reverse proxy host.
   - Caddy automatically provisions production Let's Encrypt / ZeroSSL TLS certificates with automatic renewal.
 

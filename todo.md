@@ -152,11 +152,12 @@
 ### Step 4: Phase 13 — Production Hardening, Multi-Tenant PostgreSQL 16 RLS Migration (Startup Free-Tier Strategy) & Pilot Launch 🚀
 - [x] **External FHIR Sandbox Live Integration Testing**: Connected dynamic FHIR client (`/settings/data`) to external testbeds (HAPI FHIR R4 public demo, synthetic cohort intake, bidirectional write-back, and provenance signing). Verified live.
 - [ ] **Multi-Tenant PostgreSQL 16 RLS Migration (Startup Free-Tier / Multi-Cloud Strategy)**:
-  - [ ] Evaluate startup-friendly free tiers: **Neon Serverless Postgres** (Free Tier: 0.5 GB, autoscale vCPU, native RLS, instant branching), **Supabase** (Free Tier: 500 MB PostgreSQL 16, built-in RLS), **AWS RDS Free Tier** (db.t4g.micro for 12 months), or **IBM Cloud Databases for PostgreSQL** (free credits via Startup with IBM).
+  - [ ] Database host selection: Kept flexible between **Neon Serverless Postgres** (0.5 GB, native RLS, instant branching), **Supabase** (500 MB free PostgreSQL 16), **AWS RDS Free Tier**, or **IBM Cloud Startup Credits** (*Decision: To be finalized before cutover*).
+  - [ ] Initial live pilot vertical lead: **SlainteED & SlainteEMS** (Acute Emergency Department and Ambulance Triage queue with real-time pre-alerts).
   - [ ] Connect selected free-tier PostgreSQL instance and execute `deploy/postgres_rls_schema.sql` (`FORCE ROW LEVEL SECURITY` across hospital trust boundaries, clinical roles, and patients).
   - [ ] Run high-concurrency benchmarks under multi-worker gunicorn.
 - [ ] **Production Domain & Automated Public Ingress TLS**:
-  - [ ] Purchase custom production domain (Operator action: e.g. `slainte.health` or similar).
+  - [ ] Purchase commercial domain (Target: `slaintetech.com` or `slainte.io`).
   - [ ] Point DNS A/AAAA records to Caddy ingress host for automated Let's Encrypt / ZeroSSL TLS certificates with automatic renewal.
 
 ### Future Standalone Project (Deferred Post-Funding)
