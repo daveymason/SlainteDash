@@ -3,7 +3,7 @@
 The single planning document for this project. Phases are numbered in the
 order they should be built. Supersedes the previous per-phase files.
 
-Last reviewed: 2026-11-07 · 349 tests passing across monorepo (`331` frontend + `6` auditor + `12` FastMCP).
+Last reviewed: 2026-11-07 · 342 automated tests passing across monorepo (`331` frontend + `7` agents fleet + `4` ingress caddy).
 
 - [1. Status](#1-status)
 - [2. Unified Architecture & Renumbering](#2-unified-architecture--renumbering)
@@ -17,10 +17,11 @@ Last reviewed: 2026-11-07 · 349 tests passing across monorepo (`331` frontend +
 - [10. Phase 10 — Patient Portal & Secure Subject Access](#10-phase-10--patient-portal--secure-subject-access)
 - [11. Phase 11 — Multi-Vertical Domain Specialization & 11-Agent Fleet](#11-phase-11--multi-vertical-domain-specialization)
 - [12. Phase 12 — Turnkey Appliance Packaging & Commercial Launch (`SlaintePages`)](#12-phase-12--turnkey-appliance-packaging--commercial-launch)
-- [13. Phase 13 — Production Hardening, Ingress TLS & Netlify Launch (Active Next Phase)](#13-phase-13--production-hardening-ingress-tls--netlify-launch)
-- [14. Reference & Enterprise AI Strategy](#14-reference--enterprise-ai-strategy)
-- [15. Gaps and innovations](#15-gaps-and-innovations)
-- [16. Open decisions](#16-open-decisions)
+- [13. Phase 12.5 — Monorepo Consolidation & Agentic Plumbing (Option A)](#125-phase-125--monorepo-consolidation--agentic-plumbing-option-a)
+- [14. Phase 13 — Production Hardening, PostgreSQL RLS & Live Pilot Launch (Active Next Phase)](#13-phase-13--production-hardening-postgresql-rls--live-pilot-launch-active-next-phase)
+- [15. Reference & Enterprise AI Strategy](#15-reference--enterprise-ai-strategy)
+- [16. Gaps and innovations](#16-gaps-and-innovations)
+- [17. Open decisions](#17-open-decisions)
 
 ---
 
@@ -37,13 +38,14 @@ Last reviewed: 2026-11-07 · 349 tests passing across monorepo (`331` frontend +
 | 11 + 9 Lite | Sidebar "Agents" Hub (11 Agents + Settings + Embedded Copilots), GDPR/CVE/Audit Agents, & "Sign in as..." 8 Specialty Verticals | **Done**, merged |
 | 11.5 | 11-Agent Enterprise Pack & 7 Killer Features (SMART-on-FHIR v2 + OIDC SSO, `Agent 10` Ambient Voice Scribe, HL7v2 + HSE PCRS, Granular Clinical RBAC + Break-the-Glass, SIEM + Compliance Certificate, `Agent 11` HIPE Revenue Coding + Postgres RLS, 3-Tier `SlainteRx-Guard`) | **Done**, verified live |
 | 12 | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js 15 + MUI v6 + SSG static site, 33 static pages, 1,200 verified links) | **Done**, verified live |
-| 13 | Production Hardening, Ingress TLS, Multi-Tenant Postgres RLS Cutover & Live Pilot Launch | **Active Next Priority** |
+| 12.5 | Monorepo Consolidation & Agentic Plumbing (Option A: Root `agents/` package, domain blueprints, Next.js site import, Caddy 2 ingress TLS reverse proxy) | **Done**, merged & verified live |
+| 13 | Production Hardening, Multi-Tenant Postgres RLS Cutover & Live Pilot Launch | **Active Next Priority** |
 | 10 | Standalone Mobile/Laptop Patient App (Shared `SlainteFHIR` Backend) | **Deferred (Post-Funding)** |
 
 The dashboard (`SlainteDash`) operates as the primary clinical interface of the
 unified **Slainte-Engine Appliance**, backed by `SlainteScan` (FastMCP 8081),
 `SlainteFHIR` (Micro-EHR 8082), `Slainte-Auditor` (Autonomous Red-Team FHIR Verifier),
-and `SlainteEngine` (Autonomous Ingestion 3000).
+`SlainteEngine` (Autonomous Ingestion 3000), and `Slainte-Ingress` (Caddy 2 Automated TLS Reverse Proxy :80/:443).
 
 ## 2. Unified Architecture & Renumbering
 
@@ -68,7 +70,8 @@ Phases are aligned with the master `slainte-engine/roadmap.md` specification:
 | **9 Lite + 11** | Sidebar "Agents" Hub (11 Agents + Settings + Embedded Copilots) & "Sign in as..." 8 Specialty Verticals | **Completed** |
 | **11.5** | 11-Agent Enterprise Pack & 7 Killer Features (`SlainteScribe-Voice`, `SlainteRev-Coding`, SMART v2, HL7v2, Clinical RBAC, SIEM, 3-Tier Rx-Guard) | **Completed** |
 | **12** | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js 15 + MUI v6 + SSG static site, 33 static pages, 1,200 verified links) | **Completed** |
-| **13** | Production Hardening, Ingress TLS, Multi-Tenant Postgres RLS Cutover & Live Pilot Launch | **Active Next** |
+| **12.5** | Monorepo Consolidation & Agentic Plumbing (Option A: Root `agents/` Package, Domain Blueprints, Next.js Site Import, Caddy 2 Ingress TLS) | **Completed** |
+| **13** | Production Hardening, Multi-Tenant Postgres RLS Cutover & Live Pilot Launch | **Active Next** |
 | **10** | Standalone Mobile/Laptop Patient App (Shared `SlainteFHIR` Backend) | **Deferred (Post-Funding)** |
 
 ## 3. Risk register
@@ -585,21 +588,67 @@ the LLM strictly as a conversational orchestrator while delegating all clinical 
 
 ---
 
-## 13. Phase 13 — Production Hardening, Ingress TLS & Netlify Launch (Active Next Phase)
+## 12.5. Phase 12.5 — Monorepo Consolidation & Agentic Plumbing (Option A)
+
+**Status: Completed, Merged & 100% Verified Live.**
+
+**Why:** Having fragmented separate repositories (`Patient-Dashboard-htmx-python-fhir`, `slainte-auditor`, `SlaintePages`, `OCR2FHIR`) created severe maintenance overhead, brittle container bind-mount hacks (`./slainte-auditor:/workspace/slainte-auditor`), cross-repo path drift, and high LLM token consumption due to a monolithic 4,043-line `app.py`. Consolidating into **Option A: The Unified Monorepo** inside `slainte-engine` creates a single source of truth, unlocks atomic version control, and establishes a clean modular architecture.
+
+### What Was Delivered (All 3 Steps Completed & Verified)
+
+1. **Step 1: Root `agents/` Python Package & Fleet Re-alignment (`commit cbe2bf5`):**
+   - Built root `agents/` package:
+     - `agents/base.py`: Core `BaseAgent` abstract class and `AgentExecutionResult` dataclass.
+     - `agents/registry.py`: Central 11-agent metadata registry, `get_agent_instance()`, `get_all_agents_with_settings()`, and settings persistence.
+     - `agents/governance/`: Dedicated modules for Governance Fleet (`01-BOLA`, `02-FHIR`, `03-CVE`, `04-GDPR`, `05-AUDIT`).
+     - `agents/clinical/`: Dedicated modules for Clinical Fleet (`06-INGEST`, `07-BRIEF`, `08-RXGUARD`, `09-TRIAGE`, `10-SCRIBE`, `11-CODING`).
+   - Linked `frontend/agents_hub.py` as a 100% backward-compatible proxy bridge re-exporting directly from `agents`.
+   - Copied Next.js 15 source code into `slainte-engine/website/`.
+   - Verified 338/338 passing tests; tested all 11 agents and 8 vertical cockpits live.
+
+2. **Step 2: Modularize `frontend/app.py` into Domain Blueprints (`commit 7c14ecd`):**
+   - Deconstructed monolithic 4,043-line `frontend/app.py` down to **512 clean lines**.
+   - Created `frontend/blueprints/`:
+     - `auth.py`: Authentication, registration, progressive lockout (15-min lockout after 5 attempts), and SIEM security alerts.
+     - `patients.py`: Patient roster, search/filter, clinical detail views, vital trajectory sparklines, clinical writes, and bedside AI copilots.
+     - `verticals.py`: 8 specialty cockpits (`emergency`, `general_practice`, `psychiatry`, `dental`, `pharmacy`, `ems`, `sports_medicine`, `aerospace_medicine`) and custom clinical write handlers.
+     - `agents.py`: Master 11-agent hub view, individual agent dashboards (`GET /agents/<id>` and `POST /agents/<id>/run`), per-agent model settings, signed audit snapshot, and SARIF export.
+     - `intake.py`: Manchester Triage Queue, dropzone telemetry, manual intake modal, and multimodal file upload (PDF/PNG/CSV).
+     - `settings.py`: AI model selector (`/settings/ai`), multi-backend data switcher (`/settings/data`), app/security settings, and user administration (`/admin/users`).
+     - `common.py`: Shared pseudonymized audit helper, search parsers, `VITAL_SIGN_CODES`, and bundle utilities.
+     - `__init__.py`: `register_all_blueprints(app, csrf, limiter)`, global context processors, health probes (`/health`, `/health/ready`), and error handlers.
+   - Retained explicit route endpoints (`endpoint='login'`, `endpoint='index'`) ensuring zero template or `url_for()` regressions.
+
+3. **Step 3: Automated Ingress TLS & Single Entrypoint (`commit b18ddac`):**
+   - Added `deploy/Caddyfile` with automated TLS (internal / Let's Encrypt), HSTS, and reverse proxying:
+     - `/` -> `slainte-dashboard:8000` (HTMX + Flask) with WebSocket and SSE streaming upgrade.
+     - `/fhir/r4*` -> `slainte-fhir:8082` (FHIR R4 Server).
+     - `/mcp*` -> `slainte-mcp:8081` (SSE streaming flush).
+     - `/site*` -> `/srv/website/public-site` (Static marketing, investor, and industry vertical pages).
+   - Added `slainte-ingress` service to `docker-compose.yml` exposing ports `:80` and `:443`.
+   - Integrated compiled static website export in `website/public-site/`.
+   - Added automated test suite `tests/test_ingress_caddy.py` validating Caddy syntax and compose integration.
+   - Verified 342/342 passing tests and verified all 11 agents and 8 vertical cockpits live.
+
+---
+
+## 13. Phase 13 — Production Hardening, PostgreSQL RLS & Live Pilot Launch (Active Next Phase)
 
 **Status: Active Next Priority.**
 
-**Objectives:**
-1. **Edge Reverse Proxy & Automated TLS Ingress:**
-   - Deploy Caddy or Traefik container alongside Docker Compose to automate Let's Encrypt TLS certificates, enforce HSTS, rate-limit brute force attacks, and terminate HTTPS on port 443.
-2. **PostgreSQL RLS & pgvector Cutover:**
-   - Transition from SQLite WAL to high-concurrency PostgreSQL 16 with Row-Level Security (RLS) policies for multi-tenant hospital network deployment.
-   - Activate `pgvector` for vector similarity search across clinical knowledge bases and historical discharge letters.
-3. **Netlify Edge Deployment for `SlaintePages`:**
-   - Configure continuous deployment via `netlify.toml` from the Next.js static output directory with edge caching, automated SSL, and security headers.
-4. **Live Clinical Staging Pilot Testing:**
-   - Run end-to-end synthetic cohort integration tests against external public FHIR sandboxes (HAPI FHIR R4, Epic on FHIR open sandbox, and HSE National Shared Record testbed).
-   - Verify zero regression across all 349 monorepo automated tests.
+**Objectives & What is Left to Do:**
+1. **Multi-Tenant PostgreSQL 16 RLS Migration:**
+   - Cut over from local SQLite WAL to PostgreSQL 16 multi-tenant schema using `deploy/postgres_rls_schema.sql`.
+   - Enforce Row-Level Security (`FORCE ROW LEVEL SECURITY`) across hospital trust boundaries, clinical roles, and patients.
+   - Benchmark high-concurrency ingestion and query throughput under multi-worker gunicorn.
+2. **Production Domain & Public Ingress TLS:**
+   - Configure public domain DNS (`A`/`AAAA` records) and allow Caddy to automatically provision trusted Let's Encrypt / ZeroSSL TLS certificates.
+   - Route public marketing traffic at `slainte.health` to `/site` and clinical dashboard traffic to `/`.
+3. **External FHIR Sandbox Live Integration Testing:**
+   - Connect dynamic FHIR proxy (`/settings/data`) to external staging sandboxes (HAPI FHIR R4, Epic on FHIR open sandbox, HSE National Shared Record testbed).
+   - Verify bidirectional write-back, provenance signing, and remote validation under intermittent latency.
+4. **Desktop Repository Archival Notices:**
+   - Place `ARCHIVED.md` disclaimer notices on redundant standalone repos (`Patient-Dashboard-htmx-python-fhir`, `OCR2FHIR`, `SlainteFHIR`, `slainte-auditor`, `SlaintePages`) designating `slainte-engine` as the canonical unified monorepo.
 
 **Why:** Showcases **SlainteTech AI Security Labs**, the **9-Agent Autonomous Fleet (`/agents/*`)**, the **Deterministic FastMCP Guardrails (`/platform/mcp-guardrails`)**, and all **7 Specialty Vertical Cockpits (`/verticals/*`)** in a Next.js App Router + Netlify + Docker web platform with built-in SEO and GEO (`public/llms.txt` + JSON-LD).
 
