@@ -129,6 +129,19 @@ class TestObservationValue:
         assert '120' in str(value) and '80' in str(value)
         assert unit == 'mmHg'
 
+    def test_ucum_display_unit_normalization(self):
+        val, unit = observation_value({'valueQuantity': {'value': 7.0, 'unit': '{score}'}})
+        assert val == 7.0
+        assert unit == '/ 10'
+
+        val, unit = observation_value({'valueQuantity': {'value': 37.2, 'unit': 'Cel'}})
+        assert val == 37.2
+        assert unit == '°C'
+
+        val, unit = observation_value({'valueQuantity': {'value': 16.4, 'unit': '10*9/L'}})
+        assert val == 16.4
+        assert unit == '10⁹/L'
+
     def test_no_value_returns_empty_not_exception(self):
         assert observation_value({}) == ('', '')
         assert observation_value({'status': 'final'}) == ('', '')

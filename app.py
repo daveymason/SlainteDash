@@ -137,13 +137,20 @@ class DynamicFhirProxy:
 def create_app(config_object=None):
     app = Flask(__name__)
 
-    config_class = config_object or select_config()
-    app.config.from_object(config_class)
+    # 1. Base configuration defaults
+    app.config.from_object(select_config())
+
+    # 2. Merge overrides (dict or config class)
+    if config_object:
+        if isinstance(config_object, dict):
+            app.config.from_mapping(config_object)
+        else:
+            app.config.from_object(config_object)
 
     if not app.config.get('SECRET_KEY'):
         app.config['SECRET_KEY'] = resolve_secret_key(app.config.get('DEBUG', False))
 
-    configure_logging(app.config['LOG_LEVEL'], as_json=app.config['LOG_JSON'])
+    configure_logging(app.config.get('LOG_LEVEL', 'INFO'), as_json=app.config.get('LOG_JSON', False))
 
     app.fhir = DynamicFhirProxy(app)
 
@@ -159,12 +166,20 @@ def create_app(config_object=None):
         if app.testing:
             app.config['RATELIMIT_STORAGE_URI'] = 'memory://'
         else:
-            db_dir = os.path.dirname(app.config.get('DATABASE_PATH', '/data/app.db'))
+            db_path = app.config.get('DATABASE_PATH')
+            if not db_path:
+                db_dir = os.path.abspath(app.instance_path)
+                app.config['DATABASE_PATH'] = os.path.join(db_dir, 'app.db')
+            else:
+                db_dir = os.path.dirname(db_path)
             if not db_dir or db_dir == ':memory:':
-                db_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'instance'))
-            os.makedirs(db_dir, exist_ok=True)
-            rl_db = os.path.join(db_dir, 'rate_limits.db')
-            app.config['RATELIMIT_STORAGE_URI'] = f'sqlite:///{rl_db}'
+                db_dir = os.path.abspath(app.instance_path)
+            try:
+                os.makedirs(db_dir, exist_ok=True)
+                rl_db = os.path.join(db_dir, 'rate_limits.db')
+                app.config['RATELIMIT_STORAGE_URI'] = f'sqlite:///{rl_db}'
+            except (OSError, PermissionError):
+                app.config['RATELIMIT_STORAGE_URI'] = 'memory://'
 
     csrf.init_app(app)
     limiter.init_app(app)

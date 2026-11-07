@@ -141,6 +141,31 @@ def first_coding_display(concept, fallback=''):
     return fallback
 
 
+def format_display_unit(unit):
+    """Clean technical UCUM symbols into standard clinical display formats.
+
+    Leaves unmapped standard units (e.g. mmol/L, mg/L, g/dL) untouched.
+    """
+    if not unit or not isinstance(unit, str):
+        return unit or ''
+    u = unit.strip()
+    mapping = {
+        '{score}': '/ 10',
+        '{Score}': '/ 10',
+        'Cel': '°C',
+        'C': '°C',
+        '[degF]': '°F',
+        'mm[Hg]': 'mmHg',
+        '10*9/L': '10⁹/L',
+        '10*12/L': '10¹²/L',
+        '10^9/L': '10⁹/L',
+        '10^12/L': '10¹²/L',
+        '{beats}/min': 'bpm',
+        '{breaths}/min': 'breaths/min',
+    }
+    return mapping.get(u, u)
+
+
 def observation_value(resource):
     """Render an Observation's value across the value[x] choice types.
 
@@ -153,7 +178,8 @@ def observation_value(resource):
 
     quantity = resource.get('valueQuantity')
     if isinstance(quantity, dict) and quantity.get('value') is not None:
-        return quantity['value'], quantity.get('unit', '')
+        raw_unit = quantity.get('unit') or quantity.get('code') or ''
+        return quantity['value'], format_display_unit(raw_unit)
 
     if 'valueCodeableConcept' in resource:
         return first_coding_display(resource['valueCodeableConcept'], fallback='-'), ''
@@ -172,15 +198,17 @@ def observation_value(resource):
         numerator = (ratio.get('numerator') or {}).get('value')
         denominator = (ratio.get('denominator') or {}).get('value')
         if numerator is not None and denominator is not None:
-            return f'{numerator}/{denominator}', (ratio.get('numerator') or {}).get('unit', '')
+            raw_unit = (ratio.get('numerator') or {}).get('unit', '')
+            return f'{numerator}/{denominator}', format_display_unit(raw_unit)
 
     value_range = resource.get('valueRange')
     if isinstance(value_range, dict):
         low = (value_range.get('low') or {}).get('value')
         high = (value_range.get('high') or {}).get('value')
         if low is not None or high is not None:
+            raw_unit = (value_range.get('low') or value_range.get('high') or {}).get('unit', '')
             return f'{low if low is not None else ""}-{high if high is not None else ""}', \
-                   (value_range.get('low') or value_range.get('high') or {}).get('unit', '')
+                   format_display_unit(raw_unit)
 
     # Component-bearing observations (blood pressure, panels).
     components = resource.get('component') or []
@@ -193,10 +221,10 @@ def observation_value(resource):
         value, component_unit = observation_value(component)
         if value == '':
             continue
-        unit = unit or component_unit
+        unit = unit or format_display_unit(component_unit)
         rendered.append(f'{label}: {value}' if label else str(value))
     if rendered:
-        return ' / '.join(rendered), unit
+        return ' / '.join(rendered), format_display_unit(unit)
 
     if resource.get('dataAbsentReason'):
         return first_coding_display(resource['dataAbsentReason'], fallback='Not recorded'), ''

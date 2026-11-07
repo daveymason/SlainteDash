@@ -3,7 +3,7 @@
 The single planning document for this project. Phases are numbered in the
 order they should be built. Supersedes the previous per-phase files.
 
-Last reviewed: 2026-11-07 · 347 tests passing across monorepo (`329` frontend + `6` auditor + `12` FastMCP).
+Last reviewed: 2026-11-07 · 349 tests passing across monorepo (`331` frontend + `6` auditor + `12` FastMCP).
 
 - [1. Status](#1-status)
 - [2. Unified Architecture & Renumbering](#2-unified-architecture--renumbering)
@@ -15,11 +15,12 @@ Last reviewed: 2026-11-07 · 347 tests passing across monorepo (`329` frontend +
 - [8. Phase 8 — Enterprise AI, MCP Tool Orchestration & Clinical Assistance](#8-phase-8--enterprise-ai-mcp-tool-orchestration--clinical-assistance)
 - [9. Phase 9 — Enterprise Security, Cryptographic Storage & Regulatory Governance](#9-phase-9--enterprise-security-cryptographic-storage--regulatory-governance)
 - [10. Phase 10 — Patient Portal & Secure Subject Access](#10-phase-10--patient-portal--secure-subject-access)
-- [11. Phase 11 — Multi-Vertical Domain Specialization](#11-phase-11--multi-vertical-domain-specialization)
-- [12. Phase 12 — Turnkey Appliance Packaging & Commercial Launch](#12-phase-12--turnkey-appliance-packaging--commercial-launch)
-- [13. Reference & Enterprise AI Strategy](#13-reference--enterprise-ai-strategy)
-- [14. Gaps and innovations](#14-gaps-and-innovations)
-- [15. Open decisions](#15-open-decisions)
+- [11. Phase 11 — Multi-Vertical Domain Specialization & 11-Agent Fleet](#11-phase-11--multi-vertical-domain-specialization)
+- [12. Phase 12 — Turnkey Appliance Packaging & Commercial Launch (`SlaintePages`)](#12-phase-12--turnkey-appliance-packaging--commercial-launch)
+- [13. Phase 13 — Production Hardening, Ingress TLS & Netlify Launch (Active Next Phase)](#13-phase-13--production-hardening-ingress-tls--netlify-launch)
+- [14. Reference & Enterprise AI Strategy](#14-reference--enterprise-ai-strategy)
+- [15. Gaps and innovations](#15-gaps-and-innovations)
+- [16. Open decisions](#16-open-decisions)
 
 ---
 
@@ -33,10 +34,11 @@ Last reviewed: 2026-11-07 · 347 tests passing across monorepo (`329` frontend +
 | 6 | Clinical intelligence, NEWS2, sign-off, allergy gate, core security | **Done**, merged |
 | 7 | SlainteFHIR micro-EHR (8082), Slainte-Auditor red-team verifier, GMS dedup | **Done**, merged |
 | 8 | AI Model Selector (`/settings/ai`), `.env` key integration, Bedside AI Briefing | **Done**, merged |
-| 11 + 9 Lite | Sidebar "Agents" Hub (9 Agents + Settings + Embedded Copilots), GDPR/CVE/Audit Agents, & "Sign in as..." 7 Vertical Cockpits | **Done**, merged |
+| 11 + 9 Lite | Sidebar "Agents" Hub (11 Agents + Settings + Embedded Copilots), GDPR/CVE/Audit Agents, & "Sign in as..." 8 Specialty Verticals | **Done**, merged |
 | 11.5 | 11-Agent Enterprise Pack & 7 Killer Features (SMART-on-FHIR v2 + OIDC SSO, `Agent 10` Ambient Voice Scribe, HL7v2 + HSE PCRS, Granular Clinical RBAC + Break-the-Glass, SIEM + Compliance Certificate, `Agent 11` HIPE Revenue Coding + Postgres RLS, 3-Tier `SlainteRx-Guard`) | **Done**, verified live |
-| 12 | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js + Netlify + Docker) | **Active Next Priority** |
-| 10 | Standalone Mobile/Laptop Patient App (Shared `SlainteFHIR` Backend) | **Deferred (Separate Post-Funding Project)** |
+| 12 | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js 15 + MUI v6 + SSG static site, 33 static pages, 1,200 verified links) | **Done**, verified live |
+| 13 | Production Hardening, Ingress TLS, Multi-Tenant Postgres RLS Cutover & Live Pilot Launch | **Active Next Priority** |
+| 10 | Standalone Mobile/Laptop Patient App (Shared `SlainteFHIR` Backend) | **Deferred (Post-Funding)** |
 
 The dashboard (`SlainteDash`) operates as the primary clinical interface of the
 unified **Slainte-Engine Appliance**, backed by `SlainteScan` (FastMCP 8081),
@@ -48,7 +50,7 @@ and `SlainteEngine` (Autonomous Ingestion 3000).
 Phases are aligned with the master `slainte-engine/roadmap.md` specification:
 
 1. **Appliance Monorepo Realignment:** The dashboard is no longer a standalone viewer
-   querying public HAPI; it is the clinical cockpit for a four-container clinical appliance.
+   querying public HAPI; it is the clinical interface for a multi-container clinical appliance.
 2. **Deterministic Clinical Tools First:** FastMCP calculations (NEWS2, allergy contraindications,
    MTS triage) must be validated deterministically before connecting unconstrained LLMs.
 3. **Dual-Track AI Strategy (Local Sovereign + Enterprise Cloud):** Local-first on-premise
@@ -63,9 +65,10 @@ Phases are aligned with the master `slainte-engine/roadmap.md` specification:
 | **6** | Clinical Intelligence, NEWS2, Provenance Sign-Off, Core Security | **Completed** |
 | **7** | SlainteFHIR Micro-EHR (Port 8082), Slainte-Auditor Red-Team Verifier, GMS Dedup | **Completed** |
 | **8** | Unified AI Model Selector (`/settings/ai`), `.env` Key Integration, Bedside Briefing | **Completed** |
-| **9 Lite + 11** | Sidebar "Agents" Hub (9 Agents + Settings + Embedded Copilots) & "Sign in as..." 7 Vertical Cockpits | **Completed** |
+| **9 Lite + 11** | Sidebar "Agents" Hub (11 Agents + Settings + Embedded Copilots) & "Sign in as..." 8 Specialty Verticals | **Completed** |
 | **11.5** | 11-Agent Enterprise Pack & 7 Killer Features (`SlainteScribe-Voice`, `SlainteRev-Coding`, SMART v2, HL7v2, Clinical RBAC, SIEM, 3-Tier Rx-Guard) | **Completed** |
-| **12** | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js + Netlify + Docker) | **Active Next** |
+| **12** | `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`, Next.js 15 + MUI v6 + SSG static site, 33 static pages, 1,200 verified links) | **Completed** |
+| **13** | Production Hardening, Ingress TLS, Multi-Tenant Postgres RLS Cutover & Live Pilot Launch | **Active Next** |
 | **10** | Standalone Mobile/Laptop Patient App (Shared `SlainteFHIR` Backend) | **Deferred (Post-Funding)** |
 
 ## 3. Risk register
@@ -539,13 +542,13 @@ the LLM strictly as a conversational orchestrator while delegating all clinical 
 
 ---
 
-## 11. Phase 11 — The 9-Agent Command Center (`/agents`) & "Sign in as..." 7 Multi-Vertical Cockpits
+## 11. Phase 11 — The 11-Agent Command Center (`/agents`) & "Sign in as..." 8 Multi-Vertical Workspaces
 
 **Status: Completed (Merged & Live).**
 
-**Why:** Unifies the entire stack around **SlainteTech AI Security Labs'** core differentiator: **9 specialized Security, Governance, and Clinical Agents** managed from a sidebar **"Agents"** Command Center (`/agents`) with per-agent settings, while keeping clinical copilots embedded directly on patient and intake screens and adapting the cockpit to **7 "Sign in as..." verticals**.
+**Why:** Unifies the entire stack around **SlainteTech AI Security Labs'** core differentiator: **11 specialized Security, Governance, and Clinical Agents** managed from a sidebar **"Agents"** Command Center (`/agents`) with per-agent settings, while keeping clinical copilots embedded directly on patient and intake screens and adapting the interface to **8 "Sign in as..." verticals**.
 
-### 11.1 How the 9 Autonomous Agents Work (OpenHands + FastMCP + Deterministic Engines)
+### 11.1 How the 11 Autonomous Agents Work (OpenHands + FastMCP + Deterministic Engines)
 1. **OpenHands SDK + Hybrid Adversarial Agents (`Agents 01, 02 & 06`):**
    - **Agent 01 (`SlainteShield-BOLA`) & Agent 02 (`SlainteShield-FHIR`):** Run inside `slainte-auditor` (`auditor_runner.py`). They combine deterministic RFC 1918 guardrails, `CompartmentDefinition/Patient` pruning, and live Victim/Attacker HTTP BOLA probing (`SharedAuditMemory` $\mathcal{M}$) with live LLM synthesis (`Ollama` on `:11434` or `OpenAI` via `.env`) and OASIS SARIF v2.1.0 reporting.
    - **Agent 06 (`SlainteEngine-Ingest`):** Runs in the `slainte-openhands` container (`openhands/agent_runner.py`), polling `/workspace/data/raw` and invoking FastMCP tools on `slainte-mcp:8081` to transform messy CSVs, PDFs, and notes into GMS-deduplicated FHIR R4 bundles.
@@ -554,8 +557,11 @@ the LLM strictly as a conversational orchestrator while delegating all clinical 
 3. **Embedded Bedside Clinical Copilots (`Agents 07, 08 & 09`):**
    - **Agent 07 (`SlainteScribe-Brief`):** Embedded on every Patient Details page (`POST /ai/summarise/<id>`), calling the configured local Ollama or OpenAI model with `[ResourceType/id]` citations and logging to `ai_exchange`.
    - **Agent 08 (`SlainteRx-Guard`) & Agent 09 (`SlainteDx-Triage`):** Embedded on Patient Details (`POST /ai/crosscheck/<id>`), the Intake Modal, and the Live Triage Queue, executing 100% deterministic FastMCP rules (`check_drug_allergy_contraindications`, `calculate_mts_category`, `calculate_news2_score`).
+4. **Enterprise Clinical & Financial Intelligence Agents (`Agents 10 & 11`):**
+   - **Agent 10 (`SlainteScribe-Voice`):** Ambient clinical dictation listening post, converting clinician spoken dialogue into structured SOAP and FHIR DocumentReference notes.
+   - **Agent 11 (`SlainteRev-Coding`):** Automated HIPE / ICD-10-AM / DRG clinical reimbursement coder, cross-referencing discharge summaries with encounter diagnoses and HSE PCRS rules.
 
-### 11.2 "Sign in as..." 7 Specialty Vertical Cockpits & Modernized Navigation
+### 11.2 "Sign in as..." 8 Specialty Verticals & Mobile Responsive Dock
 - [x] **Vertical 1: Emergency Department (`SlainteED`):** MTS Cat 1–5 live triage queue, 24h NEWS2 sparklines, acute intake dropzone.
 - [x] **Vertical 2: General Practice (`SlainteGP`):** SOAP clinical notes, HSE Chronic Disease Management (CDM) tracking, repeat prescribing safety gate.
 - [x] **Vertical 3: Dental Surgery (`SlainteDent`):** Pre-op allergy/anticoagulant clearance gate, interactive 32-tooth FDI Odontogram & 6-sextant BPE summary, dental referral ingestion.
@@ -563,12 +569,37 @@ the LLM strictly as a conversational orchestrator while delegating all clinical 
 - [x] **Vertical 5: Pre-Hospital Ambulance / EMS (`SlainteEMS`):** High-contrast field ePCR intake, rapid ambulance MTS/NEWS2 scoring, hospital ETA pre-alert handoff.
 - [x] **Vertical 6: Elite Sports Club (`SlainteSport`):** Squad readiness & physiological load telemetry, concussion return-to-play `Provenance` clearance, BOLA-verified athlete privacy.
 - [x] **Vertical 7: Astronaut Health Monitoring (`SlainteAstro`):** 100% air-gapped deep-space bio-telemetry running local 3B Ollama models + deterministic FastMCP diagnostics.
+- [x] **Vertical 8: Psychiatry & Mental Health (`SlaintePsych`):** Mental State Examination (MSE), PHQ-9 & GAD-7 psychometric rating scale scoring, and acute suicide risk stratification.
 
 ---
 
 ## 12. Phase 12 — `SlaintePages` Public Startup & Product Platform (`SlainteTech AI Security Labs`)
 
-**Status: Active Next Priority (Blueprint & Copy Locked in `/home/adman-voids/Desktop/Code/SlaintePages/README.md`).**
+**Status: Completed & Verified Live (Port 3001 & `slainte-engine/public-site/`).**
+
+**What was delivered:**
+- Built full Next.js 15 App Router + Material-UI (MUI) v6 static site generator.
+- **33 static pages generated** across Homepage, Company (`/about`, `/security`, `/contact`), Platform (`/platform/mcp-guardrails`, `/platform/smart-on-fhir`, `/platform/architecture`), 11 Dedicated Agent Pages (`/agents/*`), 8 Dedicated Specialty Vertical Pages (`/verticals/*`), Regulatory/Compliance (`/compliance/*`), and Enterprise Pricing (`/pricing`).
+- **1,200 internal links verified** with zero broken references.
+- Self-contained static bundle served locally via port 3001 and copied directly into `slainte-engine/public-site/` ready for zero-dependency static deployment.
+
+---
+
+## 13. Phase 13 — Production Hardening, Ingress TLS & Netlify Launch (Active Next Phase)
+
+**Status: Active Next Priority.**
+
+**Objectives:**
+1. **Edge Reverse Proxy & Automated TLS Ingress:**
+   - Deploy Caddy or Traefik container alongside Docker Compose to automate Let's Encrypt TLS certificates, enforce HSTS, rate-limit brute force attacks, and terminate HTTPS on port 443.
+2. **PostgreSQL RLS & pgvector Cutover:**
+   - Transition from SQLite WAL to high-concurrency PostgreSQL 16 with Row-Level Security (RLS) policies for multi-tenant hospital network deployment.
+   - Activate `pgvector` for vector similarity search across clinical knowledge bases and historical discharge letters.
+3. **Netlify Edge Deployment for `SlaintePages`:**
+   - Configure continuous deployment via `netlify.toml` from the Next.js static output directory with edge caching, automated SSL, and security headers.
+4. **Live Clinical Staging Pilot Testing:**
+   - Run end-to-end synthetic cohort integration tests against external public FHIR sandboxes (HAPI FHIR R4, Epic on FHIR open sandbox, and HSE National Shared Record testbed).
+   - Verify zero regression across all 349 monorepo automated tests.
 
 **Why:** Showcases **SlainteTech AI Security Labs**, the **9-Agent Autonomous Fleet (`/agents/*`)**, the **Deterministic FastMCP Guardrails (`/platform/mcp-guardrails`)**, and all **7 Specialty Vertical Cockpits (`/verticals/*`)** in a Next.js App Router + Netlify + Docker web platform with built-in SEO and GEO (`public/llms.txt` + JSON-LD).
 
