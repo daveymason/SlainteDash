@@ -96,5 +96,30 @@
   - [x] Built **8 visually distinct `/verticals/<domain>/` pages** (`emergency-departments`, `general-practice`, `psychiatry`, `dentistry`, `pharmacy`, `ambulance-ems`, `sports-medicine`, `astronaut-health`), each with its own WCAG 2.2 AA verified color palette, custom SVG illustration (`VerticalUniqueGraphic`), mobile/tablet Care-at-Home & Ambulance readiness callout, and executive ROI brief.
   - [x] Built complete startup sitemap (`/`, `/platform/`, `/health-tech-agents/`, `/verticals/`, `/security-compliance/`, `/pricing/`, `/investors/`, `/docs/`, `/about/`, `/contact/`, `/llms.txt`) passing WCAG 2.2 AA contrast, heading hierarchy, zero `"cockpit"` wording, and 100% link integrity.
 
+### Step 3: Phase 12.5 — Monorepo Consolidation & Agentic Plumbing (Option A) 🏗️ ACTIVE
+*(Detailed technical roadmap: [Monorepo Consolidation Plan](file:///home/adman-voids/.gemini/antigravity/brain/d2792fde-88d2-4d0b-833f-7c997c4a9b3f/monorepo_consolidation_plan.md))*
+
+- [ ] **1. Unified `agents/` Package & Fleet Re-alignment**:
+  - [ ] Create `slainte-engine/agents/` with `base.py` (`BaseAgent` abstract class) and `registry.py` (master 11-agent metadata catalog).
+  - [ ] Consolidate **Governance Fleet (01–05)** into `agents/governance/` (`bola_redteam.py`, `fhir_conformance.py`, `cve_vulnerability.py`, `gdpr_privacy.py`, `immutable_audit.py`).
+  - [ ] Consolidate **Clinical Fleet (06–11)** into `agents/clinical/` (`multimodal_ingest.py`, `patient_summariser.py`, `medication_safety.py`, `acuity_triage.py`, `ambient_scribe.py`, `clinical_coding.py`).
+- [ ] **2. Modularize `frontend/app.py` (~4,040 LOC) into Flask Blueprints**:
+  - [ ] Split monolithic route handlers into `frontend/blueprints/` (`auth.py`, `patients.py`, `verticals.py`, `agents.py`, `intake.py`, `settings.py`) to reduce LLM context consumption and eliminate accidental route coupling.
+  - [ ] Eliminate `sys.path.insert()` dynamic import hacks and `./slainte-auditor` container volume mount hacks.
+- [ ] **3. Bring `SlaintePages` Next.js Source into Monorepo (`slainte-engine/website/`)**:
+  - [ ] Move `/home/adman-voids/Desktop/Code/SlaintePages` into `slainte-engine/website/` (keeping `slainte-engine/public-site/` as the compiled static export served on `:3001`).
+  - [ ] Add `make build-website` / `scripts/sync_site.sh` for 1-click marketing site compilation and link validation.
+- [ ] **4. Unified Ingress TLS & Single Entrypoint (Caddy Container)**:
+  - [ ] Add lightweight Caddy 2 reverse proxy container to `docker-compose.yml` terminating TLS 1.3 (`:443`), proxying `/` to `slainte-dashboard:8000`, `/fhir/r4` to `slainte-fhir:8082`, and `/site` to `public-site:3001`.
+- [ ] **5. Unified Platform CLI (`python -m agents.cli`)**:
+  - [ ] Add central CLI tool for operators and continuous agentic development: `python -m agents.cli [audit|ingest|test|cert|serve]`.
+- [ ] **6. Desktop Repository Consolidation & Archival**:
+  - [ ] Add `ARCHIVED.md` disclaimer to redundant standalone repos (`Patient-Dashboard-htmx-python-fhir`, `OCR2FHIR`, `SlainteFHIR`) designating `slainte-engine` as canonical upstream.
+
+### Step 4: Phase 13 — Production Ingress TLS, PostgreSQL RLS & Pilot Launch 🚀
+- [ ] Execute `deploy/postgres_rls_schema.sql` multi-tenant cutover on managed PostgreSQL 16.
+- [ ] Connect `SlaintePages` static export to Netlify Edge CDN with custom domain and security headers.
+- [ ] Execute synthetic patient intake and clinical sign-off against external HSE / NHS FHIR sandboxes.
+
 ### Future Standalone Project (Deferred Post-Funding)
 - [ ] **Phase 10 (Standalone Mobile/Laptop Patient App)**: Dedicated patient-facing mobile & web client sharing the `SlainteFHIR` backend.
