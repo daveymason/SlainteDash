@@ -1408,91 +1408,264 @@
        AGENT 14: SlainteEMS-Alert (Emergency Pre-Hospital Pre-Alert Agent)
        ====================================================================== #}
     {% elif agent.id == 'ems_prealert' %}
+    {% set cur_mts = ems_result.telemetry.get('mts_category', 2) if ems_result else 2 %}
+    {% set cur_news2 = ems_result.telemetry.get('news2_score', 7) if ems_result else 7 %}
     <div class="row g-3 mb-3">
         <div class="col-md-3">
+            {% if cur_mts == 1 %}
             <div class="clinical-kpi kpi-danger">
                 <div class="clinical-kpi-label">Pre-Alert Priority Tier</div>
-                <div class="clinical-kpi-value">{% if ems_result and ems_result.telemetry.get('mts_category') == 1 %}RED / IMMEDIATE{% else %}AMBER / URGENT{% endif %}</div>
-                <div class="clinical-kpi-sub">Manchester Triage System &bull; NEWS2</div>
+                <div class="clinical-kpi-value text-danger"><i class="fas fa-exclamation-circle me-1"></i>RED / IMMEDIATE</div>
+                <div class="clinical-kpi-sub">MTS Category 1 &bull; NEWS2: {{ cur_news2 }}/20</div>
             </div>
+            {% elif cur_mts == 2 %}
+            <div class="clinical-kpi kpi-warning">
+                <div class="clinical-kpi-label">Pre-Alert Priority Tier</div>
+                <div class="clinical-kpi-value text-warning"><i class="fas fa-bolt me-1"></i>AMBER / URGENT</div>
+                <div class="clinical-kpi-sub">MTS Category 2 &bull; NEWS2: {{ cur_news2 }}/20</div>
+            </div>
+            {% elif cur_mts == 3 %}
+            <div class="clinical-kpi kpi-warning">
+                <div class="clinical-kpi-label">Pre-Alert Priority Tier</div>
+                <div class="clinical-kpi-value text-warning">YELLOW / PRIORITY</div>
+                <div class="clinical-kpi-sub">MTS Category 3 &bull; NEWS2: {{ cur_news2 }}/20</div>
+            </div>
+            {% else %}
+            <div class="clinical-kpi kpi-success">
+                <div class="clinical-kpi-label">Pre-Alert Priority Tier</div>
+                <div class="clinical-kpi-value text-success"><i class="fas fa-check-circle me-1"></i>GREEN / ROUTINE</div>
+                <div class="clinical-kpi-sub">MTS Category {{ cur_mts }} &bull; Standard ED Intake</div>
+            </div>
+            {% endif %}
         </div>
         <div class="col-md-3">
             <div class="clinical-kpi">
                 <div class="clinical-kpi-label">Receiving Emergency Dept</div>
-                <div class="clinical-kpi-value" style="font-size: 0.95rem;">{{ ems_selected_hospital or 'Adult ED' }}</div>
-                <div class="clinical-kpi-sub">Automated Resus / Bay Preparation</div>
+                <div class="clinical-kpi-value" style="font-size: 0.92rem;">{{ ems_selected_hospital or 'Mater Misericordiae University Hospital ED' }}</div>
+                <div class="clinical-kpi-sub">Designated HSE Trauma / Receiving ED</div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="clinical-kpi">
                 <div class="clinical-kpi-label">Estimated Time of Arrival</div>
-                <div class="clinical-kpi-value text-primary">{{ ems_eta or 12 }} Minutes</div>
+                <div class="clinical-kpi-value text-primary">{{ ems_eta or 15 }} Minutes</div>
                 <div class="clinical-kpi-sub">Real-Time Mobile GPS Telemetry</div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="clinical-kpi kpi-success">
-                <div class="clinical-kpi-label">Transit Protocol</div>
+                <div class="clinical-kpi-label">Transmission Integrity</div>
                 <div class="clinical-kpi-value">HL7 FHIR R4 Bundle</div>
-                <div class="clinical-kpi-sub">Deterministic Zero-Latency Relay</div>
+                <div class="clinical-kpi-sub">Append-Only Audit Ledger Staged</div>
             </div>
         </div>
     </div>
 
+    <!-- Dispatch Field ePCR Pre-Alert Console -->
     <div class="card mb-3">
         <div class="card-header py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <span class="fw-bold"><i class="fas fa-ambulance me-2 text-danger"></i>Dispatch Field ePCR Emergency Pre-Alert</span>
-            <form hx-post="/fhir/Agent/ems_prealert/run" hx-target="#content" hx-swap="innerHTML" class="d-flex flex-wrap gap-2 m-0 align-items-center">
-                <select name="receiving_ed" class="form-select form-select-sm" style="width: auto;">
-                    {% for hosp in ems_hospitals %}
-                    <option value="{{ hosp }}" {% if ems_selected_hospital == hosp %}selected{% endif %}>{{ hosp }}</option>
-                    {% endfor %}
-                </select>
-                <div class="input-group input-group-sm" style="width: 130px;">
-                    <span class="input-group-text">ETA</span>
-                    <input type="number" name="eta_minutes" value="{{ ems_eta or 12 }}" class="form-control" min="1" max="120">
-                    <span class="input-group-text">min</span>
-                </div>
-                <button type="submit" class="btn btn-danger btn-sm">
-                    <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
-                    <i class="fas fa-broadcast-tower me-1"></i>Beam Pre-Alert
-                </button>
-            </form>
+            <span class="fw-bold"><i class="fas fa-ambulance me-2 text-danger"></i>Dispatch Field ePCR Emergency Pre-Alert Console</span>
+            <span class="status-pill status-neutral">Local Sovereign Gateway • Simulation Mode</span>
         </div>
         <div class="card-body p-3">
-            {% if ems_result %}
-            <div class="alert alert-warning py-2 px-3 small mb-3">
-                <strong><i class="fas fa-satellite-dish me-1"></i>ED Broadcast Logged:</strong> {{ ems_result.summary }}
+            <form hx-post="/fhir/Agent/ems_prealert/run" hx-target="#content" hx-swap="innerHTML">
+                <!-- Row 1: Target Patient & Emergency Scenario Preset -->
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold mb-1">Target In-Transit Patient / Casualty</label>
+                        <select name="patient_id" class="form-select form-select-sm"
+                                onchange="var opt=this.options[this.selectedIndex]; if(opt.dataset.complaint){document.getElementById('emsComplaintInput').value=opt.dataset.complaint;}">
+                            <option value="Casualty-01" {% if not ems_target_patient or ems_target_patient.id == 'Casualty-01' %}selected{% endif %}>
+                                Unidentified Trauma / Field Casualty (ePCR Casualty #01)
+                            </option>
+                            {% for pt in patient_options %}
+                            <option value="{{ pt.id }}" data-complaint="{{ pt.primary_condition or 'Acute medical emergency in transit' }}"
+                                    {% if ems_target_patient and ems_target_patient.id == pt.id %}selected{% endif %}>
+                                {{ pt.id }} &mdash; {{ pt.name }} ({{ pt.gender|capitalize }}, DOB {{ pt.birthDate }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold mb-1">Clinical Scenario Preset</label>
+                        <select name="preset_key" class="form-select form-select-sm"
+                                onchange="applyEmsPreset(this.value)">
+                            <option value="">-- Custom Field Vitals / Manual Entry --</option>
+                            {% for pr in (ems_presets or []) %}
+                            <option value="{{ pr.key }}"
+                                    data-sbp="{{ pr.sbp }}" data-dbp="{{ pr.dbp }}"
+                                    data-hr="{{ pr.hr }}" data-spo2="{{ pr.spo2 }}"
+                                    data-rr="{{ pr.rr }}" data-temp="{{ pr.temp }}"
+                                    data-eta="{{ pr.eta }}" data-complaint="{{ pr.complaint }}"
+                                    {% if ems_selected_preset == pr.key %}selected{% endif %}>
+                                {{ pr.label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Row 2: Vitals Inputs -->
+                <div class="row g-2 mb-2">
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold mb-1">Systolic BP</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" id="ems_sbp" name="sbp" class="form-control" value="{{ ems_vitals.sbp if ems_vitals else 85 }}" required>
+                            <span class="input-group-text">mmHg</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold mb-1">Heart Rate</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" id="ems_hr" name="hr" class="form-control" value="{{ ems_vitals.hr if ems_vitals else 128 }}" required>
+                            <span class="input-group-text">bpm</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold mb-1">SpO2</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" id="ems_spo2" name="spo2" class="form-control" value="{{ ems_vitals.spo2 if ems_vitals else 89 }}" required>
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold mb-1">Resp Rate</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" id="ems_rr" name="rr" class="form-control" value="{{ ems_vitals.rr if ems_vitals else 28 }}" required>
+                            <span class="input-group-text">/min</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold mb-1">Temperature</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" step="0.1" id="ems_temp" name="temp" class="form-control" value="{{ ems_vitals.temp if ems_vitals else 39.2 }}" required>
+                            <span class="input-group-text">&deg;C</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small fw-bold mb-1">ETA</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" id="ems_eta" name="eta_minutes" value="{{ ems_eta or 12 }}" class="form-control" min="1" max="180" required>
+                            <span class="input-group-text">min</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Chief Complaint -->
+                <div class="mb-2">
+                    <label class="form-label small fw-bold mb-1">Paramedic Chief Complaint &amp; Incident Notes</label>
+                    <input type="text" id="emsComplaintInput" name="chief_complaint" class="form-control form-control-sm"
+                           value="{{ ems_complaint or 'Acute respiratory distress, severe hypotension and diaphoresis' }}"
+                           placeholder="Document clinical emergency presentation..." required>
+                </div>
+
+                <!-- Row 4: Hospital Selector & Submit -->
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-9">
+                        <label class="form-label small fw-bold mb-1">Receiving Acute Hospital Emergency Department (HSE Model 3/4)</label>
+                        <select name="receiving_ed" class="form-select form-select-sm">
+                            {% for hosp in ems_hospitals %}
+                            <option value="{{ hosp }}" {% if ems_selected_hospital == hosp %}selected{% endif %}>{{ hosp }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-grid">
+                        <button type="submit" class="btn btn-danger btn-sm fw-semibold">
+                            <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
+                            <i class="fas fa-broadcast-tower me-1"></i>Beam Pre-Alert
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script for Preset Auto-Fill -->
+    <script>
+    function applyEmsPreset(key) {
+        if (!key) return;
+        var sel = document.querySelector('select[name="preset_key"]');
+        var opt = sel ? sel.options[sel.selectedIndex] : null;
+        if (!opt) return;
+        if (opt.dataset.sbp) document.getElementById('ems_sbp').value = opt.dataset.sbp;
+        if (opt.dataset.hr) document.getElementById('ems_hr').value = opt.dataset.hr;
+        if (opt.dataset.spo2) document.getElementById('ems_spo2').value = opt.dataset.spo2;
+        if (opt.dataset.rr) document.getElementById('ems_rr').value = opt.dataset.rr;
+        if (opt.dataset.temp) document.getElementById('ems_temp').value = opt.dataset.temp;
+        if (opt.dataset.eta) document.getElementById('ems_eta').value = opt.dataset.eta;
+        if (opt.dataset.complaint) document.getElementById('emsComplaintInput').value = opt.dataset.complaint;
+    }
+    </script>
+
+    {% if ems_result %}
+    <div class="card mb-3">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-satellite-dish text-primary me-2"></i>Live Pre-Alert Telemetry &amp; Structured Dispatch Findings</span>
+            <span class="status-pill {% if cur_mts <= 2 %}status-warn{% else %}status-pass{% endif %}">
+                MTS CAT {{ cur_mts }} &bull; NEWS2 {{ cur_news2 }}/20
+            </span>
+        </div>
+        <div class="card-body p-3">
+            <div class="alert {% if cur_mts == 1 %}alert-danger{% elif cur_mts == 2 %}alert-warning{% else %}alert-success{% endif %} py-2 px-3 small mb-3">
+                <strong><i class="fas {% if cur_mts <= 2 %}fa-exclamation-triangle{% else %}fa-check-circle{% endif %} me-1"></i>ED Broadcast Logged:</strong> {{ ems_result.summary }}
             </div>
+
+            <!-- Egress Truth-in-Advertising Box -->
+            <div class="p-2 mb-3 bg-light rounded border small">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                    <div>
+                        <span class="badge bg-secondary me-1">Egress Status</span>
+                        <strong>Local Sovereign Gateway:</strong> Transmission validated and staged into local FHIR R4 store &amp; immutable audit ledger.
+                        <span class="text-muted">(Air-gapped clinical simulation mode &mdash; zero external hospital firewall egress).</span>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                data-bs-toggle="collapse" data-bs-target="#emsFhirCollapse">
+                            <i class="fas fa-code me-1"></i>View FHIR Encounter JSON
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                                data-bs-toggle="collapse" data-bs-target="#emsHl7Collapse">
+                            <i class="fas fa-network-wired me-1"></i>View HL7v2 Pipe-Hat Stream
+                        </button>
+                    </div>
+                </div>
+                <div class="collapse mb-2" id="emsFhirCollapse">
+                    <pre class="bg-dark text-light p-2 rounded small mb-0 font-monospace" style="max-height: 220px; overflow-y: auto;"><code>{{ ems_fhir_encounter }}</code></pre>
+                </div>
+                <div class="collapse mb-2" id="emsHl7Collapse">
+                    <pre class="bg-dark text-light p-2 rounded small mb-0 font-monospace" style="max-height: 220px; overflow-y: auto;"><code>{{ ems_hl7v2_payload }}</code></pre>
+                </div>
+            </div>
+
             <div class="table-responsive">
-                <table class="table table-sm table-striped align-middle mb-0">
+                <table class="table table-sm table-striped table-hover align-middle mb-0">
                     <thead class="table-dark">
                         <tr>
                             <th>Pre-Hospital Parameter</th>
                             <th>Field Measurement</th>
                             <th>Triage Assessment</th>
-                            <th>Receiving Action</th>
+                            <th>Receiving ED Preparation Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for f in ems_result.findings %}
                         <tr>
-                            <td class="fw-semibold">{{ f.parameter or f.vital or 'Physiology' }}</td>
-                            <td><code>{{ f.field_value or f.value or 'Recorded' }}</code></td>
-                            <td><span class="badge bg-light text-dark border">{{ f.triage_assessment or 'Calculated' }}</span></td>
-                            <td class="small">{{ f.receiving_action or 'Resuscitation Bay Pre-Alerted' }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="4" class="text-center text-muted py-3">Submit field measurements above to broadcast an emergency pre-alert.</td>
+                            <td class="fw-semibold">{{ f.parameter }}</td>
+                            <td><code>{{ f.field_value }}</code></td>
+                            <td>
+                                <span class="badge {% if f.status == 'warning' %}bg-danger text-light{% else %}bg-light text-dark border{% endif %}">
+                                    {{ f.triage_assessment }}
+                                </span>
+                            </td>
+                            <td class="small fw-semibold text-dark">{{ f.receiving_action }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            {% endif %}
         </div>
     </div>
+    {% endif %}
 
     {# ======================================================================
        AGENT 15: SlainteCare-CDM (Chronic Disease Surveillance Agent)
