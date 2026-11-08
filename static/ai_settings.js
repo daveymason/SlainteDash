@@ -54,10 +54,19 @@ document.addEventListener('DOMContentLoaded', function () {
         testButton.disabled = true;
         setPlainMessage('Checking...', 'muted');
 
+        var modelSelect = document.getElementById('selected_model');
+        var selectedModel = modelSelect ? modelSelect.value : '';
+
+        var formData = new FormData();
+        if (selectedModel) {
+            formData.append('model', selectedModel);
+        }
+
         try {
             var response = await fetch('/settings/ai/test', {
                 method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken() }
+                headers: { 'X-CSRFToken': csrfToken() },
+                body: formData
             });
             render(await response.json());
         } catch (error) {
