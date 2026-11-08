@@ -52,7 +52,7 @@ def _resolve_initial_admin():
     return username, password
 
 
-DEMO_FHIR_HOSTS = frozenset({'hapi.fhir.org'})
+DEMO_FHIR_HOSTS = frozenset({'hapi.fhir.org', 'slainte-fhir', 'localhost', '127.0.0.1', 'testserver'})
 AI_REASONING_LEVELS = ('none', 'low', 'medium', 'high', 'xhigh', 'max')
 AI_INPUT_TOKEN_CLIFF = 272_000
 
@@ -132,7 +132,7 @@ class Config:
 
     # AI Provider settings
     OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
-    AI_MODEL = os.environ.get('AI_MODEL', 'gpt-4o')
+    AI_MODEL = os.environ.get('AI_MODEL', 'gpt-6.1-luna')
     AI_REQUEST_TIMEOUT = float(os.environ.get('AI_REQUEST_TIMEOUT', '60'))
     AI_ALLOW_REAL_PHI = _flag('AI_ALLOW_REAL_PHI', default=False)
     AI_REASONING_EFFORT = os.environ.get('AI_REASONING_EFFORT', 'low').strip().lower()

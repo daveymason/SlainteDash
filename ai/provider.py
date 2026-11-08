@@ -167,14 +167,26 @@ class OllamaProvider:
         if not self.bare_model:
             status.message = 'No local Ollama model is configured.'
             return status
-        for candidate_base in [self.base_url, 'http://localhost:11434', 'http://host.docker.internal:11434']:
+        candidates = [
+            self.base_url,
+            'http://172.19.0.1:11435',
+            'http://172.17.0.1:11435',
+            'http://host.docker.internal:11435',
+            'http://127.0.0.1:11435',
+            'http://localhost:11435',
+            'http://localhost:11434',
+            'http://host.docker.internal:11434',
+        ]
+        for candidate_base in candidates:
+            if not candidate_base:
+                continue
             try:
-                resp = requests.get(f'{candidate_base}/api/tags', timeout=4.0)
+                resp = requests.get(f'{candidate_base}/api/tags', timeout=3.0)
                 if resp.status_code == 200:
                     models = [m.get('name', '') for m in resp.json().get('models', [])]
                     if self.bare_model in models:
                         status.model_available = True
-                        status.message = f'Local Ollama daemon online at {candidate_base}; "{self.bare_model}" is loaded and ready.'
+                        status.message = f'Local Ollama daemon online; "{self.bare_model}" is loaded and ready.'
                         return status
                     status.suggestions = models[:_MAX_SUGGESTIONS]
                     status.message = (
@@ -184,7 +196,7 @@ class OllamaProvider:
             except Exception:
                 continue
         status.key_valid = False
-        status.message = 'Could not reach local Ollama daemon on port 11434.'
+        status.message = 'Could not reach local Ollama daemon on port 11434/11435.'
         return status
 
     def stream_chat(self, messages, **kwargs):
@@ -194,8 +206,18 @@ class OllamaProvider:
             role = m.get('role', 'user').upper()
             prompt_parts.append(f'[{role}]\n{m.get("content", "")}')
         full_prompt = '\n\n'.join(prompt_parts)
+        candidates = [
+            self.base_url,
+            'http://172.19.0.1:11435',
+            'http://172.17.0.1:11435',
+            'http://host.docker.internal:11435',
+            'http://127.0.0.1:11435',
+            'http://localhost:11435',
+            'http://localhost:11434',
+            'http://host.docker.internal:11434',
+        ]
         seen_bases = []
-        for b in [self.base_url, 'http://localhost:11434', 'http://host.docker.internal:11434']:
+        for b in candidates:
             if b and b not in seen_bases:
                 seen_bases.append(b)
         req_timeout = (1.5, min(float(self.timeout or 6.0), 6.0))

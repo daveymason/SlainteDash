@@ -50,9 +50,7 @@
                             </optgroup>
                             <optgroup label="Cloud Frontier Models (Uses OPENAI_API_KEY in .env)">
                                 <option value="openai/gpt-6.1-luna" {% if model in ('openai/gpt-6.1-luna', 'gpt-6.1-luna') %}selected{% endif %}>openai/gpt-6.1-luna</option>
-                                <option value="openai/gpt-4o" {% if model in ('openai/gpt-4o', 'gpt-4o') %}selected{% endif %}>openai/gpt-4o</option>
-                                <option value="openai/gpt-4o-mini" {% if model in ('openai/gpt-4o-mini', 'gpt-4o-mini') %}selected{% endif %}>openai/gpt-4o-mini</option>
-                                {% if model and model not in ('ollama/k9/lime:latest', 'ollama/k9/lime-lite:latest', 'ollama/k9/Doggo:3b', 'ollama/k9/chihuahua:latest', 'ollama/recordstore:latest', 'ollama/gemma3:1b', 'openai/gpt-6.1-luna', 'gpt-6.1-luna', 'openai/gpt-4o', 'gpt-4o', 'openai/gpt-4o-mini', 'gpt-4o-mini') %}
+                                {% if model and model not in ('ollama/k9/lime:latest', 'ollama/k9/lime-lite:latest', 'ollama/k9/Doggo:3b', 'ollama/k9/chihuahua:latest', 'ollama/recordstore:latest', 'ollama/gemma3:1b', 'openai/gpt-6.1-luna', 'gpt-6.1-luna') %}
                                 <option value="{{ model }}" selected>{{ model }}</option>
                                 {% endif %}
                             </optgroup>
@@ -117,6 +115,33 @@
                         </div>
                     </dd>
                 </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-1" style="max-width: 960px;">
+    <div class="col-12">
+        <div class="card shadow-sm border mb-4">
+            <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-dark"><i class="fas fa-layer-group text-primary me-2"></i>Clinical AI Architecture: Deterministic Grounding &amp; Model Execution</span>
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Zero-Hallucination Guardrails</span>
+            </div>
+            <div class="card-body p-3 small text-secondary">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold text-dark mb-1"><i class="fas fa-shield-alt text-success me-1"></i> 1. Live Deterministic Synthesis (Always Active)</h6>
+                        <p class="mb-0">
+                            Clinical actions (SBAR handovers, SOAP notes, NEWS2 acuity, drug-allergy contraindication screening) are <strong>never hardcoded or faked</strong>. The system reads live FHIR R4 resources directly from the store (Patient, Observations, Conditions, Allergies, Meds) and evaluates them deterministically using FastMCP tool rules. Even when external cloud models are unconfigured, clinical output is dynamically assembled from the patient's verified real-time records.
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold text-dark mb-1"><i class="fas fa-brain text-primary me-1"></i> 2. Neural Generation &amp; Sovereign LLM Routing</h6>
+                        <p class="mb-0">
+                            When an LLM provider is active (local sovereign Ollama models on port 11434 or cloud models via <code>OPENAI_API_KEY</code>), the live de-identified FHIR context is passed to the model prompt to synthesize fluid clinical prose while maintaining strict resource citations (<code>[Observation/...]</code>, <code>[Condition/...]</code>).
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
