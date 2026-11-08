@@ -65,6 +65,7 @@
                 {% endfor %}
             </select>
             <button type="submit" class="btn btn-primary btn-sm">
+                <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                 <i class="fas fa-play me-1"></i>Run Live BOLA Probe Cycle
             </button>
             <a href="/fhir/auditor/sarif" target="_blank" class="btn btn-outline-secondary btn-sm">
@@ -240,6 +241,7 @@
                 {% endfor %}
             </select>
             <button type="submit" class="btn btn-primary btn-sm">
+                <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                 <i class="fas fa-check-double me-1"></i>Run FHIR Integrity Verification
             </button>
         </form>
@@ -351,6 +353,7 @@
         <h2 class="h6 fw-bold mb-0 text-uppercase text-muted">Software Supply-Chain, SRI Hashes &amp; Runtime Security Headers</h2>
         <form hx-post="/fhir/Agent/cve_vulnerability/run" hx-target="#content" hx-swap="innerHTML" class="m-0">
             <button type="submit" class="btn btn-primary btn-sm">
+                <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                 <i class="fas fa-sync-alt me-1"></i>Run Live CVE &amp; Header Audit
             </button>
         </form>
@@ -466,6 +469,7 @@
                 {% endfor %}
             </select>
             <button type="submit" class="btn btn-primary btn-sm">
+                <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                 <i class="fas fa-user-shield me-1"></i>Run GDPR Audit &amp; Preview Redaction
             </button>
         </form>
@@ -536,6 +540,7 @@
             <form hx-post="/fhir/Agent/immutable_audit/run" hx-target="#content" hx-swap="innerHTML" class="m-0">
                 <input type="hidden" name="test_tamper" value="1">
                 <button type="submit" class="btn btn-primary btn-sm">
+                    <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                     <i class="fas fa-shield-alt me-1"></i>Verify Triggers &amp; Run Live Tamper Test
                 </button>
             </form>
@@ -649,6 +654,7 @@
             </button>
             <form hx-post="/fhir/Agent/multimodal_ingest/run" hx-target="#content" hx-swap="innerHTML" class="m-0">
                 <button type="submit" class="btn btn-outline-secondary btn-sm">
+                    <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                     <i class="fas fa-sync-alt me-1"></i>Refresh Dropzone &amp; Store
                 </button>
             </form>
@@ -701,6 +707,7 @@
                     </div>
                     <div class="col-md-4 d-grid">
                         <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+                            <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                             <i class="fas fa-bolt me-1"></i>Translate &amp; Ingest HL7v2 Stream
                         </button>
                     </div>
@@ -794,6 +801,7 @@
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                         <i class="fas fa-file-medical me-1"></i>Generate Brief
                     </button>
                 </div>
@@ -871,6 +879,7 @@
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                         <i class="fas fa-shield-virus me-1"></i>Run Rx-Guard
                     </button>
                 </div>
@@ -997,6 +1006,7 @@
                 </div>
                 <div class="col-6 col-md-2">
                     <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                         <i class="fas fa-calculator me-1"></i>Score Acuity
                     </button>
                 </div>
@@ -1107,6 +1117,7 @@
                     </div>
                     <div class="col-md-2 d-grid">
                         <button type="submit" class="btn btn-primary btn-sm fw-semibold">
+                            <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                             <i class="fas fa-magic me-1"></i>Extract &amp; Screen
                         </button>
                     </div>
@@ -1161,6 +1172,7 @@
                     {% endfor %}
                 </select>
                 <button type="submit" class="btn btn-primary btn-sm">
+                    <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                     <i class="fas fa-search-dollar me-1"></i>Run Coding Sweep
                 </button>
             </form>
@@ -1264,6 +1276,7 @@
                     {% endfor %}
                 </select>
                 <button type="submit" class="btn btn-primary btn-sm">
+                    <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                     <i class="fas fa-play me-1"></i>Run Migration Audit
                 </button>
             </form>
@@ -1345,6 +1358,7 @@
                     {% endfor %}
                 </select>
                 <button type="submit" class="btn btn-primary btn-sm">
+                    <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                     <i class="fas fa-stethoscope me-1"></i>Evaluate Discharge
                 </button>
             </form>
@@ -1440,6 +1454,7 @@
                     <span class="input-group-text">min</span>
                 </div>
                 <button type="submit" class="btn btn-danger btn-sm">
+                    <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                     <i class="fas fa-broadcast-tower me-1"></i>Beam Pre-Alert
                 </button>
             </form>
@@ -1512,6 +1527,7 @@
             <span class="fw-bold"><i class="fas fa-stethoscope me-2 text-primary"></i>Panel-Wide Chronic Disease Surveillance &amp; Care Gap Audit</span>
             <form hx-post="/fhir/Agent/chronic_surveillance/run" hx-target="#content" hx-swap="innerHTML" class="m-0">
                 <button type="submit" class="btn btn-primary btn-sm">
+                    <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                     <i class="fas fa-sync me-1"></i>Run Panel Surveillance Sweep
                 </button>
             </form>
@@ -1597,6 +1613,7 @@
                 </a>
                 <form hx-post="/fhir/Agent/nis2_compliance/run" hx-target="#content" hx-swap="innerHTML" class="m-0">
                     <button type="submit" class="btn btn-primary btn-sm">
+                        <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                         <i class="fas fa-shield-virus me-1"></i>Run NIS2 Audit Sweep
                     </button>
                 </form>

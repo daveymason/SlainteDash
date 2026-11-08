@@ -52,6 +52,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     testButton.addEventListener('click', async function () {
         testButton.disabled = true;
+        testButton.classList.add('is-loading');
+        var icon = testButton.querySelector('i, svg.svg-inline--fa');
+        var sp = document.createElement('span');
+        sp.className = 'spinner-border spinner-border-sm me-1 dynamic-htmx-spinner';
+        sp.setAttribute('role', 'status');
+        sp.setAttribute('aria-hidden', 'true');
+        if (icon) {
+            icon.style.setProperty('display', 'none', 'important');
+            icon.parentNode.insertBefore(sp, icon);
+        } else {
+            testButton.insertBefore(sp, testButton.firstChild);
+        }
         setPlainMessage('Checking...', 'muted');
 
         var modelSelect = document.getElementById('selected_model');
@@ -77,6 +89,11 @@ document.addEventListener('DOMContentLoaded', function () {
             );
         } finally {
             testButton.disabled = false;
+            testButton.classList.remove('is-loading');
+            sp.remove();
+            if (icon) {
+                icon.style.removeProperty('display');
+            }
         }
     });
 });

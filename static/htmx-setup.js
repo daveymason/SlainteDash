@@ -236,4 +236,84 @@
                 'Lost connection to the server. Check your network and try again.</div>';
         }
     });
+
+    // Microfeedback & Loading Spinners: replace button icons with spinners during actions
+    document.body.addEventListener('htmx:beforeRequest', function (event) {
+        var elt = event.detail.elt;
+        if (!elt) return;
+
+        var btns = [];
+        if (elt.tagName === 'BUTTON' || (elt.classList && elt.classList.contains('btn'))) {
+            btns.push(elt);
+        } else if (elt.tagName === 'FORM') {
+            elt.querySelectorAll('button[type="submit"], .btn[type="submit"], button:not([type="button"]), .btn-primary, .btn-danger').forEach(function (b) {
+                btns.push(b);
+            });
+        } else if (elt.closest) {
+            var b = elt.closest('button, .btn');
+            if (b) btns.push(b);
+        }
+
+        btns.forEach(function (btn) {
+            btn.classList.add('is-loading');
+            btn.setAttribute('aria-busy', 'true');
+
+            // If button does not already have an indicator spinner in markup, inject one dynamically in place of the icon
+            var existingSpinner = btn.querySelector('.spinner-border');
+            if (!existingSpinner) {
+                var icon = btn.querySelector('i, svg.svg-inline--fa');
+                var sp = document.createElement('span');
+                sp.className = 'spinner-border spinner-border-sm me-1 dynamic-htmx-spinner';
+                sp.setAttribute('role', 'status');
+                sp.setAttribute('aria-hidden', 'true');
+
+                if (icon && icon.parentNode) {
+                    icon.style.setProperty('display', 'none', 'important');
+                    icon.parentNode.insertBefore(sp, icon);
+                } else {
+                    btn.insertBefore(sp, btn.firstChild);
+                }
+            }
+        });
+    });
+
+    function restoreButtonStates(elt) {
+        if (!elt) return;
+        var btns = [];
+        if (elt.tagName === 'BUTTON' || (elt.classList && elt.classList.contains('btn'))) {
+            btns.push(elt);
+        } else if (elt.tagName === 'FORM') {
+            elt.querySelectorAll('button, .btn').forEach(function (b) { btns.push(b); });
+        } else if (elt.closest) {
+            var b = elt.closest('button, .btn');
+            if (b) btns.push(b);
+        }
+
+        btns.forEach(function (btn) {
+            btn.classList.remove('is-loading');
+            btn.removeAttribute('aria-busy');
+            btn.querySelectorAll('.dynamic-htmx-spinner').forEach(function (sp) {
+                sp.remove();
+            });
+            btn.querySelectorAll('i, svg.svg-inline--fa').forEach(function (ic) {
+                ic.style.removeProperty('display');
+            });
+        });
+    }
+
+    document.body.addEventListener('htmx:afterRequest', function (event) {
+        restoreButtonStates(event.detail.elt);
+    });
+    document.body.addEventListener('htmx:responseError', function (event) {
+        restoreButtonStates(event.detail.elt);
+    });
+    document.body.addEventListener('htmx:sendError', function (event) {
+        restoreButtonStates(event.detail.elt);
+    });
+    document.body.addEventListener('htmx:abort', function (event) {
+        restoreButtonStates(event.detail.elt);
+    });
+    document.body.addEventListener('htmx:timeout', function (event) {
+        restoreButtonStates(event.detail.elt);
+    });
 })();

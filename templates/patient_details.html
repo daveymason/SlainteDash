@@ -43,12 +43,14 @@
                 hx-post="/ai/summarise/{{ patient['id'] }}"
                 hx-target="#ai-bedside-briefing-{{ patient['id'] }}"
                 hx-swap="innerHTML">
+            <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
             <i class="fas fa-notes-medical me-1"></i> Agent 07: Handover Brief
         </button>
         <button class="btn btn-sm btn-outline-danger fw-semibold"
                 hx-post="/ai/crosscheck/{{ patient['id'] }}"
                 hx-target="#ai-rxguard-{{ patient['id'] }}"
                 hx-swap="innerHTML">
+            <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
             <i class="fas fa-shield-virus me-1"></i> Agent 08: 3-Tier Rx-Guard
         </button>
         <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-semibold"
@@ -89,7 +91,10 @@
                            placeholder="e.g. Unconscious trauma patient in Resus Bay 2 — urgent allergy &amp; prescribing access required" required minlength="10">
                 </div>
                 <div class="col-md-2 d-grid">
-                    <button type="submit" class="btn btn-sm btn-danger fw-semibold">Invoke 60m Grant</button>
+                    <button type="submit" class="btn btn-sm btn-danger fw-semibold">
+                        <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
+                        <i class="fas fa-bolt me-1"></i>Invoke 60m Grant
+                    </button>
                 </div>
             </form>
         </div>
@@ -138,6 +143,7 @@
                 </div>
                 <div class="d-flex justify-content-end">
                     <button type="submit" class="btn btn-sm btn-primary fw-semibold">
+                        <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
                         <i class="fas fa-magic me-1"></i>Extract Structured SOAP &amp; Pre-Screen Orders
                     </button>
                 </div>

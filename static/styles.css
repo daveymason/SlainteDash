@@ -1,19 +1,20 @@
 /* ==========================================================================
-   SlainteTech Clinical UI System — Minimalist Medical & Accessibility Theme
+   SlainteTech Clinical Workstation — Classic Enterprise Bootstrap Medical Theme
    ========================================================================== */
 
 :root {
-    --tropical-primary: #2E86AB;
-    --tropical-primary-dark: #216482;
+    --tropical-primary: #1B6B8D;
+    --tropical-primary-dark: #134E68;
     --tropical-secondary: #D97706;
     --tropical-success: #15803D;
     --tropical-danger: #B91C1C;
-    --tropical-info: #0369A1;
+    --tropical-info: #0284C7;
     --tropical-light: #F8FAFC;
     --tropical-dark: #1E293B;
-    --clinical-bg: #F3F6F9;
+    --clinical-bg: #F1F5F9;
     --clinical-surface: #FFFFFF;
-    --clinical-border: #DDE3EA;
+    --clinical-border: #CBD5E1;
+    --clinical-border-light: #E2E8F0;
     --clinical-text: #0F172A;
     --clinical-muted: #475569;
     --sidebar-width: 64px;
@@ -21,40 +22,41 @@
 }
 
 body {
-    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: var(--clinical-bg);
     color: var(--clinical-text);
+    font-size: 0.875rem;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
 }
 
-/* Clinical Cards — Stable, high-contrast, zero motion noise */
+/* Classic Bootstrap Panel/Card Architecture — Clean, sturdy, zero floaty glassmorphism */
 .card {
     background-color: var(--clinical-surface);
-    border-radius: 8px;
+    border-radius: 4px;
     border: 1px solid var(--clinical-border);
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    margin-bottom: 1.25rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    margin-bottom: 1rem;
     transition: border-color 0.15s ease;
 }
 
 .card:hover {
-    transform: none;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+    border-color: #94A3B8;
 }
 
 .card-header {
     background-color: #F8FAFC;
     color: var(--clinical-text);
     border-bottom: 1px solid var(--clinical-border);
-    padding: 0.75rem 1.15rem;
-    font-weight: 700;
+    padding: 0.65rem 1rem;
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .card-header.bg-dark {
     background-color: var(--tropical-dark) !important;
     color: #FFFFFF !important;
-    border-bottom: 1px solid #334155;
+    border-bottom: 1px solid #0F172A;
 }
 
 .card-header.bg-primary {
@@ -69,7 +71,7 @@ body {
 }
 
 .card-body {
-    padding: 1.1rem 1.25rem;
+    padding: 1rem;
 }
 
 .card-header + .card-body.p-0 {
@@ -79,20 +81,38 @@ body {
 .card-footer {
     background-color: #F8FAFC;
     border-top: 1px solid var(--clinical-border);
-    padding: 0.75rem 1.25rem;
+    padding: 0.65rem 1rem;
 }
 
-/* Buttons — Crisp, accessible clinical controls */
+/* Classic Bootstrap Controls & Tactile Micro-Interactions */
 .btn {
-    border-radius: 6px;
-    padding: 0.42rem 0.9rem;
-    font-weight: 600;
+    border-radius: 4px;
+    padding: 0.38rem 0.85rem;
+    font-weight: 500;
     font-size: 0.875rem;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+    line-height: 1.4;
+    transition: all 0.12s ease-in-out;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--tropical-primary);
+    outline-offset: 1px;
 }
 
 .btn-sm {
-    padding: 0.28rem 0.65rem;
+    border-radius: 3px;
+    padding: 0.25rem 0.55rem;
     font-size: 0.8125rem;
 }
 
@@ -106,7 +126,7 @@ body {
 .btn-primary:focus {
     background-color: var(--tropical-primary-dark);
     border-color: var(--tropical-primary-dark);
-    transform: none;
+    color: #FFFFFF;
 }
 
 .btn-info {
@@ -116,10 +136,9 @@ body {
 }
 
 .btn-info:hover {
-    background-color: #075985;
-    border-color: #075985;
+    background-color: #0369A1;
+    border-color: #0369A1;
     color: #FFFFFF;
-    transform: none;
 }
 
 .btn-outline-primary {
@@ -131,7 +150,91 @@ body {
     background-color: var(--tropical-primary);
     border-color: var(--tropical-primary);
     color: #FFFFFF;
-    transform: none;
+}
+
+/* Consistent HTMX Loading States, Buttons & Spinners */
+.htmx-indicator {
+    display: none !important;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator,
+.is-loading .htmx-indicator {
+    display: inline-block !important;
+}
+
+/* Default state: hide spinner inside button when idle */
+button .spinner-border.htmx-indicator,
+.btn .spinner-border.htmx-indicator,
+button:not(.htmx-request):not(.is-loading) .spinner-border.htmx-indicator,
+.btn:not(.htmx-request):not(.is-loading) .spinner-border.htmx-indicator,
+form:not(.htmx-request):not(.is-loading) button .spinner-border.htmx-indicator,
+form:not(.htmx-request):not(.is-loading) .btn .spinner-border.htmx-indicator {
+    display: none !important;
+}
+
+/* Button Loading & Microfeedback: disable clicks and show wait cursor during execution */
+button.htmx-request,
+.btn.htmx-request,
+button.is-loading,
+.btn.is-loading,
+form.htmx-request button[type="submit"],
+form.htmx-request .btn[type="submit"],
+form.is-loading button[type="submit"],
+form.is-loading .btn[type="submit"] {
+    pointer-events: none !important;
+    opacity: 0.82 !important;
+    cursor: wait !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Icon-to-spinner replacement: HIDE static icon in active button during action */
+button.htmx-request > i,
+button.htmx-request > svg,
+button.htmx-request .svg-inline--fa,
+.btn.htmx-request > i,
+.btn.htmx-request > svg,
+.btn.htmx-request .svg-inline--fa,
+button.is-loading > i,
+button.is-loading > svg,
+button.is-loading .svg-inline--fa,
+.btn.is-loading > i,
+.btn.is-loading > svg,
+.btn.is-loading .svg-inline--fa,
+form.htmx-request button[type="submit"] > i,
+form.htmx-request button[type="submit"] > svg,
+form.htmx-request button[type="submit"] .svg-inline--fa,
+form.htmx-request .btn[type="submit"] > i,
+form.htmx-request .btn[type="submit"] > svg,
+form.htmx-request .btn[type="submit"] .svg-inline--fa,
+form.is-loading button[type="submit"] > i,
+form.is-loading button[type="submit"] > svg,
+form.is-loading button[type="submit"] .svg-inline--fa,
+form.is-loading .btn[type="submit"] > i,
+form.is-loading .btn[type="submit"] > svg,
+form.is-loading .btn[type="submit"] .svg-inline--fa {
+    display: none !important;
+}
+
+/* Icon-to-spinner replacement: SHOW loading spinner in place of icon */
+button.htmx-request .spinner-border,
+.btn.htmx-request .spinner-border,
+button.is-loading .spinner-border,
+.btn.is-loading .spinner-border,
+form.htmx-request button[type="submit"] .spinner-border,
+form.htmx-request .btn[type="submit"] .spinner-border,
+form.is-loading button[type="submit"] .spinner-border,
+form.is-loading .btn[type="submit"] .spinner-border {
+    display: inline-block !important;
+    vertical-align: -0.125em !important;
+}
+
+.loading-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem;
 }
 
 /* Clinical Tables — High readability, tabular figures */
@@ -440,19 +543,7 @@ thead.table-clinical {
     transition: opacity 0.15s ease-out;
 }
 
-.htmx-indicator {
-    display: none !important;
-}
-.htmx-request .htmx-indicator,
-.htmx-request.htmx-indicator {
-    display: block !important;
-}
-span.htmx-indicator.htmx-request,
-.htmx-request span.htmx-indicator,
-.htmx-request.spinner-border,
-span.spinner-border.htmx-indicator.htmx-request {
-    display: inline-block !important;
-}
+
 
 /* Accent borders */
 .border-left-primary {
