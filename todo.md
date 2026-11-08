@@ -21,7 +21,7 @@
   - [x] Dedicated HL7 FHIR R4 server (`slainte-fhir`) exposing `/fhir/r4/metadata`, `CompartmentDefinition/Patient`, `$validate`, `Provenance`, `AuditEvent`, and `Subscription`.
   - [x] **Slainte-Auditor Autonomous Red-Team FHIR Verifier**: 4-stage verification pipeline (RFC 1918 sandbox guardrail + compartment pruning, SNOMED/LOINC/UCUM/Irish GMS OID deterministic audit, Dual-Phase Reflection BOLA probing with `SharedAuditMemory` $\mathcal{M}$, and OASIS SARIF v2.1.0 report generation).
 - [x] **Phase 8 — Unified AI Model Selector (`/settings/ai`), `.env` Key Integration & Bedside AI Briefing**:
-  - [x] Unified `/settings/ai` Model Selector (`POST /settings/ai/select`) supporting Local Sovereign Ollama models (`k9/lime:latest`, `k9/lime-lite:latest`, `k9/Doggo:3b`, `k9/chihuahua:latest`, `recordstore:latest`, `gemma3:1b`) and Cloud Frontier models (`openai/gpt-6.1-luna`, `openai/gpt-4o`, `openai/gpt-4o-mini`) backed by `OPENAI_API_KEY` in `.env`.
+  - [x] Unified `/settings/ai` Model Selector (`POST /settings/ai/select`) supporting Local Sovereign Ollama models (`k9/lime:latest`, `k9/lime-lite:latest`, `k9/Doggo:3b`, `k9/chihuahua:latest`, `recordstore:latest`, `gemma3:1b`) and Cloud Frontier model (`openai/gpt-6.1-luna`) backed by `OPENAI_API_KEY` in `.env`.
   - [x] Added **Generate AI Bedside Briefing** (`POST /ai/summarise/<patient_id>`) on the Patient Details view grounded in deterministic NEWS2 and drug-allergy checks and logged to `ai_exchange`.
 
 ---

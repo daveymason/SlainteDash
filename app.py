@@ -3127,7 +3127,7 @@ def register_routes(app):
             outcome='success',
             resource_type='CapabilityStatement',
             detail={
-                'model': telemetry.get('selected_model', 'openai/gpt-4o'),
+                'model': telemetry.get('selected_model', 'ollama/k9/lime:latest'),
                 'security_findings': telemetry.get('stats', {}).get('security_findings_count', 0),
                 'terminology_findings': telemetry.get('stats', {}).get('terminology_findings_count', 0),
             },

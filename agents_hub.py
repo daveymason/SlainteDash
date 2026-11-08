@@ -19,8 +19,6 @@ AVAILABLE_MODELS = [
     ('ollama/recordstore:latest', 'Local: recordstore:latest (Ollama)'),
     ('ollama/gemma3:1b', 'Local: gemma3:1b (Ollama)'),
     ('openai/gpt-6.1-luna', 'Cloud: openai/gpt-6.1-luna (.env Key)'),
-    ('openai/gpt-4o', 'Cloud: openai/gpt-4o (.env Key)'),
-    ('openai/gpt-4o-mini', 'Cloud: openai/gpt-4o-mini (.env Key)'),
 ]
 
 AGENTS_CATALOG = [

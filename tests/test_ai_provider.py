@@ -95,7 +95,7 @@ class TestProviderCheck:
 
     def test_valid_key_but_unknown_model_is_a_distinct_failure(self, monkeypatch):
         """A wrong model ID must not read as a bad key -- different fix."""
-        provider = _provider(monkeypatch, ids=['gpt-4.1', 'gpt-4o'])
+        provider = _provider(monkeypatch, ids=['gpt-4.1', 'gpt-6.1-luna'])
         status = provider.check()
         assert status.key_valid is True      # the key is fine
         assert status.model_available is False   # the model is not
@@ -111,7 +111,7 @@ class TestProviderCheck:
     def test_unrelated_model_still_lists_what_is_available(self, monkeypatch):
         """With no near match, show real IDs anyway -- an empty list would
         leave the operator with nothing to correct the setting to."""
-        provider = _provider(monkeypatch, model='zzzzz', ids=['gpt-4.1', 'gpt-4o'])
+        provider = _provider(monkeypatch, model='zzzzz', ids=['gpt-4.1', 'gpt-6.1-luna'])
         status = provider.check()
         assert status.suggestions
 
@@ -241,7 +241,7 @@ class TestSettingsRoutes:
         app.config['OPENAI_API_KEY'] = 'sk-test'
         monkeypatch.setattr(
             OpenAIProvider, '_client',
-            lambda self: _FakeClient(ids=['gpt-4.1', 'gpt-4o']),
+            lambda self: _FakeClient(ids=['gpt-4.1', 'gpt-6.1-luna']),
         )
         payload = admin_client.post('/settings/ai/test').get_json()
         assert payload['key_valid'] is True
