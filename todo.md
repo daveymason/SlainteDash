@@ -130,13 +130,22 @@
   - [x] Enriched `AGENTS_CATALOG` in `agents/registry.py` from 11 to 16 agents; added concrete class dispatch in `get_agent_instance()`.
   - [x] Expanded test suite in `tests/test_agents_fleet.py` (344/344 passing tests across monorepo).
 
-### Step 3.7: Phase 12.7 — Manual Human Review & UI/UX Audit across Dashboard & Public Site ✅ COMPLETED
-- [x] **Bootstrap-Native Spacing & Rhythm Audit**: Standardized padding (`p-3`, `p-4`), card margins (`mb-3`), and grid gaps across all templates without arbitrary inline styles.
-- [x] **Button Micro-Interactions & Hover Feedback**: Enhanced `.btn` styles in `static/styles.css` with smooth cubic-bezier micro-transitions (`translateY(-1px)` hover, accessible `:focus-visible` rings).
-- [x] **Consistent Asynchronous Loading States**: Hardened `.htmx-indicator` and `.btn.htmx-request` styles providing immediate visual feedback and dimming on background actions.
-- [x] **De-Cluttering & Elimination of "Vibe-Coding" Jargon**: Removed redundant titles, duplicate pills, and unnecessary badges in top nav; streamlined header into clean enterprise medical layout.
-- [x] **WCAG 2.2 AA Contrast & Bedside Readability**: Verified 4.5:1 text contrast and 44px coarse-pointer touch targets for Care-at-Home tablet and ambulance ePCR use.
-- [x] **Pixel-Perfect Screen Captures**: Captured 11 high-resolution screenshots saved to `data/audit_reports/ui_screenshots/` covering dashboard login, patients roster, patient details chart, agents hub, dedicated agent dashboards (Agent 16 NIS2 & Agent 08 Rx-Guard), acute triage board, and the public Next.js marketing pages.
+### Step 3.7: Phase 12.7 — Manual Human Review & UI/UX Audit across Dashboard & Public Site (Iteration 2) ✅ COMPLETED
+- [x] **Live Patient Cohort Rendering & Offline Fallback**:
+  - [x] Patched `DynamicFhirProxy` in `frontend/app.py` with 200ms socket probe on port 8082, automatically falling back to `LocalFhirStore` targeting `data/fhir_store/` in standalone workstation mode.
+  - [x] Verified full cohort rendering (34 synthetic patients: Mary Walsh P101, Patrick Byrne P102, Declan Foley P113, etc.) with real vitals, active medications, allergies, problem list, and NEWS2 acuity scores.
+- [x] **Classic Enterprise Bootstrap Aesthetic (2016 Medical Workstation Standard)**:
+  - [x] Replaced playful rounded fonts (`Nunito`) with crisp native operating system UI fonts (`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`).
+  - [x] Standardized cards/panels to solid 4px border radius, 1px `#CBD5E1` clinical borders, `#F8FAFC` headers, and zero floaty glassmorphism or neon vibe-coding accents.
+  - [x] Standardized padding (`p-3`, `p-4`), table line-heights, and crisp `#0F172A` high-contrast typography.
+- [x] **Tactile Micro-Feedback & Interactive Hover States**:
+  - [x] Enhanced `.btn` styles in `static/styles.css` with subtle micro-elevation (`translateY(-1px)`, `box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12)`), inset click feedback, and 2px focus rings.
+- [x] **Consistent Asynchronous Loading States & Spinners**:
+  - [x] Implemented global `.htmx-indicator` rules and button loading states (`button.htmx-request { pointer-events: none; opacity: 0.75; }`) ensuring seamless, visible feedback during asynchronous searches and agent executions.
+- [x] **Pixel-Perfect Screen Captures (With Live Clinical Data)**:
+  - [x] Captured 11 high-resolution screenshots saved to `data/audit_reports/ui_screenshots/` with all clinical data fully loaded: Workstation Login, Patients Roster (15 active patients per page), Patient Details Chart (Mary Walsh P101), 16-Agent Fleet Hub, Agent 16 NIS2 Dashboard, Agent 08 Rx-Guard Gate, Acute Manchester Triage Board, and Public Next.js 15 pages.
+- [x] **HTMX 4 & Bootstrap 6 Modernization Evaluation**:
+  - [x] Detailed comprehensive technical evaluation in `stopgap.md` Section 8 outlining breaking changes, DOM morphing (Idiomorph), strict CSP nonces, CSS `@layer`, container queries, and native HTML5 `<dialog>`.
 
 ### Step 3.8: Phase 12.8 — Agent Interaction with UI Specification ✅ COMPLETED
 - [x] **16-Agent UI Interaction Matrix**: Documented full interaction lifecycle (invocation trigger, computed output, and presentation format in UI) for all 16 agents in `PROJECT-PLAN.md`.

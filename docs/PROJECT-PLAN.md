@@ -669,45 +669,50 @@ the LLM strictly as a conversational orchestrator while delegating all clinical 
 
 ---
 
-## 12.7. Phase 12.7 — Manual Human Review & UI/UX Audit across Dashboard & Public Site
+## 12.7. Phase 12.7 — Manual Human Review & UI/UX Audit across Dashboard & Public Site (Iteration 2)
 
-**Status: Completed & Documented with Pixel-Perfect Screenshots.**
+**Status: Completed & Documented with 11 Verified Pixel-Perfect Live Patient Screenshots.**
 
-**Why:** Elevating the user experience from an experimental prototype to a pristine, hospital-grade enterprise application requires rigorous heuristic review: eliminating visual clutter, ensuring consistent spacing and padding with native Bootstrap 5 rhythm, implementing tactile button micro-interactions, guaranteeing smooth HTMX loading states, and verifying full WCAG 2.2 AA accessibility.
+**Why:** Elevating the user experience from an experimental prototype to a pristine, hospital-grade enterprise application requires rigorous heuristic review: eliminating visual clutter, ensuring consistent spacing and padding with native Bootstrap rhythm, implementing tactile button micro-interactions, guaranteeing smooth HTMX loading states, providing 100% data availability for all clinical records, and verifying full WCAG 2.2 AA accessibility.
 
 ### Heuristic Review & Quality Findings:
 
-1. **Layout & Spacing Rhythm (Bootstrap Native Consistency):**
-   - Audited cards, headers, and toolbars across all views (`patients.html`, `patient_details.html`, `dashboard.html`, `triage.html`, `auditor_fragment.html`).
-   - Standardized padding and margin using Bootstrap 5 utility classes (`p-3`, `p-4`, `mb-3`, `gap-2`, `gap-3`), eliminating ad-hoc inline styles and uneven margins.
-   - Ensured tables sit flush inside `.card` containers without double borders or broken header lines.
-2. **Button Micro-Interactions & Tactile Feedback:**
+1. **Live Clinical Data Loading & Offline High-Availability Fallback:**
+   - Patched `DynamicFhirProxy` in `frontend/app.py` with an automatic 200ms socket probe on port 8082. When running standalone without the container network, it automatically falls back to `LocalFhirStore` targeting `data/fhir_store/`.
+   - Verified that all 34 synthetic patient bundles (`P0988`, `P101` Mary Walsh, `P102` Patrick Byrne, etc.) render immediately with real vitals, active medications, allergies, condition problem lists, and NEWS2 acuity scores.
+2. **Classic Enterprise Bootstrap Aesthetic (2016 Medical Workstation Standard):**
+   - Replaced playful rounded fonts (`Nunito`) with crisp native operating system UI fonts (`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`).
+   - Standardized cards and panels to a clean 4px border radius, 1px `#CBD5E1` clinical borders, `#F8FAFC` headers, and zero floaty glassmorphism or neon vibe-coding accents.
+   - Standardized table cell padding, high-contrast `#0F172A` body typography, and flush alignment within cards.
+3. **Button Micro-Interactions & Tactile Feedback:**
    - Upgraded `.btn` styles in `static/styles.css` with smooth cubic-bezier micro-transitions:
-     - Hover state: `transform: translateY(-1px); box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12);`
-     - Active click state: `transform: translateY(0); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);`
-     - Accessible focus ring: `outline: 2px solid var(--tropical-primary); outline-offset: 2px;`
-3. **Consistent HTMX Loading Feedback:**
-   - Hardened `.htmx-indicator` and `.btn.htmx-request` styling to ensure immediate visual feedback on asynchronous operations (form submissions, agent runs, patient swaps). Buttons dim slightly (`opacity: 0.82; pointer-events: none;`) with inline spinners activated.
-4. **De-Cluttering & Elimination of "Vibe-Coding" Jargon:**
+     - Hover state: `transform: translateY(-1px); box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12);`
+     - Active click state: `transform: translateY(0); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);`
+     - Accessible focus ring: `outline: 2px solid var(--tropical-primary); outline-offset: 1px;`
+4. **Consistent Asynchronous HTMX Loading Feedback:**
+   - Hardened `.htmx-indicator` and `.btn.htmx-request` styling to ensure immediate visual feedback on asynchronous operations (form submissions, agent runs, patient swaps). Buttons dim slightly (`opacity: 0.75; pointer-events: none;`) with inline spinners activated.
+5. **De-Cluttering & Elimination of "Vibe-Coding" Jargon:**
    - Cleaned the top header bar: removed duplicate titles, unnecessary pill tags, and deprecated buttons.
    - Replaced colloquial or experimental terminology with crisp clinical nomenclature ("Vertical Workspace", "Irish Core FHIR R4", "Operational Status").
-5. **WCAG 2.2 AA Accessibility & Bedside Contrast:**
-   - Verified 4.5:1 text contrast for body typography (`#0F172A` on `#F3F6F9` / `#FFFFFF`) and 3:1 contrast for interactive controls and borders.
+6. **WCAG 2.2 AA Accessibility & Bedside Contrast:**
+   - Verified 4.5:1 text contrast for body typography (`#0F172A` on `#F1F5F9` / `#FFFFFF`) and 3:1 contrast for interactive controls and borders.
    - High-contrast clinical priority mode (`body.high-contrast-mode`) verified for bright sunlight and dimmed night-shift wards.
    - Coarse-pointer touch targets (`min-block-size: 44px`) verified for mobile tablet and ambulance ePCR use.
-6. **Pixel-Perfect UI Screen Captures:**
+7. **Pixel-Perfect UI Screen Captures (With Live Clinical Cohort Data):**
    - Captured 11 high-resolution screenshots saved to `data/audit_reports/ui_screenshots/`:
      - `01_dashboard_login.png`: Login screen with rate-limiting notice and clinical security footer.
-     - `02_patients_roster.png`: Clinical Patients table with responsive sparklines, GMS tags, and NEWS2 risk badges.
-     - `03_patient_details_p101.png`: Patient Details chart with clinical monogram, vital trends, and bedside copilot triggers.
+     - `02_patients_roster.png`: Clinical Patients table loaded with 15 active patients per page (`P0988`, `P101` Mary Walsh, `P102` Patrick Byrne), GMS numbers, and NEWS2 risk badges.
+     - `03_patient_details_p101.png`: Patient Details chart for Mary Walsh (P101) with clinical banner, vitals panel, active medications, allergies, and problem list.
      - `04_agents_hub.png`: Master 16-agent directory with squad filters and fleet execution bar.
-     - `05_agent_16_nis2.png`: Agent 16 dedicated Article 21 compliance dashboard.
-     - `06_agent_08_rxguard.png`: Agent 08 3-Tier pharmacology and renal safety dashboard.
-     - `07_triage_board.png`: Acute Manchester Triage board with collapsible priority accordions.
-     - `08_public_site_homepage.png`: Public marketing homepage with live architecture schematic.
+     - `05_agent_16_nis2.png`: Agent 16 dedicated Article 21 compliance and SIEM telemetry dashboard.
+     - `06_agent_08_rxguard.png`: Agent 08 3-Tier pharmacology and renal safety dashboard evaluating real patient medications.
+     - `07_triage_board.png`: Acute Manchester Triage board with patients populated across priority accordions.
+     - `08_public_site_homepage.png`: Public marketing homepage with healthcare photography and agent fleet overview.
      - `09_public_site_agents_directory.png`: Public 16-agent solution directory.
      - `10_public_site_agent_nis2_landing.png`: Public canonical SEO landing page for Agent 16.
      - `11_public_site_vertical_emergency.png`: Public Emergency Department vertical landing page.
+8. **Modernization Path for HTMX 4 & Bootstrap 6:**
+   - Detailed comprehensive technical evaluation in `stopgap.md` Section 8 outlining breaking changes, DOM morphing (Idiomorph), strict CSP nonces without inline handlers, CSS `@layer`, container queries, and native HTML5 `<dialog>`.
 
 ---
 
