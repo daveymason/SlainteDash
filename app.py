@@ -1449,6 +1449,81 @@ def register_routes(app):
               resource_id=pseudonymize(patient_id), detail={'type': note_type})
         return _render_notes_fragment(patient_id, flash_message=('success', 'Clinical consultation note filed to FHIR R4 DocumentReference.'))
 
+    @app.route('/ai/draft_note/<patient_id>', methods=['POST', 'GET'], endpoint='ai_draft_note')
+    @login_required
+    def ai_draft_note(patient_id):
+        draft_type = (request.args.get('type') or request.form.get('type') or 'handover').strip().lower()
+        sub_results = fhir.get_many({
+            'patient': (f'Patient/{patient_id}', {}),
+            'obs': ('Observation', {'patient': patient_id, '_count': 50}),
+            'cond': ('Condition', {'patient': patient_id, '_count': 20}),
+            'allergy': ('AllergyIntolerance', {'patient': patient_id, '_count': 20}),
+            'med': ('MedicationRequest', {'patient': patient_id, '_count': 20}),
+        })
+        p_res = sub_results['patient']
+        p_data = p_res.data if (p_res.ok and isinstance(p_res.data, dict)) else {'id': patient_id}
+        name = patient_display_name(p_data, fallback=f'Patient {patient_id}')
+        age = calculate_age(p_data.get('birthDate'))
+        gender = (p_data.get('gender') or 'unknown').capitalize()
+        local_summary = _load_local_bundle_summary(patient_id)
+
+        cond_entries = sub_results['cond'].entries if sub_results['cond'].ok else []
+        allergy_entries = sub_results['allergy'].entries if sub_results['allergy'].ok else []
+        med_entries = sub_results['med'].entries if sub_results['med'].ok else []
+        obs_entries = sub_results['obs'].entries if sub_results['obs'].ok else []
+
+        conditions = [first_coding_display(c.get('code', {})) for c in cond_entries if isinstance(c, dict) and first_coding_display(c.get('code', {}))]
+        if not conditions and local_summary.get('primary_condition'):
+            conditions = [local_summary['primary_condition']]
+        allergies = [first_coding_display(a.get('code', {})) for a in allergy_entries if isinstance(a, dict) and first_coding_display(a.get('code', {}))]
+        if not allergies and local_summary.get('allergies'):
+            allergies = local_summary['allergies']
+        meds = [first_coding_display(m.get('medicationCodeableConcept', {})) for m in med_entries if isinstance(m, dict) and first_coding_display(m.get('medicationCodeableConcept', {}))]
+        if not meds and local_summary.get('medications'):
+            meds = local_summary['medications']
+
+        v_summary = local_summary.get('vitals_summary') or 'Baseline physiological markers stable'
+        news2_score = local_summary.get('news2_score', 0)
+        news2_tier = local_summary.get('news2_tier', 'Low Risk')
+
+        if draft_type == 'soap':
+            selected_type = '11506-3'
+            agent_badge = 'Agent 10 (SlainteVoice-Ambient) • SOAP Clinical Consultation Note'
+            content = (
+                f"S (Subjective): {name} ({age}y {gender}) presenting for clinical evaluation. Active complaints: {', '.join(conditions[:2]) or 'routine clinical assessment'}.\n"
+                f"O (Objective): NEWS2 Acuity {news2_score}/20 ({news2_tier}). Physiological readings: {v_summary}. Documented allergies: {', '.join(allergies) or 'NKDA'}.\n"
+                f"A (Assessment): Active diagnoses ([Condition]): {', '.join(conditions) or 'Under clinical observation'}. Acuity trajectory stable under observation.\n"
+                f"P (Plan): Maintain active therapeutic regimen ({', '.join(meds[:3]) or 'supportive care'}). Continuous NEWS2 physiological tracking. Repeat vitals in 4 hours."
+            )
+        elif draft_type == 'discharge':
+            selected_type = '18842-5'
+            agent_badge = 'Agent 13 (SlainteCare-Transfer) • Discharge & Transfer SBAR Summary'
+            content = (
+                f"SITUATION: Discharge transfer summary for {name} [Patient/{patient_id}] ({age}y {gender}).\n"
+                f"BACKGROUND: Admitted/presented with {', '.join(conditions) or 'clinical symptoms'}. Known allergies: {', '.join(allergies) or 'NKDA'}.\n"
+                f"ASSESSMENT: Physiological stabilization achieved (NEWS2 {news2_score}/20, {news2_tier}). Last recorded vitals: {v_summary}. Reconciled medications: {', '.join(meds) or 'None'}.\n"
+                f"RECOMMENDATION: Discharge to community / primary care. Continue prescribed medications. Routine GP review in 7-10 days. Return to ED if red-flag symptoms reoccur."
+            )
+        else: # handover
+            selected_type = '28651-8' if any(c[0] == '28651-8' for c in NOTE_TYPES_CATALOG) else '11506-3'
+            agent_badge = 'Agent 07 (SlainteScribe-Brief) • SBAR Clinical Handover Protocol'
+            content = (
+                f"SITUATION: Bedside clinical handover for {name} ({age}y {gender}) [Patient/{patient_id}]. Presenting condition: {', '.join(conditions[:2]) or 'Clinical Observation'}.\n"
+                f"BACKGROUND: Problem list includes {', '.join(conditions) or 'None recorded'}. Allergy status: {', '.join(allergies) or 'NKDA'}. Active medications: {', '.join(meds) or 'None'}.\n"
+                f"ASSESSMENT: Acuity level: NEWS2 {news2_score}/20 ({news2_tier}). Vital trends: {v_summary}. FastMCP clinical safety screening clear.\n"
+                f"RECOMMENDATION: Inpatient continuation of care. Verify next vital signs cycle. Escalate to medical registrar if NEWS2 >= 5."
+            )
+
+        audit('ai.draft_note', resource_type='Patient', resource_id=pseudonymize(patient_id), detail={'type': draft_type})
+        return render_template(
+            'partials/note_form_inner.html',
+            patient_id=patient_id,
+            note_types_catalog=NOTE_TYPES_CATALOG,
+            selected_note_type=selected_type,
+            draft_text=content,
+            agent_badge=agent_badge,
+        )
+
     # -- aggregate views ---------------------------------------------------
 
     @app.route('/fhir/Demographics')

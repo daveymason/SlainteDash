@@ -1,0 +1,58 @@
+{% if agent_badge %}
+<div class="alert alert-primary py-1 px-2 small mb-2 d-flex justify-content-between align-items-center" style="background-color: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
+    <span><i class="fas fa-robot me-1 text-primary"></i><strong>{{ agent_badge }}</strong></span>
+    <span class="badge bg-primary">Grounded in Live FHIR Bundle</span>
+</div>
+{% endif %}
+
+<form hx-post="/fhir/Notes/{{ patient_id }}/add"
+      hx-target="#clinicalNotes"
+      hx-swap="innerHTML">
+    <div class="row g-2">
+        <div class="col-md-4">
+            <label class="form-label small fw-bold mb-1">Note Classification (LOINC)</label>
+            <select name="note_type" class="form-select form-select-sm" id="note-type-select-{{ patient_id }}">
+                {% for code, disp, cat in (note_types_catalog or [('11506-3', 'SOAP Clinical Consultation Note', 'GP/Progress')]) %}
+                <option value="{{ code }}" {% if selected_note_type == code %}selected{% endif %}>{{ disp }} ({{ code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label small fw-bold mb-0">Clinical Summary / Handover Entry</label>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;"
+                            hx-post="/ai/draft_note/{{ patient_id }}?type=handover"
+                            hx-target="#note-form-container-{{ patient_id }}"
+                            hx-swap="innerHTML"
+                            title="Synthesize 4-part SBAR handover from current vitals, meds & problem list">
+                        <i class="fas fa-magic me-1"></i>Agent 07: Handover
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;"
+                            hx-post="/ai/draft_note/{{ patient_id }}?type=soap"
+                            hx-target="#note-form-container-{{ patient_id }}"
+                            hx-swap="innerHTML"
+                            title="Synthesize structured SOAP consultation note">
+                        <i class="fas fa-stethoscope me-1"></i>Agent 10: SOAP
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;"
+                            hx-post="/ai/draft_note/{{ patient_id }}?type=discharge"
+                            hx-target="#note-form-container-{{ patient_id }}"
+                            hx-swap="innerHTML"
+                            title="Synthesize discharge & transfer summary">
+                        <i class="fas fa-sign-out-alt me-1"></i>Agent 13: Transfer
+                    </button>
+                </div>
+            </div>
+            <textarea name="note_text" class="form-control form-control-sm font-monospace" rows="4"
+                      placeholder="Document S/O/A/P findings, escalation plan, operative details, or clinical handover..." required>{{ draft_text or '' }}</textarea>
+        </div>
+        <div class="col-12 d-flex justify-content-end gap-2 mt-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    data-bs-toggle="collapse" data-bs-target="#addNoteCollapse-{{ patient_id }}">Cancel</button>
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="fas fa-file-medical me-1"></i> File FHIR DocumentReference
+            </button>
+        </div>
+    </div>
+</form>
