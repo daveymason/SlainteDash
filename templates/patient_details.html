@@ -37,21 +37,49 @@
     <div class="d-flex flex-wrap gap-2">
         <button type="button" class="btn btn-sm btn-outline-primary fw-semibold"
                 data-bs-toggle="collapse" data-bs-target="#voiceScribeCollapse-{{ patient['id'] }}">
-            <i class="fas fa-microphone-alt me-1"></i> Agent 10: Voice Scribe
+            <i class="fas fa-microphone-alt me-1"></i> Agent 10: Scribe
         </button>
         <button class="btn btn-sm btn-outline-primary fw-semibold"
                 hx-post="/ai/summarise/{{ patient['id'] }}"
                 hx-target="#ai-bedside-briefing-{{ patient['id'] }}"
                 hx-swap="innerHTML">
             <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
-            <i class="fas fa-notes-medical me-1"></i> Agent 07: Handover Brief
+            <i class="fas fa-notes-medical me-1"></i> Agent 07: Handover
         </button>
         <button class="btn btn-sm btn-outline-danger fw-semibold"
                 hx-post="/ai/crosscheck/{{ patient['id'] }}"
                 hx-target="#ai-rxguard-{{ patient['id'] }}"
                 hx-swap="innerHTML">
             <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
-            <i class="fas fa-shield-virus me-1"></i> Agent 08: 3-Tier Rx-Guard
+            <i class="fas fa-shield-virus me-1"></i> Agent 08: Rx-Guard
+        </button>
+        <button class="btn btn-sm btn-outline-success fw-semibold"
+                hx-post="/fhir/Patient/{{ patient['id'] }}/agent/gdpr_privacy"
+                hx-target="#patient-agent-fleet-results-{{ patient['id'] }}"
+                hx-swap="innerHTML">
+            <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
+            <i class="fas fa-user-shield me-1"></i> Agent 04: GDPR PII
+        </button>
+        <button class="btn btn-sm btn-outline-info text-dark fw-semibold"
+                hx-post="/fhir/Patient/{{ patient['id'] }}/agent/fhir_conformance"
+                hx-target="#patient-agent-fleet-results-{{ patient['id'] }}"
+                hx-swap="innerHTML">
+            <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
+            <i class="fas fa-file-medical-alt me-1"></i> Agent 02: FHIR R4
+        </button>
+        <button class="btn btn-sm btn-outline-warning text-dark fw-semibold"
+                hx-post="/fhir/Patient/{{ patient['id'] }}/agent/acuity_triage"
+                hx-target="#patient-agent-fleet-results-{{ patient['id'] }}"
+                hx-swap="innerHTML">
+            <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
+            <i class="fas fa-heartbeat me-1"></i> Agent 09: Triage
+        </button>
+        <button class="btn btn-sm btn-outline-secondary fw-semibold"
+                hx-post="/fhir/Patient/{{ patient['id'] }}/agent/discharge_readiness"
+                hx-target="#patient-agent-fleet-results-{{ patient['id'] }}"
+                hx-swap="innerHTML">
+            <span class="spinner-border spinner-border-sm me-1 htmx-indicator" role="status" aria-hidden="true"></span>
+            <i class="fas fa-walking me-1"></i> Agent 13: Discharge
         </button>
         <button type="button" class="btn btn-sm btn-outline-warning text-dark fw-semibold"
                 data-bs-toggle="collapse" data-bs-target="#breakGlassCollapse-{{ patient['id'] }}"
@@ -59,10 +87,12 @@
             <i class="fas fa-bolt text-danger me-1"></i> Break-the-Glass
         </button>
         <button type="button" class="btn btn-sm btn-success fw-semibold" data-bs-toggle="modal" data-bs-target="#signOffModal">
-            <i class="fas fa-signature me-1"></i> Electronic Sign-Off
+            <i class="fas fa-signature me-1"></i> Sign-Off
         </button>
     </div>
 </div>
+
+<div id="patient-agent-fleet-results-{{ patient['id'] }}"></div>
 
 <!-- Collapsible Emergency Break-the-Glass Drawer -->
 <div class="collapse mb-3" id="breakGlassCollapse-{{ patient['id'] }}">

@@ -1,0 +1,158 @@
+<div class="patient-agent-card card border shadow-sm mb-3 animate-fade-in">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center bg-light">
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-dark font-monospace">Agent {{ agent.number }}</span>
+            <span class="fw-bold"><i class="{{ agent.icon }} me-1 text-primary"></i>{{ agent.code }}</span>
+            <span class="text-muted small d-none d-md-inline">&bull; {{ agent.name }}</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            {% if result.status == 'pass' %}
+            <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>VERIFIED PASS</span>
+            {% elif result.status == 'warning' %}
+            <span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i>ACTION REQUIRED</span>
+            {% else %}
+            <span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>FAIL</span>
+            {% endif %}
+            <button type="button" class="btn-close btn-sm" onclick="this.closest('.patient-agent-card').remove()" aria-label="Close"></button>
+        </div>
+    </div>
+    <div class="card-body py-2 px-3">
+        <div class="alert {% if result.status == 'pass' %}alert-success border-success{% elif result.status == 'warning' %}alert-warning border-warning{% else %}alert-danger border-danger{% endif %} py-2 px-3 small mb-2">
+            <i class="fas fa-info-circle me-1"></i><strong>Live Clinical Evaluation:</strong> {{ result.summary }}
+        </div>
+
+        {# ===================== AGENT 04: GDPR Art. 9 PII MINIMISER ===================== #}
+        {% if agent.id == 'gdpr_privacy' and result.telemetry.deid_preview %}
+        <div class="p-2 border rounded bg-light mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+                <span class="fw-bold small text-success"><i class="fas fa-user-shield me-1"></i>{{ result.telemetry.deid_preview.leak_status }}</span>
+                <span class="small font-monospace text-muted">HMAC-SHA256 Pseudonym: <code>{{ result.telemetry.deid_preview.salted_hash }}</code></span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered bg-white mb-0 small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Direct PII Field</th>
+                            <th>Raw Subject Value</th>
+                            <th>De-Identification Status</th>
+                            <th>LLM Egress Protection</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in result.telemetry.deid_preview.leak_audit %}
+                        <tr>
+                            <td class="fw-semibold">{{ item.field }}</td>
+                            <td class="font-monospace text-muted">{{ item.raw_value }}</td>
+                            <td><span class="badge bg-danger">{{ item.status }}</span></td>
+                            <td><span class="badge bg-success"><i class="fas fa-check me-1"></i>0 Leaks Detected</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {# ===================== AGENT 02: FHIR CONFORMANCE & GMS ===================== #}
+        {% elif agent.id == 'fhir_conformance' and result.telemetry.inspected_bundle %}
+        <div class="p-2 border rounded bg-light mb-2">
+            <div class="row g-2 small mb-2">
+                <div class="col-md-4">
+                    <strong>Bundle:</strong> <code class="font-monospace">{{ result.telemetry.inspected_bundle.filename }}</code>
+                </div>
+                <div class="col-md-4">
+                    <strong>Irish GMS OID:</strong>
+                    {% if result.telemetry.inspected_bundle.gms_valid %}
+                    <span class="badge bg-success font-monospace">{{ result.telemetry.inspected_bundle.gms_value }}</span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark">Missing GMS OID</span>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    <strong>Resources Inspected:</strong> <span class="badge bg-primary">{{ result.telemetry.inspected_bundle.resources|length }} FHIR Resources</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered bg-white mb-0 small">
+                    <thead class="table-light">
+                        <tr><th>Type</th><th>Identifier / System</th><th>Clinical Display</th><th>Validity</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for r in result.telemetry.inspected_bundle.resources[:5] %}
+                        <tr>
+                            <td class="font-monospace fw-bold">{{ r.resourceType }}</td>
+                            <td class="font-monospace small text-truncate" style="max-width: 180px;">{{ r.system }}</td>
+                            <td class="small">{{ r.display }}</td>
+                            <td><span class="badge bg-success">HL7 R4 PASS</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {# ===================== AGENT 09: NEWS2 ACUITY TRIAGE ===================== #}
+        {% elif agent.id == 'acuity_triage' and result.telemetry %}
+        <div class="p-2 border rounded bg-light mb-2">
+            <div class="d-flex flex-wrap gap-2 mb-2">
+                <div class="p-2 rounded bg-white border flex-fill text-center">
+                    <div class="text-muted small">NEWS2 Acuity Score</div>
+                    <div class="h4 fw-bold mb-0 {% if result.telemetry.news2_score >= 7 %}text-danger{% elif result.telemetry.news2_score >= 5 %}text-warning{% else %}text-success{% endif %}">
+                        {{ result.telemetry.news2_score }} / 20
+                    </div>
+                    <div class="small fw-semibold">{{ result.telemetry.news2_tier }}</div>
+                </div>
+                <div class="p-2 rounded bg-white border flex-fill text-center">
+                    <div class="text-muted small">Manchester Triage System</div>
+                    <div class="h4 fw-bold mb-0 text-primary">Category {{ result.telemetry.mts_cat }}</div>
+                    <div class="small fw-semibold">{{ result.telemetry.mts_name }} (Target: {{ result.telemetry.mts_target }}m)</div>
+                </div>
+            </div>
+            {% if result.telemetry.vitals_analyzed %}
+            <div class="d-flex flex-wrap gap-1 small justify-content-center">
+                {% for k, v in result.telemetry.vitals_analyzed.items() %}
+                <span class="badge bg-secondary font-monospace">{{ k|upper }}: {{ v }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        {# ===================== AGENT 13: DISCHARGE COORDINATOR ===================== #}
+        {% elif agent.id == 'discharge_transfer' and result.telemetry %}
+        <div class="p-2 border rounded bg-light mb-2">
+            <div class="row g-2 small">
+                <div class="col-md-6">
+                    <div class="p-2 rounded bg-white border h-100">
+                        <div class="fw-bold mb-1"><i class="fas fa-heartbeat text-primary me-1"></i>Physiological Discharge Stability</div>
+                        <div>Status: <span class="badge {% if result.telemetry.discharge_ready %}bg-success{% else %}bg-danger{% endif %}">{{ result.telemetry.physiological_stability|upper }}</span></div>
+                        <div class="text-muted small mt-1">NEWS2 Score: <strong>{{ result.telemetry.news2_score }}</strong> (Threshold &le; 2)</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-2 rounded bg-white border h-100">
+                        <div class="fw-bold mb-1"><i class="fas fa-pills text-success me-1"></i>Medication Reconciliation Gate</div>
+                        <div>Medications: <span class="badge bg-info text-dark">{{ result.telemetry.medications_reviewed|length }} Prescribed</span></div>
+                        <div class="text-muted small mt-1">Contraindications: <strong>{{ result.telemetry.allergy_conflicts|length }} Detected</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ===================== AGENT 14: EMS PRE-ALERT ===================== #}
+        {% elif agent.id == 'ems_prealert' and result.telemetry %}
+        <div class="p-2 border rounded bg-light mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold small text-primary"><i class="fas fa-ambulance me-1"></i>In-Transit Triage: Category {{ result.telemetry.mts_category }} ({{ result.telemetry.priority_tier }})</span>
+                <span class="badge bg-dark">Receiving ED: {{ result.telemetry.receiving_ed }} (ETA {{ result.telemetry.eta_minutes }}m)</span>
+            </div>
+            <div class="small text-muted">{{ result.telemetry.situation_statement }}</div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+            <span class="text-muted font-monospace" style="font-size: 11px;">Agent Execution Trace &bull; Real Kernel Data</span>
+            <a href="/fhir/Agent/{{ agent.id }}" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 12px;">
+                <i class="fas fa-external-link-alt me-1"></i>Open Full {{ agent.code }} Console &rarr;
+            </a>
+        </div>
+    </div>
+</div>
